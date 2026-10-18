@@ -2,6 +2,7 @@ import app from "flarum/forum/app";
 import Component from "flarum/common/Component";
 import type { ComponentAttrs } from "flarum/common/Component";
 import Button from "flarum/common/components/Button";
+import Link from "flarum/common/components/Link";
 import username from "flarum/common/helpers/username";
 import humanTime from "flarum/common/helpers/humanTime";
 import humanTimeUtil from "flarum/common/utils/humanTime";
@@ -61,10 +62,14 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   view(): Mithril.Children {
     const { message, previous, state } = this.attrs;
 
-    // A pinned message never collapses into the run above it: grouping hides the
-    // meta row, which is where the pin is stated.
-    const grouped = message.isGroupedWith(previous) && !message.isPinned();
     const deleted = Boolean(message.isDeleted());
+    // Open reports, which only a moderator is served.
+    const reports = deleted ? 0 : Number(message.flagsCount() ?? 0);
+
+    // A pinned or reported message never collapses into the run above it:
+    // grouping hides the meta row, which is where both are stated.
+    const grouped =
+      message.isGroupedWith(previous) && !message.isPinned() && reports === 0;
     const selected = state.selected.has(Number(message.id()));
     const rank = grouped ? null : messageRank(message);
 
@@ -77,6 +82,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         className={classList("ChatMessage", {
           "ChatMessage--grouped": grouped,
           "ChatMessage--pinned": !deleted && Boolean(message.isPinned()),
+          "ChatMessage--flagged": reports > 0,
           "ChatMessage--mentioned": !deleted && message.mentionsActor(),
           "ChatMessage--selected": selected,
           // A bot post that stands for something elsewhere — currently only a new
@@ -149,6 +155,25 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
                   <i className="fas fa-thumbtack" aria-hidden="true" />
                   {app.translator.trans("ramon-chat.forum.message.pinned")}
                 </span>
+              ) : null}
+              {/* For moderators already in the room: which messages are waiting
+                  on them, without opening the queue to find out. */}
+              {reports > 0 ? (
+                <Link
+                  className="ChatMessage-flagMark"
+                  href={app.route("chat.flags")}
+                  title={app.translator.trans(
+                    "ramon-chat.forum.message.reports_open",
+                    { count: reports },
+                    true,
+                  )}
+                  onclick={(e: MouseEvent) => e.stopPropagation()}
+                >
+                  <i className="fas fa-flag" aria-hidden="true" />
+                  {app.translator.trans("ramon-chat.forum.message.reports", {
+                    count: reports,
+                  })}
+                </Link>
               ) : null}
             </div>
           )}

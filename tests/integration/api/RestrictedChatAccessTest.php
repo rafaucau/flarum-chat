@@ -33,6 +33,18 @@ class RestrictedChatAccessTest extends TestCase
     /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
+    /**
+     * fof/upload loads the actor's files in an `after` hook on the forum's
+     * Show endpoint, and that hook is registered again by every app the suite
+     * boots with fof-upload enabled. Run after those tests, one forum request
+     * here repeats the load once per earlier boot. An artefact of sharing one
+     * process between apps, not of the chat: a forum boots once.
+     */
+    protected function allowedRepeatedQueries(): array
+    {
+        return ['fof_upload_files'];
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

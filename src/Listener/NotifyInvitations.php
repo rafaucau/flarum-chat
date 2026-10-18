@@ -15,7 +15,7 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Event\InviteWasCancelled;
 use Ramon\Chat\Event\InviteWasDeclined;
 use Ramon\Chat\Event\UserJoinedChannel;
-use Ramon\Chat\Event\UserWasInvited;
+use Ramon\Chat\Event\UsersWereInvited;
 use Ramon\Chat\Notification\ChannelInviteBlueprint;
 use Ramon\Chat\Notification\ChannelInviteDeclinedBlueprint;
 use Ramon\Chat\Service\InvitationManager;
@@ -37,7 +37,7 @@ class NotifyInvitations
     ) {
     }
 
-    public function whenInvited(UserWasInvited $event): void
+    public function whenInvited(UsersWereInvited $event): void
     {
         $this->syncInvites($event->channel, $event->inviter);
     }

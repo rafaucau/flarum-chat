@@ -218,14 +218,48 @@ class LiveStateBroadcastTest extends TestCase
 
         $this->assertSame(201, $response->getStatusCode(), (string) $response->getBody());
         $this->assertCount(1, $this->dispatched, 'filing a report moves the queue');
+        $this->assertSame([1], $this->dispatched[0]->messageIds, 'and names the message it was about');
 
-        $this->app()->getContainer()->make(BroadcastListener::class)->whenFlagsChanged(new FlagsChanged());
+        $this->app()->getContainer()->make(BroadcastListener::class)->whenFlagsChanged($this->dispatched[0]);
 
         $pushes = $this->pushes();
 
         $this->assertCount(1, $pushes);
         $this->assertSame(BroadcastListener::EVENT_FLAGS, $pushes[0]['event']);
         $this->assertEqualsCanonicalizing(['private-user=1', 'private-user='.self::MOD], $pushes[0]['channels']);
+
+        // The open count rides along, so a moderator looking at the message can
+        // mark it. A count and an id: never the message itself.
+        $this->assertSame(['messages' => [['id' => 1, 'flagsCount' => 1]]], $pushes[0]['data']);
+    }
+
+    public function test_resolving_the_last_report_clears_the_mark(): void
+    {
+        $this->bindRecorder();
+
+        $filed = $this->send($this->request('POST', '/api/chat-message-flags', [
+            'authenticatedAs' => self::READER,
+            'json'            => ['data' => ['type' => 'chat-message-flags', 'attributes' => ['messageId' => 1, 'reason' => 'spam']]],
+        ]));
+
+        $this->assertSame(201, $filed->getStatusCode(), (string) $filed->getBody());
+
+        $flagId = json_decode((string) $filed->getBody(), true)['data']['id'];
+
+        $this->listen(FlagsChanged::class);
+
+        $resolved = $this->send($this->request('POST', '/api/chat-message-flags/'.$flagId.'/resolve', [
+            'authenticatedAs' => self::MOD,
+        ]));
+
+        $this->assertSame(200, $resolved->getStatusCode(), (string) $resolved->getBody());
+        $this->assertCount(1, $this->dispatched);
+
+        $this->app()->getContainer()->make(BroadcastListener::class)->whenFlagsChanged($this->dispatched[0]);
+
+        $pushes = $this->pushes();
+
+        $this->assertSame(['messages' => [['id' => 1, 'flagsCount' => 0]]], end($pushes)['data']);
     }
 
     /** @return array<string, mixed> */

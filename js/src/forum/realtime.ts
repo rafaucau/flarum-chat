@@ -122,7 +122,7 @@ function bindTo(channel: any): void {
   on(EVENT_CHANNEL, (data: any) => onChannel(data));
   on(EVENT_MEMBERSHIP, (data: any) => onMembership(data));
   on(EVENT_MESSAGES_MOVED, (data: any) => onMessagesMoved(data));
-  on(EVENT_FLAGS, () => onFlags());
+  on(EVENT_FLAGS, (data: FlagsPayload) => onFlags(data));
   on(EVENT_RANKS, (data: any) => onRanks(data));
   on(EVENT_TYPING, (data: any) => onTyping(data));
   // Carries nothing: arriving at all is the proof `on()` records.
@@ -1199,6 +1199,11 @@ function onMessagesMoved(data: MessagesMovedPayload): void {
 /** A recount of the moderation badge already scheduled. */
 let flagsTimer: number | null = null;
 
+interface FlagsPayload {
+  /** The messages whose open reports changed, with how many are left open. */
+  messages?: { id: number; flagsCount: number }[];
+}
+
 /**
  * The moderation queue moved: re-read this moderator's own open count.
  *
@@ -1206,9 +1211,26 @@ let flagsTimer: number | null = null;
  * so it is asked for, not carried. The forum document is what serves it, the
  * same place the page load read it from. Batched, so a moderator deleting a
  * run of reported messages recounts once.
+ *
+ * The messages' own counts are the same for every moderator who can read
+ * them, so those are carried, and applied straight to whichever of them this
+ * page already holds: the mark on a row appears or clears without a refetch.
  */
-function onFlags(): void {
+function onFlags(data?: FlagsPayload): void {
   if (!app.forum.attribute<boolean>("canModerateChat")) return;
+
+  let marked = false;
+
+  for (const row of data?.messages ?? []) {
+    const message = app.store.getById<Message>("chat-messages", String(row.id));
+
+    if (!message) continue;
+
+    message.pushAttributes({ flagsCount: Number(row.flagsCount) || 0 });
+    marked = true;
+  }
+
+  if (marked) m.redraw();
 
   if (flagsTimer !== null) return;
 

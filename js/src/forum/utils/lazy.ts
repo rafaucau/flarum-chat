@@ -1,3 +1,7 @@
+import type FlagMessageModal from "../components/FlagMessageModal";
+import type FlagPostModal from "ext:flarum/flags/forum/components/FlagPostModal";
+import type { ChatFlagPostModalAttrs } from "../components/ChatFlagPostModal";
+
 /**
  * Loaders for the chat's lazy chunks.
  *
@@ -30,8 +34,30 @@ export const loadChannelInfoModal = () =>
   import("../components/ChannelInfoModal");
 export const loadAddMembersModal = () =>
   import("../components/AddMembersModal");
-export const loadFlagMessageModal = () =>
-  import("../components/FlagMessageModal");
+const importChatFlagModal = () => import("../components/FlagMessageModal");
+const importFlagPostModal = () =>
+  import("ext:flarum/flags/forum/components/FlagPostModal");
+const importChatFlagPostModal = () => import("../components/ChatFlagPostModal");
+
+/**
+ * The report dialog: flarum/flags' own where that extension is enabled, so a
+ * message is reported the way a post is, and the chat's otherwise.
+ */
+export async function loadFlagMessageModal(): Promise<{
+  default:
+    typeof FlagMessageModal | typeof FlagPostModal<ChatFlagPostModalAttrs>;
+}> {
+  if (!("flarum-flags" in (flarum.extensions ?? {}))) {
+    return importChatFlagModal();
+  }
+
+  const [flags, chat] = await Promise.all([
+    importFlagPostModal(),
+    importChatFlagPostModal(),
+  ]);
+
+  return { default: chat.default(flags.default) };
+}
 export const loadMessageTooLongModal = () =>
   import("../components/MessageTooLongModal");
 export const loadImageLightbox = () => import("../components/ImageLightbox");

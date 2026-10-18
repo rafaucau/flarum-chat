@@ -513,6 +513,39 @@ class Channel extends AbstractModel
     }
 
     /**
+     * Answers membershipFor() and pendingInviteFor() for a whole list of users
+     * with one query each, for the requests that walk many people at once.
+     * Whoever has neither is remembered as having neither, so the walk does
+     * not fall back to a query per person.
+     *
+     * @param  int[]  $userIds
+     */
+    public function rememberLookupsFor(array $userIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+
+        if ($ids === [] || ! $this->exists) {
+            return;
+        }
+
+        $memberships = $this->memberships()
+            ->whereIn('user_id', $ids)
+            ->whereNull('left_at')
+            ->get()
+            ->keyBy('user_id');
+
+        $invites = $this->invites()
+            ->whereIn('user_id', $ids)
+            ->get()
+            ->keyBy('user_id');
+
+        foreach ($ids as $id) {
+            $this->membershipCache[$id] = $memberships->get($id);
+            $this->inviteCache[$id] = $invites->get($id);
+        }
+    }
+
+    /**
      * The channel's picture, or null.
      *
      * Built from the assets base each time rather than stored as a URL, so moving
