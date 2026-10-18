@@ -9,6 +9,7 @@
 
 namespace Ramon\Chat\Service;
 
+use Carbon\Carbon;
 use Flarum\Extension\ExtensionManager;
 use Flarum\User\User;
 use Illuminate\Contracts\Cache\Repository as Cache;
@@ -81,12 +82,19 @@ class InvitationManager
      * like anyone else: skipping the person would reveal their presence through
      * the difference in the response, and they can simply decline the invite.
      *
+     * One query for everyone's membership, one for their invites and one
+     * insert for the lot: a request may ask up to fifty people at once.
+     *
      * @param  iterable<User>  $users
      * @return ChannelInvite[] The invites created, in the order received.
      */
     public function invite(Channel $channel, iterable $users, User $inviter): array
     {
-        $created = [];
+        $users = is_array($users) ? $users : iterator_to_array($users, false);
+
+        $channel->rememberLookupsFor(array_map(fn (User $user) => (int) $user->id, $users));
+
+        $invitees = [];
 
         foreach ($users as $user) {
             $membership = $channel->membershipFor($user);
@@ -104,17 +112,44 @@ class InvitationManager
                 continue;
             }
 
-            $invite = new ChannelInvite();
-            $invite->channel_id = $channel->id;
-            $invite->user_id = $user->id;
-            $invite->inviter_id = $inviter->id;
-            $invite->save();
+            $invitees[(int) $user->id] = $user;
+        }
+
+        if ($invitees === []) {
+            return [];
+        }
+
+        $now = Carbon::now();
+
+        ChannelInvite::query()->insert(array_map(fn (User $user) => [
+            'channel_id' => $channel->id,
+            'user_id'    => $user->id,
+            'inviter_id' => $inviter->id,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], array_values($invitees)));
+
+        $invites = ChannelInvite::query()
+            ->where('channel_id', $channel->id)
+            ->whereIn('user_id', array_keys($invitees))
+            ->get()
+            ->keyBy('user_id');
+
+        $created = [];
+
+        foreach ($invitees as $id => $user) {
+            /** @var ChannelInvite|null $invite */
+            $invite = $invites->get($id);
+
+            $channel->forgetInvite($user);
+
+            if ($invite === null) {
+                continue;
+            }
 
             $invite->setRelation('channel', $channel);
             $invite->setRelation('user', $user);
             $invite->setRelation('inviter', $inviter);
-
-            $channel->forgetInvite($user);
 
             $created[] = $invite;
         }

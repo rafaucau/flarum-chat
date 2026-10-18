@@ -129,6 +129,9 @@ class ThreadResource extends AbstractDatabaseResource
                     'originalMessage.bookmarks',
                     fn ($query, Context $context) => $query->where('user_id', $context->getActor()->id)
                 )
+                // After core has loaded the relations above, which it does in a
+                // hook of its own registered first.
+                ->beforeSerialization(fn (Context $context, array $results) => $this->shareChannels($results['models']))
                 ->paginate(30),
 
             // ->can() rather than visible(): it resolves the ability against
@@ -285,6 +288,28 @@ class ThreadResource extends AbstractDatabaseResource
     protected function scopedMessages(mixed $query, Context $context): void
     {
         $query->whereVisibleTo($context->getActor());
+    }
+
+    /**
+     * Hands each root message its thread's channel, where they are the same.
+     *
+     * The two are loaded as separate relations, so each channel arrives twice,
+     * and a channel answers the actor's membership once per instance: the
+     * thread's policies asked one copy and the root's another. A root moved to
+     * another channel keeps the one it was loaded with.
+     *
+     * @param  iterable<Thread>  $threads
+     */
+    protected function shareChannels(iterable $threads): void
+    {
+        foreach ($threads as $thread) {
+            $message = $thread->relationLoaded('originalMessage') ? $thread->originalMessage : null;
+            $channel = $thread->relationLoaded('channel') ? $thread->channel : null;
+
+            if ($message !== null && $channel !== null && (int) $message->channel_id === (int) $channel->id) {
+                $message->setRelation('channel', $channel);
+            }
+        }
     }
 
     /** @var array<int, ThreadUser|null|false> */

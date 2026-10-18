@@ -31,10 +31,10 @@
         "flarum/mentions": "^2.0.0",
         "fof/upload": "^2.0",
         "flarum/tags": "^2.0.0",
-        "flarum/testing": "^2.0.0",
+        "flarum/testing": "^2.0.1",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.2",
-        "phpunit/phpunit": "^11.5 || ^13.2.0",
+        "phpunit/phpunit": "^12.5.22",
         "pusher/pusher-php-server": "^7.2",
         "vimeo/psalm": "^6.0",
         "flarum/gdpr": "^2.0.0"

@@ -42,6 +42,7 @@ use Ramon\Chat\Event\UserWasInvited;
 use Ramon\Chat\ChannelRankUser;
 use Ramon\Chat\ChannelUser;
 use Ramon\Chat\Message;
+use Ramon\Chat\MessageFlag;
 use Ramon\Chat\Service\ChannelRanks;
 use Ramon\Chat\Thread;
 use Ramon\Chat\Upload;
@@ -432,11 +433,31 @@ class BroadcastListener
     }
 
     /**
-     * The queue moved; every moderator recounts their own badge.
+     * The queue moved; every moderator recounts their own badge, and redraws the
+     * mark on any of these messages they already have on screen.
+     *
+     * Ids and open-report counts only, the same numbers `flagsCount` serves a
+     * moderator, and never the message: a moderator who cannot read the channel
+     * receives an id their client has nothing to apply to.
      */
     public function whenFlagsChanged(FlagsChanged $event): void
     {
-        $this->broadcaster->toModerators(self::EVENT_FLAGS, []);
+        $ids = array_values(array_unique(array_map('intval', $event->messageIds)));
+
+        $open = $ids === [] ? [] : MessageFlag::query()
+            ->whereIn('message_id', $ids)
+            ->whereNull('resolved_at')
+            ->groupBy('message_id')
+            ->selectRaw('message_id, count(*) as open_count')
+            ->pluck('open_count', 'message_id')
+            ->all();
+
+        $this->broadcaster->toModerators(self::EVENT_FLAGS, [
+            'messages' => array_map(fn (int $id) => [
+                'id'         => $id,
+                'flagsCount' => (int) ($open[$id] ?? 0),
+            ], $ids),
+        ]);
     }
 
     /**

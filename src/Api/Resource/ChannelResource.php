@@ -36,6 +36,7 @@ use Ramon\Chat\Event\ChannelWasEdited;
 use Ramon\Chat\Event\InviteWasCancelled;
 use Ramon\Chat\Event\UserJoinedChannel;
 use Ramon\Chat\Event\UserLeftChannel;
+use Ramon\Chat\Event\UsersWereInvited;
 use Ramon\Chat\Event\UserWasInvited;
 use Ramon\Chat\Service\ActionThrottle;
 use Ramon\Chat\Service\ChannelArchiver;
@@ -226,7 +227,10 @@ class ChannelResource extends AbstractDatabaseResource
                 // fetched for the label; sending it costs nothing further and is
                 // what lets the sidebar draw a conversation's avatars on the
                 // first paint instead of after the members tab is opened.
-                ->defaultInclude(['directParticipants']),
+                ->defaultInclude(['directParticipants'])
+                // The members tab's read. Groups for the same reason as in
+                // withMembers(): an administrator's view of each member reads them.
+                ->eagerLoadWhenIncluded(['participants' => ['participants.groups']]),
 
             Endpoint\Index::make()
                 ->authenticated()
@@ -436,9 +440,11 @@ class ChannelResource extends AbstractDatabaseResource
                         $this->events->dispatch(new UserWasInvited($channel, $invite->user, $actor, $invite));
                     }
 
-                    $channel->unsetRelation('invitedUsers');
+                    if ($invited !== []) {
+                        $this->events->dispatch(new UsersWereInvited($channel, $actor, $invited));
+                    }
 
-                    return $this->withMembers($channel);
+                    return $this->withMembers($channel)->load('invitedUsers.groups');
                 })
                 ->defaultInclude(['participants', 'invitedUsers']),
 
@@ -482,9 +488,7 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $this->events->dispatch(new InviteWasCancelled($channel, $user, $actor, $invite->inviter));
 
-                    $channel->unsetRelation('invitedUsers');
-
-                    return $this->withMembers($channel);
+                    return $this->withMembers($channel)->load('invitedUsers.groups');
                 })
                 ->defaultInclude(['participants', 'invitedUsers']),
 
@@ -1541,10 +1545,14 @@ class ChannelResource extends AbstractDatabaseResource
      * answer with it. Fresh because a copy loaded before the change would
      * carry the old roles on its pivots; loaded here because the serializer
      * reads `moderatorIds` before it gets to the included relation.
+     *
+     * With their groups: for an administrator, core's UserResource asks
+     * `editCredentials` of every serialized user, which reads `isAdmin()` and
+     * would otherwise load each member's groups one query at a time.
      */
     protected function withMembers(Channel $channel): Channel
     {
-        return $channel->load('participants');
+        return $channel->load('participants.groups');
     }
 
     protected function membership(Channel $channel, User $actor): ?ChannelUser

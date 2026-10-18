@@ -392,7 +392,7 @@ return [
         // Invitations: the notification that asks, kept in step with the invite
         // table so answering or cancelling one takes it off the bell, and the
         // notification that tells the owner and the inviter of a refusal.
-        ->listen(Event\UserWasInvited::class, Listener\NotifyInvitations::class.'@whenInvited')
+        ->listen(Event\UsersWereInvited::class, Listener\NotifyInvitations::class.'@whenInvited')
         ->listen(Event\UserJoinedChannel::class, Listener\NotifyInvitations::class.'@whenJoined')
         ->listen(Event\InviteWasDeclined::class, Listener\NotifyInvitations::class.'@whenDeclined')
         ->listen(Event\InviteWasCancelled::class, Listener\NotifyInvitations::class.'@whenCancelled')

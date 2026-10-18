@@ -50,7 +50,7 @@ class ResolveFlagsOnModeration
         // Most deletions close nothing, and those must not cost every
         // moderator a recount.
         if ($closed > 0) {
-            $this->events->dispatch(new FlagsChanged($event->actor));
+            $this->events->dispatch(new FlagsChanged($event->actor, [(int) $event->message->id]));
         }
     }
 }

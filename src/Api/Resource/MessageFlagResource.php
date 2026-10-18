@@ -223,7 +223,7 @@ class MessageFlagResource extends AbstractDatabaseResource
 
                     $this->notifyAdministrators($flag, $message, $actor);
 
-                    $this->events->dispatch(new FlagsChanged($actor));
+                    $this->events->dispatch(new FlagsChanged($actor, [(int) $message->id]));
 
                     return $flag;
                 })
@@ -247,7 +247,7 @@ class MessageFlagResource extends AbstractDatabaseResource
 
                     $flag->resolve($actor)->save();
 
-                    $this->events->dispatch(new FlagsChanged($actor));
+                    $this->events->dispatch(new FlagsChanged($actor, [(int) $flag->message_id]));
 
                     return $flag;
                 })

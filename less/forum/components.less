@@ -1117,6 +1117,12 @@ body.ChatFullPage {
     box-shadow: inset 3px 0 0 var(--chat-pinned-border);
   }
 
+  // Reported, for moderators. After pinned so its bar wins on a row that is
+  // both: the report is the one asking for someone to act.
+  &--flagged {
+    box-shadow: inset 3px 0 0 var(--chat-flagged-border);
+  }
+
   // Applied while the stream jumps to a row — from the pinned bar or from a
   // reply preview — so it is obvious which message was meant once the scroll
   // settles. O fundo e a barra lateral vivem os dois dentro do keyframe: numa
@@ -1133,6 +1139,21 @@ body.ChatFullPage {
     text-transform: uppercase;
     letter-spacing: 0.4px;
     color: var(--chat-pinned-border);
+  }
+
+  &-flagMark {
+    .chat-flex-row(4px);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--chat-flagged-border);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--chat-flagged-border);
+      text-decoration: underline;
+    }
   }
 
   &-gutter {

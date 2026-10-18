@@ -343,6 +343,10 @@ app.initializers.add("ramon-chat", () => {
     // No point offering a chat with yourself.
     if (app.session.user?.id() === user.id()) return;
 
+    // With flarum/messages enabled, private messages already have their own
+    // "Send a message" entry: a second one for chat DMs would be redundant.
+    if ("flarum-messages" in flarum.extensions) return;
+
     items.add(
       "chatDirect",
       <Button icon="fas fa-envelope" onclick={() => startDirectMessage(user)}>

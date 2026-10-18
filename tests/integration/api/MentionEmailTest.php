@@ -21,6 +21,7 @@ use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Mail\Events\MessageSending;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Ramon\Chat\Message;
 use Ramon\Chat\Notification\ChatMentionBlueprint;
 use Symfony\Component\Mime\Email;
@@ -202,9 +203,8 @@ class MentionEmailTest extends TestCase
      * in `MailServiceProvider::boot()`. Asserted on both variants and on the
      * hostile account, because the leak this guards against is in how values
      * reach the translator, not in any one string.
-     *
-     * @dataProvider renderedBodies
      */
+    #[DataProvider('renderedBodies')]
     public function test_no_substitution_marker_survives_into_the_sent_message(string $variant, int $messageId): void
     {
         $rendered = $this->render($variant, $messageId);
