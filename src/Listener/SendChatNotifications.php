@@ -185,6 +185,16 @@ class SendChatNotifications
             return [];
         }
 
+        // Shared permission buckets are valid for DMs only after membership is settled.
+        if ($message->channel?->isDirect()) {
+            $userIds = ChannelUser::query()
+                ->where('channel_id', $message->channel_id)
+                ->whereNull('left_at')
+                ->whereIn('user_id', $userIds)
+                ->pluck('user_id')
+                ->all();
+        }
+
         $isChannelWide = $isMention && $message->mentions->contains(fn ($m) => $m->isChannelWide());
 
         $recipients = [];

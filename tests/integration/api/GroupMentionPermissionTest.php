@@ -16,6 +16,7 @@ use Flarum\Testing\integration\TestCase;
 use Flarum\User\User;
 use Mockery;
 use Psr\Log\NullLogger;
+use Ramon\Chat\Channel;
 use Ramon\Chat\Event\MessageWasSent;
 use Ramon\Chat\Listener\SendChatNotifications;
 use Ramon\Chat\Mention\MentionResolver;
@@ -179,6 +180,41 @@ class GroupMentionPermissionTest extends TestCase
         $listener->handle(new MessageWasSent($message, User::query()->find(self::AUTHOR)));
 
         $this->assertSame([self::MOD], $mailed, 'the member who turned chat mail off is not mailed');
+    }
+
+    public function test_dm_mentions_do_not_email_non_participants_with_the_same_permissions(): void
+    {
+        $db = $this->database();
+        $db->table('chat_channels')->where('id', 1)->update(['type' => 'direct']);
+        $db->table('chat_channel_user')->where('user_id', self::QUIET_MOD)->delete();
+        $db->table('group_user')->whereIn('user_id', [self::MOD, self::QUIET_MOD])->delete();
+        $db->table('users')->where('id', self::QUIET_MOD)->update(['preferences' => '{}']);
+        $db->table('chat_message_mentions')->insert([
+            ['message_id' => 1, 'type' => MessageMention::TYPE_USER, 'user_id' => self::MOD, 'created_at' => Carbon::now()->toDateTimeString()],
+            ['message_id' => 1, 'type' => MessageMention::TYPE_USER, 'user_id' => self::QUIET_MOD, 'created_at' => Carbon::now()->toDateTimeString()],
+        ]);
+
+        $member = User::query()->findOrFail(self::MOD);
+        $outsider = User::query()->findOrFail(self::QUIET_MOD);
+        $this->assertSame($member->permissionGroupIds(), $outsider->permissionGroupIds());
+        $this->assertFalse(Channel::whereVisibleTo($outsider)->whereKey(1)->exists());
+
+        $mailed = [];
+        $syncer = Mockery::mock(NotificationSyncer::class);
+        $syncer->shouldReceive('sync')->once()->andReturnUsing(function ($blueprint, array $users) use (&$mailed) {
+            $mailed = array_map(fn (User $u) => (int) $u->id, $users);
+        });
+
+        $listener = new SendChatNotifications(
+            $syncer,
+            $this->app()->getContainer()->make(UnreadTracker::class),
+            new NullLogger()
+        );
+        $message = Message::query()->with(['channel', 'mentions'])->findOrFail(1);
+
+        $listener->handle(new MessageWasSent($message, User::query()->findOrFail(self::AUTHOR)));
+
+        $this->assertSame([self::MOD], $mailed, 'only the DM participant should receive the mention email');
     }
 
     protected function tearDown(): void
