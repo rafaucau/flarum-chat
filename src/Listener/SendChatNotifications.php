@@ -74,6 +74,17 @@ class SendChatNotifications
             $this->dispatch(new ChatMentionBlueprint($message), $mailable);
         }
 
+        // Resolving watchers is not free — reading them is a scan of the channel's
+        // memberships, and each recipient then costs a visibility query — so it
+        // is only worth doing if something will actually be delivered.
+        // ChatMessageBlueprint has no delivery channel any more: a new message
+        // belongs in the chat's own unread counters, not in Flarum's bell. That
+        // makes the rest of this a no-op, and asking before the reads rather than
+        // after them takes it off every message, not only the busy ones.
+        if (! $this->delivers(ChatMessageBlueprint::class)) {
+            return;
+        }
+
         // Watchers, minus anyone already notified as a mention.
         $watcherIds = ChannelUser::query()
             ->where('channel_id', $channel->id)
@@ -110,13 +121,7 @@ class SendChatNotifications
 
         $watcherIds = array_values(array_diff(array_unique($watcherIds), $alreadyNotified));
 
-        // Resolving these is not free — it is a visibility query per recipient — so
-        // it is only worth doing if something will actually be delivered.
-        // ChatMessageBlueprint has no delivery channel any more: a new message
-        // belongs in the chat's own unread counters, not in Flarum's bell. That
-        // makes this branch a no-op, and skipping it removes most of the cost of a
-        // reply in a busy thread, where everyone who ever replied is a watcher.
-        if ($watcherIds === [] || ! $this->delivers(ChatMessageBlueprint::class)) {
+        if ($watcherIds === []) {
             return;
         }
 
