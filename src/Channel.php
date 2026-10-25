@@ -246,6 +246,23 @@ class Channel extends AbstractModel
     }
 
     /**
+     * Narrows a query over `chat_channels` to the channels for everyone: the SQL
+     * form of isForEveryone(), which the two must keep in step with.
+     *
+     * @template TQuery of \Illuminate\Contracts\Database\Query\Builder
+     *
+     * @param  TQuery  $query
+     * @return TQuery
+     */
+    public static function whereForEveryone($query)
+    {
+        return $query
+            ->where('chat_channels.type', self::TYPE_CATEGORY)
+            ->where('chat_channels.auto_join', true)
+            ->where('chat_channels.is_private', false);
+    }
+
+    /**
      * Whether the user is in the channel: a live membership, or, in a channel
      * for everyone, simply never having left it.
      *

@@ -11,6 +11,7 @@ namespace Ramon\Chat\Tests\integration\api;
 
 use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
+use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
  * A channel open to everyone, IRC style.
@@ -23,6 +24,7 @@ use Flarum\Testing\integration\TestCase;
  */
 class EveryoneChannelTest extends TestCase
 {
+    use ResetsVisibilityScopers;
     use RetrievesAuthorizedUsers;
 
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
@@ -35,6 +37,8 @@ class EveryoneChannelTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->resetVisibilityScopers();
 
         $this->extension('ramon-chat');
 
@@ -204,5 +208,116 @@ class EveryoneChannelTest extends TestCase
 
         $this->assertEquals(204, $read->getStatusCode(), (string) $read->getBody());
         $this->assertSame([1, 3], $this->rows($channelId));
+    }
+
+    private function post(int $channelId, int $as, string $content): int
+    {
+        $response = $this->send(
+            $this->request('POST', '/api/chat-messages', [
+                'authenticatedAs' => $as,
+                'json'            => ['data' => ['attributes' => [
+                    'channelId' => $channelId,
+                    'content'   => $content,
+                ]]],
+            ])
+        );
+
+        $this->assertEquals(201, $response->getStatusCode(), (string) $response->getBody());
+
+        return (int) json_decode((string) $response->getBody(), true)['data']['id'];
+    }
+
+    private function read(int $channelId, int $as): void
+    {
+        $response = $this->send(
+            $this->request('POST', '/api/chat-channels/'.$channelId.'/read', ['authenticatedAs' => $as])
+        );
+
+        $this->assertEquals(204, $response->getStatusCode(), (string) $response->getBody());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userAs(int $as): array
+    {
+        $response = $this->send($this->request('GET', '/api/users/'.$as, ['authenticatedAs' => $as]));
+
+        $this->assertEquals(200, $response->getStatusCode(), (string) $response->getBody());
+
+        return json_decode((string) $response->getBody(), true)['data']['attributes'];
+    }
+
+    public function test_a_message_writes_no_counter_and_unread_is_counted_when_read(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        $this->read($channelId, 2);
+        $this->post($channelId, 3, 'one');
+        $this->post($channelId, 3, 'two');
+
+        // Nothing per member is written on send. Incrementing a counter on every
+        // row was one UPDATE across the whole channel for each message.
+        $this->assertSame(
+            0,
+            (int) $this->database()->table('chat_channel_user')
+                ->where('channel_id', $channelId)
+                ->where('user_id', 2)
+                ->value('unread_count')
+        );
+
+        $this->assertSame(2, $this->channelAs($channelId, 2)['unreadCount']);
+        $this->assertSame(2, $this->userAs(2)['chatUnreadMessagesCount']);
+        $this->assertSame(1, $this->userAs(2)['chatUnreadChannelsCount']);
+
+        $this->read($channelId, 2);
+
+        $this->assertSame(0, $this->channelAs($channelId, 2)['unreadCount']);
+        $this->assertSame(0, $this->userAs(2)['chatUnreadMessagesCount']);
+    }
+
+    public function test_a_deleted_message_stops_counting_as_unread(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        $this->read($channelId, 2);
+        $this->post($channelId, 3, 'kept');
+        $removed = $this->post($channelId, 3, 'removed');
+
+        $response = $this->send(
+            $this->request('POST', '/api/chat-messages/'.$removed.'/delete', ['authenticatedAs' => 3])
+        );
+
+        $this->assertLessThan(300, $response->getStatusCode(), (string) $response->getBody());
+        $this->assertSame(1, $this->channelAs($channelId, 2)['unreadCount']);
+    }
+
+    public function test_muting_it_silences_the_badge(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        $this->read($channelId, 2);
+        $this->post($channelId, 3, 'noise');
+
+        $response = $this->send(
+            $this->request('POST', '/api/chat-channels/'.$channelId.'/notifications', [
+                'authenticatedAs' => 2,
+                'json'            => ['data' => ['attributes' => ['muted' => true]]],
+            ])
+        );
+
+        $this->assertEquals(204, $response->getStatusCode(), (string) $response->getBody());
+        $this->assertSame(0, $this->channelAs($channelId, 2)['unreadCount']);
+        $this->assertSame(0, $this->userAs(2)['chatUnreadMessagesCount']);
+    }
+
+    public function test_someone_who_never_opened_it_has_nothing_unread(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        $this->post($channelId, 3, 'before you came');
+
+        $this->assertSame(0, $this->channelAs($channelId, 2)['unreadCount']);
+        $this->assertSame(0, $this->userAs(2)['chatUnreadMessagesCount']);
     }
 }

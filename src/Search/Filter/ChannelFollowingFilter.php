@@ -71,11 +71,8 @@ class ChannelFollowingFilter implements FilterInterface
 
         // A channel for everyone is followed by whoever has no row in it at all;
         // the row someone gets by leaving is what takes it out of their list.
-        // The same predicate as Channel::isForEveryone(), in SQL.
         $implied = function ($query) use ($actor) {
-            $query->where('chat_channels.type', Channel::TYPE_CATEGORY)
-                ->where('chat_channels.auto_join', true)
-                ->where('chat_channels.is_private', false)
+            Channel::whereForEveryone($query)
                 ->whereNotExists(function ($sub) use ($actor) {
                     $sub->selectRaw(1)
                         ->from('chat_channel_user')

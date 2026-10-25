@@ -1093,7 +1093,7 @@ class ChannelResource extends AbstractDatabaseResource
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->last_read_message_id ?? 0),
 
             Schema\Integer::make('unreadCount')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->unread_count ?? 0),
+                ->get(fn (Channel $c, Context $context) => $this->unread->unreadFor($c, $this->membership($c, $context->getActor()))),
 
             Schema\Integer::make('unreadMentionsCount')
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->unread_mentions_count ?? 0),
@@ -1400,21 +1400,6 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Memoises the actor's membership: the channel list serialises several
-     * membership-backed fields per row, and each would otherwise be its own query.
-     *
-     * Keyed by channel *and* actor. It was keyed by channel alone, on the
-     * assumption that a resource instance never outlives one request and therefore
-     * only ever sees one actor. That assumption does not hold — the container hands
-     * back the same instance for as long as it lives — and when it broke, one
-     * user's membership was served in another user's response: `isFollowing` and
-     * `isHiddenMember` both came back describing whoever was serialised first.
-     *
-     * @var array<string, ChannelUser|null|false>
-     */
-    protected array $membershipCache = [];
-
-    /**
      * Runs one rank write for an actor allowed to make it, and answers with the
      * channel so the response carries the new `rankBook`.
      *
@@ -1564,19 +1549,24 @@ class ChannelResource extends AbstractDatabaseResource
         return $channel->load('participants.groups');
     }
 
+    /**
+     * The actor's membership, which the channel list reads for several fields
+     * per row. Memoised on the channel instance (`membershipFor()`), not here.
+     *
+     * A cache on the resource outlived the request: the container hands back the
+     * same instance for as long as it lives. Keyed by channel alone it once
+     * served one user's membership in another's response; keyed by channel and
+     * actor it still served a membership as it stood before the actor's last
+     * read, which a count taken from the read marker cannot afford. Each request
+     * loads its own channel models, so their memo cannot go stale.
+     */
     protected function membership(Channel $channel, User $actor): ?ChannelUser
     {
         if (! $actor->exists) {
             return null;
         }
 
-        $key = $channel->id.':'.$actor->id;
-
-        if (! array_key_exists($key, $this->membershipCache)) {
-            $this->membershipCache[$key] = $channel->membershipFor($actor);
-        }
-
-        return $this->membershipCache[$key] ?: null;
+        return $channel->membershipFor($actor);
     }
 
     /**
