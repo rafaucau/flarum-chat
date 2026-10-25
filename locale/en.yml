@@ -177,6 +177,7 @@ ramon-chat:
       no_messages: No messages yet. Say something.
       scroll_to_latest: Jump to the latest message
       members: "{count, plural, one {# member} other {# members}}"
+      everyone: Open to everyone
       view_info: Channel details
       search_in_channel: Search this channel
       threads: Threads in this channel
@@ -548,6 +549,7 @@ ramon-chat:
       transfer_failed: Could not complete the transfer.
 
       no_members: No members match.
+      everyone_help: Everyone who can use the chat is in this channel. Listed here are the people who run it.
       save_failed: Could not save that change.
 
 

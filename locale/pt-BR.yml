@@ -151,6 +151,7 @@ ramon-chat:
       no_messages: Nenhuma mensagem ainda. Diga algo.
       scroll_to_latest: Ir à mensagem mais recente
       members: "{count, plural, one {# membro} other {# membros}}"
+      everyone: Aberto a todos
       view_info: Detalhes do canal
       search_in_channel: Buscar neste canal
       threads: Tópicos deste canal
@@ -522,6 +523,7 @@ ramon-chat:
       transfer_failed: Falha ao concluir a transferência.
 
       no_members: Nenhum membro.
+      everyone_help: Todos que podem usar o chat estão neste canal. Aqui aparecem as pessoas que o administram.
       save_failed: Falha ao salvar a alteração.
 
 

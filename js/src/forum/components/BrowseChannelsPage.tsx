@@ -348,9 +348,13 @@ export default class BrowseChannelsPage<
           <div className="ChatBrowseCard-meta">
             <span>
               <i className="fas fa-user" aria-hidden="true" />
-              {app.translator.trans("ramon-chat.forum.channel.members", {
-                count: channel.userCount() ?? 0,
-              })}
+              {/* A channel for everyone counts only who has a row in it, which
+                  says nothing about how many are in the room. */}
+              {channel.isForEveryone()
+                ? app.translator.trans("ramon-chat.forum.channel.everyone")
+                : app.translator.trans("ramon-chat.forum.channel.members", {
+                    count: channel.userCount() ?? 0,
+                  })}
             </span>
             {/* Was a hardcoded "msg" — the one untranslated string on the page. */}
             <span>

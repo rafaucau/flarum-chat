@@ -311,6 +311,58 @@ class EveryoneChannelTest extends TestCase
         $this->assertSame(0, $this->userAs(2)['chatUnreadMessagesCount']);
     }
 
+    /**
+     * @return int[]
+     */
+    private function listedMembers(int $channelId, int $as): array
+    {
+        $response = $this->send(
+            $this->request('GET', '/api/chat-channels/'.$channelId, ['authenticatedAs' => $as])
+                ->withQueryParams(['include' => 'participants'])
+        );
+
+        $this->assertEquals(200, $response->getStatusCode(), (string) $response->getBody());
+
+        $ids = array_map(
+            static fn (array $ref) => (int) $ref['id'],
+            json_decode((string) $response->getBody(), true)['data']['relationships']['participants']['data'] ?? []
+        );
+
+        sort($ids);
+
+        return $ids;
+    }
+
+    public function test_its_member_list_shows_only_who_runs_it(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        $this->read($channelId, 2);
+        $this->read($channelId, 3);
+
+        $this->database()->table('chat_channel_user')
+            ->where('channel_id', $channelId)
+            ->where('user_id', 3)
+            ->update(['is_moderator' => 1]);
+
+        // The creator and the channel's moderators. Listing everyone who has
+        // read a general channel is a list of the forum, and serialising it was
+        // what kept the members tab from ever loading.
+        $this->assertSame([1, 3], $this->listedMembers($channelId, 2));
+    }
+
+    public function test_an_ordinary_channel_still_lists_every_member(): void
+    {
+        $channelId = $this->createChannel(false);
+
+        $join = $this->send(
+            $this->request('POST', '/api/chat-channels/'.$channelId.'/join', ['authenticatedAs' => 2])
+        );
+
+        $this->assertEquals(200, $join->getStatusCode(), (string) $join->getBody());
+        $this->assertSame([1, 2], $this->listedMembers($channelId, 2));
+    }
+
     public function test_someone_who_never_opened_it_has_nothing_unread(): void
     {
         $channelId = $this->createChannel(true);

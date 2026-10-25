@@ -395,13 +395,34 @@ class Channel extends AbstractModel
      * appear in the member list, which is the whole point of joining that way. They
      * still have a membership row — see `memberships()`, which does not filter — so
      * their unread state and sidebar entry work normally.
+     *
+     * In a channel for everyone it is the people who run the room: its creator
+     * and its moderators. Everyone else is in it whether or not they have a row,
+     * so the rows would list whoever happened to read the channel — in a general
+     * channel, most of the forum, which the members tab could never load. The
+     * constraint is in SQL rather than on the instance so it holds for eager
+     * loads too, which build the relation from a blank model.
      */
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'chat_channel_user', 'channel_id', 'user_id')
             ->withPivot('is_moderator')
             ->whereNull('chat_channel_user.left_at')
-            ->where('chat_channel_user.hidden', false);
+            ->where('chat_channel_user.hidden', false)
+            ->where(function ($query) {
+                $query->whereNotIn(
+                    'chat_channel_user.channel_id',
+                    static::whereForEveryone(static::query())->select('chat_channels.id')
+                )
+                    ->orWhere('chat_channel_user.is_moderator', true)
+                    ->orWhereIn(
+                        'chat_channel_user.user_id',
+                        static::query()
+                            ->from('chat_channels', 'owned')
+                            ->whereColumn('owned.id', 'chat_channel_user.channel_id')
+                            ->select('owned.creator_id')
+                    );
+            });
     }
 
     /**
