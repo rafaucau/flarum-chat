@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Str;
 
 /**
@@ -248,18 +249,21 @@ class Channel extends AbstractModel
     /**
      * Narrows a query over `chat_channels` to the channels for everyone: the SQL
      * form of isForEveryone(), which the two must keep in step with.
-     *
-     * @template TQuery of \Illuminate\Contracts\Database\Query\Builder
-     *
-     * @param  TQuery  $query
-     * @return TQuery
      */
-    public static function whereForEveryone($query)
+    public static function onlyForEveryone(QueryBuilder $query): QueryBuilder
     {
         return $query
             ->where('chat_channels.type', self::TYPE_CATEGORY)
             ->where('chat_channels.auto_join', true)
             ->where('chat_channels.is_private', false);
+    }
+
+    /**
+     * The ids of every channel for everyone, as a subquery.
+     */
+    public static function idsForEveryone(): \Closure
+    {
+        return fn (QueryBuilder $sub) => static::onlyForEveryone($sub->select('chat_channels.id')->from('chat_channels'));
     }
 
     /**
@@ -293,7 +297,8 @@ class Channel extends AbstractModel
         $id = (int) $user->id;
 
         if (! array_key_exists($id, $this->departureCache)) {
-            $this->departureCache[$id] = $this->memberships()
+            $this->departureCache[$id] = ChannelUser::query()
+                ->where('channel_id', $this->id)
                 ->where('user_id', $id)
                 ->whereNotNull('left_at')
                 ->exists();
@@ -410,18 +415,13 @@ class Channel extends AbstractModel
             ->whereNull('chat_channel_user.left_at')
             ->where('chat_channel_user.hidden', false)
             ->where(function ($query) {
-                $query->whereNotIn(
-                    'chat_channel_user.channel_id',
-                    static::whereForEveryone(static::query())->select('chat_channels.id')
-                )
+                $query->whereNotIn('chat_channel_user.channel_id', static::idsForEveryone())
                     ->orWhere('chat_channel_user.is_moderator', true)
-                    ->orWhereIn(
-                        'chat_channel_user.user_id',
-                        static::query()
+                    ->orWhereIn('chat_channel_user.user_id', function (QueryBuilder $sub) {
+                        $sub->select('owned.creator_id')
                             ->from('chat_channels', 'owned')
-                            ->whereColumn('owned.id', 'chat_channel_user.channel_id')
-                            ->select('owned.creator_id')
-                    );
+                            ->whereColumn('owned.id', 'chat_channel_user.channel_id');
+                    });
             });
     }
 

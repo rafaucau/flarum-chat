@@ -86,11 +86,11 @@ class EveryoneChannelTest extends TestCase
     /**
      * @return int[]
      */
-    private function followedBy(int $as): array
+    private function followedBy(int $as, bool $following = true): array
     {
         $response = $this->send(
             $this->request('GET', '/api/chat-channels', ['authenticatedAs' => $as])
-                ->withQueryParams(['filter' => ['following' => '1']])
+                ->withQueryParams(['filter' => ['following' => $following ? '1' : '0']])
         );
 
         $this->assertEquals(200, $response->getStatusCode(), (string) $response->getBody());
@@ -130,6 +130,7 @@ class EveryoneChannelTest extends TestCase
         $this->assertTrue($attributes['isFollowing']);
         $this->assertTrue($attributes['canPostMessage']);
         $this->assertContains($channelId, $this->followedBy(2));
+        $this->assertNotContains($channelId, $this->followedBy(2, false));
 
         $response = $this->send(
             $this->request('POST', '/api/chat-messages', [
@@ -183,6 +184,7 @@ class EveryoneChannelTest extends TestCase
 
         $this->assertEquals(204, $leave->getStatusCode(), (string) $leave->getBody());
         $this->assertNotContains($channelId, $this->followedBy(2));
+        $this->assertContains($channelId, $this->followedBy(2, false));
 
         $attributes = $this->channelAs($channelId, 2);
 

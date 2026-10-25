@@ -49,13 +49,16 @@ class UnreadTracker
      */
     public function recordNewMessage(Message $message): void
     {
-        $base = ChannelUser::query()
-            ->where('channel_id', $message->channel_id)
-            ->whereNull('left_at')
-            ->when(
-                $message->user_id !== null,
-                fn ($q) => $q->where('user_id', '!=', $message->user_id)
-            );
+        // Applied as statements rather than chained, like unreadOf(): the where*
+        // methods are typed as returning a query builder, which would lose the
+        // Eloquent one narrowToMentioned() takes.
+        $base = ChannelUser::query();
+        $base->where('channel_id', $message->channel_id);
+        $base->whereNull('left_at');
+
+        if ($message->user_id !== null) {
+            $base->where('user_id', '!=', $message->user_id);
+        }
 
         // Muted memberships are excluded from badge pressure entirely — that is
         // the difference between muting a channel and setting level 0.
@@ -210,7 +213,7 @@ class UnreadTracker
             return null;
         }
 
-        $members->whereIntegerInRaw('user_id', $ids);
+        $members->getQuery()->whereIntegerInRaw('user_id', $ids);
 
         return $members;
     }
@@ -262,7 +265,7 @@ class UnreadTracker
             ->select('id')
             ->limit(self::COUNTED_UNREAD_CAP);
 
-        return (int) Message::query()->getConnection()->query()->fromSub($unread, 'unread')->count();
+        return (int) Message::query()->getQuery()->newQuery()->fromSub($unread, 'unread')->count();
     }
 
     /**
@@ -452,7 +455,7 @@ class UnreadTracker
     {
         $query = $this->visibleMemberships($user);
 
-        $query->whereNotIn('channel_id', Channel::whereForEveryone(Channel::query())->select('chat_channels.id'));
+        $query->getQuery()->whereNotIn('channel_id', Channel::idsForEveryone());
 
         return $query;
     }
@@ -467,7 +470,7 @@ class UnreadTracker
     {
         $query = $this->visibleMemberships($user);
 
-        $query->whereIn('channel_id', Channel::whereForEveryone(Channel::query())->select('chat_channels.id'));
+        $query->getQuery()->whereIn('channel_id', Channel::idsForEveryone());
         $query->where('following', true);
         $query->where('muted', false);
 

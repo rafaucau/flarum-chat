@@ -12,6 +12,7 @@ namespace Ramon\Chat\Search\Filter;
 use Flarum\Search\Database\DatabaseSearchState;
 use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
+use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Channel;
 
 /**
@@ -71,8 +72,8 @@ class ChannelFollowingFilter implements FilterInterface
 
         // A channel for everyone is followed by whoever has no row in it at all;
         // the row someone gets by leaving is what takes it out of their list.
-        $implied = function ($query) use ($actor) {
-            Channel::whereForEveryone($query)
+        $implied = function (Builder $query) use ($actor) {
+            Channel::onlyForEveryone($query->getQuery())
                 ->whereNotExists(function ($sub) use ($actor) {
                     $sub->selectRaw(1)
                         ->from('chat_channel_user')
