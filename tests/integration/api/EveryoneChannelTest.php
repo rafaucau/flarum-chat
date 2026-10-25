@@ -363,6 +363,61 @@ class EveryoneChannelTest extends TestCase
         $this->assertSame([1, 2], $this->listedMembers($channelId, 2));
     }
 
+    public function test_a_mention_of_the_whole_channel_is_not_offered_in_it(): void
+    {
+        $channelId = $this->createChannel(true);
+
+        // Administrators hold every permission, `mentionChannelWide` included.
+        $this->assertFalse($this->channelAs($channelId, 1)['canMentionChannelWide']);
+
+        $messageId = $this->post($channelId, 1, '@all the forum is moving tonight');
+
+        // In a channel for everyone, @all is the whole forum: one message would
+        // notify and badge every account.
+        $this->assertSame(
+            0,
+            $this->database()->table('chat_message_mentions')
+                ->where('message_id', $messageId)
+                ->whereIn('type', ['all', 'here'])
+                ->count()
+        );
+    }
+
+    public function test_a_whole_channel_mention_is_counted_without_listing_every_member(): void
+    {
+        $channelId = $this->createChannel(false);
+
+        foreach ([2, 3] as $as) {
+            $join = $this->send(
+                $this->request('POST', '/api/chat-channels/'.$channelId.'/join', ['authenticatedAs' => $as])
+            );
+
+            $this->assertEquals(200, $join->getStatusCode(), (string) $join->getBody());
+        }
+
+        $listed = [];
+
+        $this->database()->listen(function ($query) use (&$listed) {
+            if (str_contains($query->sql, 'unread_mentions_count') && str_contains($query->sql, '"user_id" in (')) {
+                $listed[] = $query->sql;
+            }
+        });
+
+        $this->post($channelId, 1, '@all heads up');
+
+        // One placeholder per member broke the send past 65,535 members.
+        $this->assertSame([], $listed);
+
+        $counts = $this->database()->table('chat_channel_user')
+            ->where('channel_id', $channelId)
+            ->whereIn('user_id', [2, 3])
+            ->pluck('unread_mentions_count')
+            ->map(static fn ($count) => (int) $count)
+            ->all();
+
+        $this->assertSame([1, 1], $counts);
+    }
+
     public function test_someone_who_never_opened_it_has_nothing_unread(): void
     {
         $channelId = $this->createChannel(true);

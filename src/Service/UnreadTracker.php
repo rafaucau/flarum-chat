@@ -49,8 +49,6 @@ class UnreadTracker
      */
     public function recordNewMessage(Message $message): void
     {
-        $mentionedUserIds = $this->mentionedUserIds($message);
-
         $base = ChannelUser::query()
             ->where('channel_id', $message->channel_id)
             ->whereNull('left_at')
@@ -67,10 +65,10 @@ class UnreadTracker
                 ->increment('unread_count');
         }
 
-        if ($mentionedUserIds !== []) {
-            (clone $base)
-                ->whereIn('user_id', $mentionedUserIds)
-                ->increment('unread_mentions_count');
+        $mentioned = $this->narrowToMentioned(clone $base, $message, (int) $message->channel_id);
+
+        if ($mentioned !== null) {
+            $mentioned->increment('unread_mentions_count');
         }
 
         if ($message->thread_id !== null) {
@@ -153,11 +151,10 @@ class UnreadTracker
                 ->decrement('unread_count');
         }
 
-        $mentioned = $this->mentionedUserIds($message, $channelId);
+        $mentioned = $this->narrowToMentioned($this->unreadOf($message, $channelId), $message, $channelId);
 
-        if ($mentioned !== []) {
-            $this->unreadOf($message, $channelId)
-                ->whereIn('user_id', $mentioned)
+        if ($mentioned !== null) {
+            $mentioned
                 ->where('unread_mentions_count', '>', 0)
                 ->decrement('unread_mentions_count');
         }
@@ -181,13 +178,41 @@ class UnreadTracker
                 ->increment('unread_count');
         }
 
-        $mentioned = $this->mentionedUserIds($message, $channelId);
+        $mentioned = $this->narrowToMentioned($this->unreadOf($message, $channelId), $message, $channelId);
 
-        if ($mentioned !== []) {
-            $this->unreadOf($message, $channelId)
-                ->whereIn('user_id', $mentioned)
-                ->increment('unread_mentions_count');
+        if ($mentioned !== null) {
+            $mentioned->increment('unread_mentions_count');
         }
+    }
+
+    /**
+     * Narrows a query over a channel's memberships to the members a message
+     * mentions, or null when it mentions nobody.
+     *
+     * A mention of the whole channel narrows nothing: every row in the query is
+     * mentioned, so no id list is built. Listing them put one placeholder per
+     * member into the UPDATE, which the database refuses past 65,535. Named
+     * mentions are inlined as integers for the same reason, since a group
+     * mention can expand to many members.
+     *
+     * @param  Builder<ChannelUser>  $members
+     * @return Builder<ChannelUser>|null
+     */
+    protected function narrowToMentioned(Builder $members, Message $message, int $channelId): ?Builder
+    {
+        if ($message->mentions->contains(fn (MessageMention $mention) => $mention->isChannelWide())) {
+            return $members;
+        }
+
+        $ids = $this->mentionedUserIds($message, $channelId);
+
+        if ($ids === []) {
+            return null;
+        }
+
+        $members->whereIntegerInRaw('user_id', $ids);
+
+        return $members;
     }
 
     /**

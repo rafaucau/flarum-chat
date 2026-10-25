@@ -346,6 +346,12 @@ class ChannelPolicy extends AbstractPolicy
             return false;
         }
 
+        // Structural too: in a channel for everyone, @all is the whole forum, and
+        // one message would notify and badge every account on it.
+        if ($channel->isForEveryone()) {
+            return false;
+        }
+
         if (! $actor->can('postMessage', $channel)) {
             return false;
         }
