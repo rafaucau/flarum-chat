@@ -319,7 +319,7 @@ class UnreadTracker
      *
      * Every total below is built on this rather than on `chat_channel_user`
      * alone. A membership outlives the access that created it: a permission is
-     * revoked, a bound tag is restricted, an earlier AutoJoinUsers wrote rows
+     * revoked, a bound tag is restricted, the auto-join setting once wrote rows
      * for people who never had the chat at all — and the row keeps its
      * `unread_count` throughout. Counted flat, those rows report unread traffic
      * in channels the actor cannot open and has no way to clear.

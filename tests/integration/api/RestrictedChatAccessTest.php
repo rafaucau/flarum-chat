@@ -131,7 +131,7 @@ class RestrictedChatAccessTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
-    public function test_an_auto_join_channel_only_joins_users_who_may_use_the_chat(): void
+    public function test_an_auto_join_channel_only_includes_users_who_may_use_the_chat(): void
     {
         $response = $this->send(
             $this->request('POST', '/api/chat-channels', [
@@ -152,14 +152,35 @@ class RestrictedChatAccessTest extends TestCase
             ->where('channel_id', $channelId)
             ->pluck('user_id')
             ->map(static fn ($id) => (int) $id)
-            ->sort()
-            ->values()
             ->all();
 
-        // 1 is the admin, 3 is in the permitted group. 2 is a plain member: the
-        // listener used to add every row in `users`, which gave them a membership
-        // feeding the unread badge for a channel they could not open.
-        $this->assertSame([1, 3], $joined);
+        // Nobody but the creator gets a row: who is in a channel for everyone is
+        // derived from who can see it.
+        $this->assertSame([1], $joined);
+
+        // 3 is in the permitted group. 2 is a plain member: an earlier listener
+        // added every row in `users`, which put a channel they could not open in
+        // their sidebar and their unread badge.
+        $this->assertContains($channelId, $this->followedBy(3));
+        $this->assertNotContains($channelId, $this->followedBy(2));
+    }
+
+    /**
+     * @return int[]
+     */
+    private function followedBy(int $as): array
+    {
+        $response = $this->send(
+            $this->request('GET', '/api/chat-channels', ['authenticatedAs' => $as])
+                ->withQueryParams(['filter' => ['following' => '1']])
+        );
+
+        $this->assertEquals(200, $response->getStatusCode(), (string) $response->getBody());
+
+        return array_map(
+            static fn (array $row) => (int) $row['id'],
+            json_decode((string) $response->getBody(), true)['data']
+        );
     }
 
     public function test_a_stale_membership_does_not_feed_the_badge(): void

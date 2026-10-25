@@ -43,10 +43,9 @@ use Ramon\Chat\Service\MessageDispatcher;
  *    reason category joins went unannounced entirely for a while — the fix is to
  *    tell the two kinds of join apart, not to silence both.
  *
- * The bulk paths never reach here at all: JoinAutoJoinChannels (registration) and
- * AutoJoinUsers (a channel created with `auto_join`) add memberships without
- * dispatching the event, so a channel created with auto-join cannot narrate
- * itself into thousands of rows.
+ * A channel for everyone never reaches here for its members: they are in it
+ * without joining, and the row they get the first time they read it is written
+ * without the event, so the room cannot narrate itself into thousands of rows.
  */
 class AnnounceMembershipChanges
 {

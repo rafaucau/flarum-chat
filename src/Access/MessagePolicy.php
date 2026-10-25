@@ -207,7 +207,7 @@ class MessagePolicy extends AbstractPolicy
             return false;
         }
 
-        if ($channel->membershipFor($actor) === null) {
+        if (! $channel->includes($actor)) {
             return false;
         }
 

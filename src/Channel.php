@@ -110,6 +110,13 @@ class Channel extends AbstractModel
      */
     protected array $inviteCache = [];
 
+    /**
+     * Whether a user has left this channel, by user id, for `hasLeft()`.
+     *
+     * @var array<int, bool>
+     */
+    protected array $departureCache = [];
+
     protected $casts = [
         'tag_id'                      => 'integer',
         'creator_id'                  => 'integer',
@@ -218,6 +225,64 @@ class Channel extends AbstractModel
     public function isCategory(): bool
     {
         return $this->type === self::TYPE_CATEGORY;
+    }
+
+    /**
+     * Whether everyone who can see the channel is in it — the "add all users"
+     * setting, an IRC-style room open to the whole forum.
+     *
+     * Nobody gets a membership row for it up front. A row appears only when
+     * someone does something that has to be stored: reading the channel (the
+     * read marker lives on the row), changing how it notifies them, or leaving
+     * it. Writing one row per account to open a general channel is what made a
+     * forum of 400k users crawl.
+     *
+     * Never true for a private channel: "everyone" and "invitation only"
+     * contradict each other, and the invitation is the one that keeps people out.
+     */
+    public function isForEveryone(): bool
+    {
+        return $this->isCategory() && (bool) $this->auto_join && ! $this->isPrivate();
+    }
+
+    /**
+     * Whether the user is in the channel: a live membership, or, in a channel
+     * for everyone, simply never having left it.
+     *
+     * Visibility is not part of the answer. Callers ask it of a channel the user
+     * can already see, which is what makes "everyone" mean everyone who may see
+     * the channel rather than every row in `users`.
+     */
+    public function includes(?User $user): bool
+    {
+        if ($this->membershipFor($user) !== null) {
+            return true;
+        }
+
+        if ($user === null || ! $user->exists || ! $this->isForEveryone()) {
+            return false;
+        }
+
+        return ! $this->hasLeft($user);
+    }
+
+    /**
+     * Whether the user holds a membership they have left, memoised like
+     * `membershipFor()`. In a channel for everyone that row is the only thing
+     * that keeps them out.
+     */
+    public function hasLeft(User $user): bool
+    {
+        $id = (int) $user->id;
+
+        if (! array_key_exists($id, $this->departureCache)) {
+            $this->departureCache[$id] = $this->memberships()
+                ->where('user_id', $id)
+                ->whereNotNull('left_at')
+                ->exists();
+        }
+
+        return $this->departureCache[$id];
     }
 
     public function isOpen(): bool
@@ -505,11 +570,12 @@ class Channel extends AbstractModel
     {
         if ($user === null) {
             $this->membershipCache = [];
+            $this->departureCache = [];
 
             return;
         }
 
-        unset($this->membershipCache[(int) $user->id]);
+        unset($this->membershipCache[(int) $user->id], $this->departureCache[(int) $user->id]);
     }
 
     /**

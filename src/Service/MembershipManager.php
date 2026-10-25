@@ -126,6 +126,8 @@ class MembershipManager
                 ->first();
 
             if ($membership === null) {
+                $this->optOut($channel, $user);
+
                 return null;
             }
 
@@ -202,43 +204,48 @@ class MembershipManager
     }
 
     /**
-     * Adds users to a channel in bulk. Used by @mention invitations and by the
-     * auto-join setting.
+     * The user's live membership, written on the spot for someone a channel for
+     * everyone includes without one — the first time there is something of
+     * theirs to store. Null for anyone the channel does not include.
      *
-     * @param  int[]  $userIds
-     * @return int Number of memberships actually created or reactivated.
+     * Started level with the channel, the way a returning member is: being in
+     * a room from the start is not the same as having read all of it. And
+     * quiet, because the room never saw them arrive; nothing announces it.
      */
-    public function addMany(Channel $channel, array $userIds): int
+    public function ensure(Channel $channel, User $user): ?ChannelUser
     {
-        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        $membership = $channel->membershipFor($user);
 
-        if ($userIds === []) {
-            return 0;
+        if ($membership !== null || ! $channel->includes($user)) {
+            return $membership;
         }
 
-        $added = 0;
+        $membership = $this->join($channel, $user);
+        $membership->markReadUpTo($channel->last_message_id);
+        $membership->save();
 
-        // Chunked so an auto-join across a large user base does not build one
-        // enormous transaction.
-        foreach (array_chunk($userIds, 500) as $chunk) {
-            $users = User::query()->whereIn('id', $chunk)->get();
+        return $membership;
+    }
 
-            foreach ($users as $user) {
-                $existing = ChannelUser::query()
-                    ->where('channel_id', $channel->id)
-                    ->where('user_id', $user->id)
-                    ->whereNull('left_at')
-                    ->exists();
-
-                if ($existing) {
-                    continue;
-                }
-
-                $this->join($channel, $user);
-                $added++;
-            }
+    /**
+     * Takes someone out of a channel for everyone they were in without a row:
+     * the departed row is what keeps them out of it. Not announced, for the same
+     * reason a hidden member's departure is not — their arrival never was.
+     */
+    protected function optOut(Channel $channel, User $user): void
+    {
+        if (! $channel->isForEveryone() || $channel->hasLeft($user)) {
+            return;
         }
 
-        return $added;
+        $membership = new ChannelUser();
+        $membership->channel_id = $channel->id;
+        $membership->user_id = $user->id;
+        $membership->notification_level = ChannelUser::LEVEL_MENTIONS;
+        $membership->following = false;
+        $membership->left_at = Carbon::now();
+        $membership->save();
+
+        $channel->forgetMembership($user);
     }
 }

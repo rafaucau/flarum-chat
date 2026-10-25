@@ -96,7 +96,10 @@ class ChannelPolicy extends AbstractPolicy
         // that button when this returns false, so the cost to a legitimate visitor
         // is a single deliberate act. For a private channel the join is refused
         // outright, so removal is final until somebody adds them back.
-        return $channel->membershipFor($actor) !== null ? true : false;
+        //
+        // A channel for everyone is joined already, row or not: `includes()` is
+        // false only for someone who left it or was removed from it.
+        return $channel->includes($actor) ? true : false;
     }
 
     public function join(User $actor, Channel $channel): ?bool

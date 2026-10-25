@@ -498,7 +498,7 @@ ramon-chat:
       send_key_help_ctrl: Ctrl+Enter (Cmd+Enter on macOS) sends your message, and Enter starts a new line. Applies in every channel.
 
       auto_join: Automatically add all users
-      auto_join_help: Every existing and future user will be added to this channel.
+      auto_join_help: Everyone who can use the chat is in this channel, including future users, without being added one by one. Anyone can still leave it.
       auto_join_on_reply: Add users who reply in this category
       auto_join_on_reply_help_bound: "A user joins the first time they reply to a discussion in {category}, and is not re-added if they later leave."
       post_discussions: Announce new discussions from this category
