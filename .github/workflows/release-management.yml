@@ -183,14 +183,42 @@ jobs:
             echo "migrate=false" >> "$GITHUB_OUTPUT"
           fi
 
+          echo "latest=${LATEST}" >> "$GITHUB_OUTPUT"
+
+          cat "$RUNNER_TEMP/upgrade.md"
+
+      # As notas em inglês, com links absolutos para o GitHub, depois do
+      # pt-BR: prontas para colar fora dele (o tópico da extensão no
+      # discuss.flarum.org). O título em inglês de cada PR vem da linha
+      # "EN: …" da descrição do PR; sem ela, vai o título do PR. O marcador
+      # `<!-- en -->` separa as duas partes (o post do fórum leva só o pt-BR).
+      - name: Notas em inglês
+        id: notes_en
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          LATEST_TAG: ${{ steps.upgrade.outputs.latest }}
+          MIGRATE: ${{ steps.upgrade.outputs.migrate }}
+          OUTPUT: ${{ runner.temp }}/notes-en.md
+        run: |
+          set -euo pipefail
+
+          node .github/scripts/release-notes-en.mjs
+
           DELIM="EOF_$(openssl rand -hex 8)"
           {
             echo "footer<<${DELIM}"
             cat "$RUNNER_TEMP/upgrade.md"
+            echo
+            echo "<!-- en -->"
+            echo
+            echo "---"
+            echo
+            cat "$OUTPUT"
             echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
 
-          cat "$RUNNER_TEMP/upgrade.md"
+          cat "$OUTPUT"
 
       - name: Publicar Release
         id: create_release
@@ -205,9 +233,9 @@ jobs:
           # Aponta a tag/release para o commit de merge real (não para o
           # merge simulado do evento pull_request).
           commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-          # "Como atualizar" montado no passo anterior, com `php flarum migrate`
-          # só quando há migração nova.
-          footer: ${{ steps.upgrade.outputs.footer }}
+          # "Como atualizar" (com `php flarum migrate` só quando há migração
+          # nova) e as notas em inglês, montados nos passos anteriores.
+          footer: ${{ steps.notes_en.outputs.footer }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -230,6 +258,8 @@ jobs:
           RELEASE_URL: ${{ steps.create_release.outputs.html_url }}
         run: |
           VERSION="${RELEASE_TAG#v}"
+          # Só o pt-BR: as notas em inglês (depois do marcador) são para o discuss.
+          RELEASE_BODY="${RELEASE_BODY%%<!-- en -->*}"
 
           PAYLOAD=$(jq -n \
             --arg tag "$RELEASE_TAG" \

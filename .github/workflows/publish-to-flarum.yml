@@ -51,6 +51,8 @@ jobs:
         run: |
           # Extract version from tag (remove leading 'v' if present)
           VERSION="${RELEASE_TAG#v}"
+          # Só o pt-BR: as notas em inglês (depois do marcador) são para o discuss.
+          RELEASE_BODY="${RELEASE_BODY%%<!-- en -->*}"
 
           # Build the JSON payload using jq to safely handle all special characters
           PAYLOAD=$(jq -n \
