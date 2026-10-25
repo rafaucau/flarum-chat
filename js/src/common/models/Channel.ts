@@ -216,6 +216,15 @@ export default class Channel extends Model {
     return this.type() === "category";
   }
 
+  /**
+   * Everyone who can see the channel is in it, without being added. Mirrors
+   * `Channel::isForEveryone()` on the server: its member list holds only the
+   * people who run it, and its member count is not a headcount of the room.
+   */
+  isForEveryone(): boolean {
+    return this.isCategory() && !!this.autoJoin() && !this.isPrivate();
+  }
+
   isOpen(): boolean {
     return this.status() === "open";
   }

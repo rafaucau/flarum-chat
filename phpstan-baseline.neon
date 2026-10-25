@@ -151,12 +151,6 @@ parameters:
 			path: src/Api/Resource/ChannelResource.php
 
 		-
-			message: '#^Using nullsafe property access "\?\-\>unread_count" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: src/Api/Resource/ChannelResource.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>unread_mentions_count" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -281,18 +275,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/Listener/AnnounceDiscussions.php
-
-		-
-			message: '#^Cannot call method refreshMetadata\(\) on stdClass\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: src/Listener/JoinAutoJoinChannels.php
-
-		-
-			message: '#^Parameter \#1 \$channel of method Ramon\\Chat\\Service\\MembershipManager\:\:join\(\) expects Ramon\\Chat\\Channel, stdClass given\.$#'
-			identifier: argument.type
-			count: 1
-			path: src/Listener/JoinAutoJoinChannels.php
 
 		-
 			message: '#^Cannot call method refreshMetadata\(\) on stdClass\.$#'
@@ -423,12 +405,6 @@ parameters:
 		-
 			message: '#^Call to protected method increment\(\) of class Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: method.protected
-			count: 1
-			path: src/Service/MembershipManager.php
-
-		-
-			message: '#^Parameter \#2 \$user of method Ramon\\Chat\\Service\\MembershipManager\:\:join\(\) expects Flarum\\User\\User, stdClass given\.$#'
-			identifier: argument.type
 			count: 1
 			path: src/Service/MembershipManager.php
 

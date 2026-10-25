@@ -322,6 +322,11 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $upTo = Arr::get($context->body(), 'data.attributes.lastReadMessageId');
 
+                    // The read marker lives on a membership. In a channel for
+                    // everyone the reader may not have one yet, and reading it is
+                    // what gives them one.
+                    $this->memberships->ensure($channel, $actor);
+
                     $this->unread->markChannelRead(
                         $channel,
                         $actor,
@@ -784,7 +789,9 @@ class ChannelResource extends AbstractDatabaseResource
                     // Preferences live on a membership, and setting one is not a way
                     // in: it used to create the membership it needed, which let
                     // anyone who could see a channel join it past the join policy.
-                    if (! $actor->can('view', $channel) || $channel->membershipFor($actor) === null) {
+                    // `ensure()` writes one only for someone a channel for everyone
+                    // already includes, so the door stays shut everywhere else.
+                    if (! $actor->can('view', $channel) || $this->memberships->ensure($channel, $actor) === null) {
                         throw new ForbiddenException();
                     }
 
@@ -1018,15 +1025,16 @@ class ChannelResource extends AbstractDatabaseResource
             // non-administrator, whatever the forum had granted. Administrators
             // never saw it, because they pass the gate.
             //
-            // The cost is real and accepted: creating a channel with this on adds
-            // every eligible account at once (AutoJoinUsers, chunked at 500), so a
-            // large forum pays for it in membership rows.
+            // Turning it on writes nothing per account: everyone who can see the
+            // channel is in it from that moment (Channel::isForEveryone()), and
+            // gets a membership row only once there is something of theirs to
+            // store.
             //
-            // Which is why *changing* it is not the creator's call. The field stays
+            // Changing it is still not the creator's call. The field stays
             // writable for the reason above, but a value different from the one
             // stored is refused unless the actor curates channels forum-wide — see
             // setAudienceFlag(). Otherwise any member allowed to open a room could
-            // put every account on the forum into it.
+            // put it in every account's sidebar.
             Schema\Boolean::make('autoJoin')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'auto_join', 'autoJoin', $value, $context)),
@@ -1039,8 +1047,8 @@ class ChannelResource extends AbstractDatabaseResource
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'post_discussions', 'postDiscussions', $value, $context)),
 
             // Grows the channel from participation in its bound category, rather
-            // than adding every account up front like autoJoin does — but it still
-            // adds people who never asked, so it is gated the same way.
+            // than including every account like autoJoin does — but it still adds
+            // people who never asked, so it is gated the same way.
             Schema\Boolean::make('autoJoinOnReply')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'auto_join_on_reply', 'autoJoinOnReply', $value, $context)),
@@ -1071,7 +1079,8 @@ class ChannelResource extends AbstractDatabaseResource
 
             // ── Per-actor membership state ───────────────────────────────────
             Schema\Boolean::make('isFollowing')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->following ?? false),
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->following
+                    ?? $c->includes($context->getActor())),
 
             Schema\Boolean::make('isMuted')
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->muted ?? false),
@@ -1084,7 +1093,7 @@ class ChannelResource extends AbstractDatabaseResource
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->last_read_message_id ?? 0),
 
             Schema\Integer::make('unreadCount')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->unread_count ?? 0),
+                ->get(fn (Channel $c, Context $context) => $this->unread->unreadFor($c, $this->membership($c, $context->getActor()))),
 
             Schema\Integer::make('unreadMentionsCount')
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->unread_mentions_count ?? 0),
@@ -1391,21 +1400,6 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Memoises the actor's membership: the channel list serialises several
-     * membership-backed fields per row, and each would otherwise be its own query.
-     *
-     * Keyed by channel *and* actor. It was keyed by channel alone, on the
-     * assumption that a resource instance never outlives one request and therefore
-     * only ever sees one actor. That assumption does not hold — the container hands
-     * back the same instance for as long as it lives — and when it broke, one
-     * user's membership was served in another user's response: `isFollowing` and
-     * `isHiddenMember` both came back describing whoever was serialised first.
-     *
-     * @var array<string, ChannelUser|null|false>
-     */
-    protected array $membershipCache = [];
-
-    /**
      * Runs one rank write for an actor allowed to make it, and answers with the
      * channel so the response carries the new `rankBook`.
      *
@@ -1555,19 +1549,24 @@ class ChannelResource extends AbstractDatabaseResource
         return $channel->load('participants.groups');
     }
 
+    /**
+     * The actor's membership, which the channel list reads for several fields
+     * per row. Memoised on the channel instance (`membershipFor()`), not here.
+     *
+     * A cache on the resource outlived the request: the container hands back the
+     * same instance for as long as it lives. Keyed by channel alone it once
+     * served one user's membership in another's response; keyed by channel and
+     * actor it still served a membership as it stood before the actor's last
+     * read, which a count taken from the read marker cannot afford. Each request
+     * loads its own channel models, so their memo cannot go stale.
+     */
     protected function membership(Channel $channel, User $actor): ?ChannelUser
     {
         if (! $actor->exists) {
             return null;
         }
 
-        $key = $channel->id.':'.$actor->id;
-
-        if (! array_key_exists($key, $this->membershipCache)) {
-            $this->membershipCache[$key] = $channel->membershipFor($actor);
-        }
-
-        return $this->membershipCache[$key] ?: null;
+        return $channel->membershipFor($actor);
     }
 
     /**

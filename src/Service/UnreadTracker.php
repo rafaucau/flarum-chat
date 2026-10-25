@@ -26,35 +26,52 @@ use Ramon\Chat\ThreadUser;
  * These are counters rather than "count rows newer than last_read_message_id"
  * because the sidebar renders every followed channel on every draw; an
  * aggregate per channel per draw does not scale past a handful of channels.
+ *
+ * Channels for everyone are the exception, the other way round. Their members
+ * can number in the hundreds of thousands and there are only ever a few such
+ * channels, so a counter per row costs one UPDATE across the whole room per
+ * message while counting on read costs a bounded query for each of the few.
+ * Their rows keep `unread_count` at zero and unreadFor() counts from the read
+ * marker instead.
  */
 class UnreadTracker
 {
+    /**
+     * The most a channel for everyone counts as unread. The badges say "99+"
+     * well before it; the cap keeps a reader who was away for a year from
+     * costing a count of the year.
+     */
+    public const COUNTED_UNREAD_CAP = 1000;
+
     /**
      * Increments unread counters for every member except the sender, and bumps
      * the mention counter for members this message actually mentions.
      */
     public function recordNewMessage(Message $message): void
     {
-        $mentionedUserIds = $this->mentionedUserIds($message);
+        // Applied as statements rather than chained, like unreadOf(): the where*
+        // methods are typed as returning a query builder, which would lose the
+        // Eloquent one narrowToMentioned() takes.
+        $base = ChannelUser::query();
+        $base->where('channel_id', $message->channel_id);
+        $base->whereNull('left_at');
 
-        $base = ChannelUser::query()
-            ->where('channel_id', $message->channel_id)
-            ->whereNull('left_at')
-            ->when(
-                $message->user_id !== null,
-                fn ($q) => $q->where('user_id', '!=', $message->user_id)
-            );
+        if ($message->user_id !== null) {
+            $base->where('user_id', '!=', $message->user_id);
+        }
 
         // Muted memberships are excluded from badge pressure entirely — that is
         // the difference between muting a channel and setting level 0.
-        (clone $base)
-            ->where('muted', false)
-            ->increment('unread_count');
-
-        if ($mentionedUserIds !== []) {
+        if ($this->keepsCounters((int) $message->channel_id)) {
             (clone $base)
-                ->whereIn('user_id', $mentionedUserIds)
-                ->increment('unread_mentions_count');
+                ->where('muted', false)
+                ->increment('unread_count');
+        }
+
+        $mentioned = $this->narrowToMentioned(clone $base, $message, (int) $message->channel_id);
+
+        if ($mentioned !== null) {
+            $mentioned->increment('unread_mentions_count');
         }
 
         if ($message->thread_id !== null) {
@@ -130,16 +147,17 @@ class UnreadTracker
             return;
         }
 
-        $this->unreadOf($message, $channelId)
-            ->where('muted', false)
-            ->where('unread_count', '>', 0)
-            ->decrement('unread_count');
-
-        $mentioned = $this->mentionedUserIds($message, $channelId);
-
-        if ($mentioned !== []) {
+        if ($this->keepsCounters($channelId)) {
             $this->unreadOf($message, $channelId)
-                ->whereIn('user_id', $mentioned)
+                ->where('muted', false)
+                ->where('unread_count', '>', 0)
+                ->decrement('unread_count');
+        }
+
+        $mentioned = $this->narrowToMentioned($this->unreadOf($message, $channelId), $message, $channelId);
+
+        if ($mentioned !== null) {
+            $mentioned
                 ->where('unread_mentions_count', '>', 0)
                 ->decrement('unread_mentions_count');
         }
@@ -157,17 +175,97 @@ class UnreadTracker
             return;
         }
 
-        $this->unreadOf($message, $channelId)
-            ->where('muted', false)
-            ->increment('unread_count');
-
-        $mentioned = $this->mentionedUserIds($message, $channelId);
-
-        if ($mentioned !== []) {
+        if ($this->keepsCounters($channelId)) {
             $this->unreadOf($message, $channelId)
-                ->whereIn('user_id', $mentioned)
-                ->increment('unread_mentions_count');
+                ->where('muted', false)
+                ->increment('unread_count');
         }
+
+        $mentioned = $this->narrowToMentioned($this->unreadOf($message, $channelId), $message, $channelId);
+
+        if ($mentioned !== null) {
+            $mentioned->increment('unread_mentions_count');
+        }
+    }
+
+    /**
+     * Narrows a query over a channel's memberships to the members a message
+     * mentions, or null when it mentions nobody.
+     *
+     * A mention of the whole channel narrows nothing: every row in the query is
+     * mentioned, so no id list is built. Listing them put one placeholder per
+     * member into the UPDATE, which the database refuses past 65,535. Named
+     * mentions are inlined as integers for the same reason, since a group
+     * mention can expand to many members.
+     *
+     * @param  Builder<ChannelUser>  $members
+     * @return Builder<ChannelUser>|null
+     */
+    protected function narrowToMentioned(Builder $members, Message $message, int $channelId): ?Builder
+    {
+        if ($message->mentions->contains(fn (MessageMention $mention) => $mention->isChannelWide())) {
+            return $members;
+        }
+
+        $ids = $this->mentionedUserIds($message, $channelId);
+
+        if ($ids === []) {
+            return null;
+        }
+
+        $members->getQuery()->whereIntegerInRaw('user_id', $ids);
+
+        return $members;
+    }
+
+    /**
+     * Whether the channel's rows carry an unread counter at all. A channel for
+     * everyone's do not — see the class docblock — so there is nothing on them
+     * to move when a message comes or goes.
+     */
+    protected function keepsCounters(int $channelId): bool
+    {
+        $channel = Channel::query()->find($channelId);
+
+        return $channel === null || ! $channel->isForEveryone();
+    }
+
+    /**
+     * The unread count a membership shows: its counter, or, in a channel for
+     * everyone, the messages past its read marker, counted on the spot.
+     */
+    public function unreadFor(Channel $channel, ?ChannelUser $membership): int
+    {
+        if ($membership === null) {
+            return 0;
+        }
+
+        if (! $channel->isForEveryone()) {
+            return (int) $membership->unread_count;
+        }
+
+        return $membership->muted ? 0 : $this->countUnread($membership);
+    }
+
+    /**
+     * Messages past a membership's read marker that are not its own, up to
+     * COUNTED_UNREAD_CAP. The same rule recordNewMessage() counts by: system
+     * messages included, deleted ones not.
+     */
+    protected function countUnread(ChannelUser $membership): int
+    {
+        $unread = Message::query()
+            ->where('channel_id', $membership->channel_id)
+            ->where('id', '>', $membership->last_read_message_id ?? 0)
+            ->whereNull('deleted_at')
+            ->where(function ($q) use ($membership) {
+                $q->whereNull('user_id')
+                    ->orWhere('user_id', '!=', $membership->user_id);
+            })
+            ->select('id')
+            ->limit(self::COUNTED_UNREAD_CAP);
+
+        return (int) Message::query()->getQuery()->newQuery()->fromSub($unread, 'unread')->count();
     }
 
     /**
@@ -319,7 +417,7 @@ class UnreadTracker
      *
      * Every total below is built on this rather than on `chat_channel_user`
      * alone. A membership outlives the access that created it: a permission is
-     * revoked, a bound tag is restricted, an earlier AutoJoinUsers wrote rows
+     * revoked, a bound tag is restricted, the auto-join setting once wrote rows
      * for people who never had the chat at all — and the row keeps its
      * `unread_count` throughout. Counted flat, those rows report unread traffic
      * in channels the actor cannot open and has no way to clear.
@@ -347,6 +445,45 @@ class UnreadTracker
     }
 
     /**
+     * The visible memberships whose rows carry a counter, so a total can sum
+     * them. Leaves out channels for everyone, whose rows may still hold a stale
+     * count from before they stopped being incremented.
+     *
+     * @return Builder<ChannelUser>
+     */
+    protected function counterMemberships(User $user): Builder
+    {
+        $query = $this->visibleMemberships($user);
+
+        $query->getQuery()->whereNotIn('channel_id', Channel::idsForEveryone());
+
+        return $query;
+    }
+
+    /**
+     * The user's unread count in each channel for everyone they follow, by
+     * channel id. One bounded count per channel, and a forum has only a few.
+     *
+     * @return array<int, int>
+     */
+    protected function countedUnread(User $user): array
+    {
+        $query = $this->visibleMemberships($user);
+
+        $query->getQuery()->whereIn('channel_id', Channel::idsForEveryone());
+        $query->where('following', true);
+        $query->where('muted', false);
+
+        $counts = [];
+
+        foreach ($query->get() as $membership) {
+            $counts[(int) $membership->channel_id] = $this->countUnread($membership);
+        }
+
+        return $counts;
+    }
+
+    /**
      * Total unread channels for a user, used for the header badge.
      */
     public function totalUnreadFor(User $user): int
@@ -355,11 +492,13 @@ class UnreadTracker
             return 0;
         }
 
-        return (int) $this->visibleMemberships($user)
+        $counted = array_filter($this->countedUnread($user));
+
+        return (int) $this->counterMemberships($user)
             ->where('following', true)
             ->where('muted', false)
             ->where('unread_count', '>', 0)
-            ->count();
+            ->count() + count($counted);
     }
 
     /**
@@ -378,10 +517,10 @@ class UnreadTracker
             return 0;
         }
 
-        return (int) $this->visibleMemberships($user)
+        return (int) $this->counterMemberships($user)
             ->where('following', true)
             ->where('muted', false)
-            ->sum('unread_count');
+            ->sum('unread_count') + array_sum($this->countedUnread($user));
     }
 
     public function totalUnreadMentionsFor(User $user): int

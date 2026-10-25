@@ -409,20 +409,26 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
         )
       : this.members;
 
+    // Everyone is in a channel for everyone, so the list is only the people
+    // who run it, and adding someone has nothing to add them to.
+    const forEveryone = this.attrs.channel.isForEveryone();
+
     return (
       <div className="ChatChannelInfo-section">
         <div className="ChatChannelInfo-memberHeader">
           <span className="ChatChannelInfo-memberCount">
-            {app.translator.trans("ramon-chat.forum.channel.members", {
-              count: this.members.length,
-            })}
+            {forEveryone
+              ? app.translator.trans("ramon-chat.forum.channel.everyone")
+              : app.translator.trans("ramon-chat.forum.channel.members", {
+                  count: this.members.length,
+                })}
           </span>
 
           {/* Opens a picker rather than unfolding a field here: choosing people
               is its own task, and a search box for candidates directly above a
               search box for members made two controls that look identical do
               different things. */}
-          {this.attrs.channel.canManageMembers() ? (
+          {this.attrs.channel.canManageMembers() && !forEveryone ? (
             <Button
               className="Button Button--primary Button--compact"
               icon="fas fa-user-plus"
@@ -436,6 +442,12 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
             </Button>
           ) : null}
         </div>
+
+        {forEveryone ? (
+          <p className="helpText ChatChannelInfo-everyoneHelp">
+            {app.translator.trans("ramon-chat.forum.info.everyone_help")}
+          </p>
+        ) : null}
 
         {/* What the role means, shown to whoever can hand it out. */}
         {this.attrs.channel.canManageModerators() ? (

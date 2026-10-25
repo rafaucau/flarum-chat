@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Str;
 
 /**
@@ -109,6 +110,13 @@ class Channel extends AbstractModel
      * @var array<int, ChannelInvite|null>
      */
     protected array $inviteCache = [];
+
+    /**
+     * Whether a user has left this channel, by user id, for `hasLeft()`.
+     *
+     * @var array<int, bool>
+     */
+    protected array $departureCache = [];
 
     protected $casts = [
         'tag_id'                      => 'integer',
@@ -220,6 +228,85 @@ class Channel extends AbstractModel
         return $this->type === self::TYPE_CATEGORY;
     }
 
+    /**
+     * Whether everyone who can see the channel is in it — the "add all users"
+     * setting, an IRC-style room open to the whole forum.
+     *
+     * Nobody gets a membership row for it up front. A row appears only when
+     * someone does something that has to be stored: reading the channel (the
+     * read marker lives on the row), changing how it notifies them, or leaving
+     * it. Writing one row per account to open a general channel is what made a
+     * forum of 400k users crawl.
+     *
+     * Never true for a private channel: "everyone" and "invitation only"
+     * contradict each other, and the invitation is the one that keeps people out.
+     */
+    public function isForEveryone(): bool
+    {
+        return $this->isCategory() && (bool) $this->auto_join && ! $this->isPrivate();
+    }
+
+    /**
+     * Narrows a query over `chat_channels` to the channels for everyone: the SQL
+     * form of isForEveryone(), which the two must keep in step with.
+     */
+    public static function onlyForEveryone(QueryBuilder $query): QueryBuilder
+    {
+        return $query
+            ->where('chat_channels.type', self::TYPE_CATEGORY)
+            ->where('chat_channels.auto_join', true)
+            ->where('chat_channels.is_private', false);
+    }
+
+    /**
+     * The ids of every channel for everyone, as a subquery.
+     */
+    public static function idsForEveryone(): \Closure
+    {
+        return fn (QueryBuilder $sub) => static::onlyForEveryone($sub->select('chat_channels.id')->from('chat_channels'));
+    }
+
+    /**
+     * Whether the user is in the channel: a live membership, or, in a channel
+     * for everyone, simply never having left it.
+     *
+     * Visibility is not part of the answer. Callers ask it of a channel the user
+     * can already see, which is what makes "everyone" mean everyone who may see
+     * the channel rather than every row in `users`.
+     */
+    public function includes(?User $user): bool
+    {
+        if ($this->membershipFor($user) !== null) {
+            return true;
+        }
+
+        if ($user === null || ! $user->exists || ! $this->isForEveryone()) {
+            return false;
+        }
+
+        return ! $this->hasLeft($user);
+    }
+
+    /**
+     * Whether the user holds a membership they have left, memoised like
+     * `membershipFor()`. In a channel for everyone that row is the only thing
+     * that keeps them out.
+     */
+    public function hasLeft(User $user): bool
+    {
+        $id = (int) $user->id;
+
+        if (! array_key_exists($id, $this->departureCache)) {
+            $this->departureCache[$id] = ChannelUser::query()
+                ->where('channel_id', $this->id)
+                ->where('user_id', $id)
+                ->whereNotNull('left_at')
+                ->exists();
+        }
+
+        return $this->departureCache[$id];
+    }
+
     public function isOpen(): bool
     {
         return $this->status === self::STATUS_OPEN;
@@ -313,13 +400,29 @@ class Channel extends AbstractModel
      * appear in the member list, which is the whole point of joining that way. They
      * still have a membership row — see `memberships()`, which does not filter — so
      * their unread state and sidebar entry work normally.
+     *
+     * In a channel for everyone it is the people who run the room: its creator
+     * and its moderators. Everyone else is in it whether or not they have a row,
+     * so the rows would list whoever happened to read the channel — in a general
+     * channel, most of the forum, which the members tab could never load. The
+     * constraint is in SQL rather than on the instance so it holds for eager
+     * loads too, which build the relation from a blank model.
      */
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'chat_channel_user', 'channel_id', 'user_id')
             ->withPivot('is_moderator')
             ->whereNull('chat_channel_user.left_at')
-            ->where('chat_channel_user.hidden', false);
+            ->where('chat_channel_user.hidden', false)
+            ->where(function ($query) {
+                $query->whereNotIn('chat_channel_user.channel_id', static::idsForEveryone())
+                    ->orWhere('chat_channel_user.is_moderator', true)
+                    ->orWhereIn('chat_channel_user.user_id', function (QueryBuilder $sub) {
+                        $sub->select('owned.creator_id')
+                            ->from('chat_channels', 'owned')
+                            ->whereColumn('owned.id', 'chat_channel_user.channel_id');
+                    });
+            });
     }
 
     /**
@@ -505,11 +608,12 @@ class Channel extends AbstractModel
     {
         if ($user === null) {
             $this->membershipCache = [];
+            $this->departureCache = [];
 
             return;
         }
 
-        unset($this->membershipCache[(int) $user->id]);
+        unset($this->membershipCache[(int) $user->id], $this->departureCache[(int) $user->id]);
     }
 
     /**
@@ -566,6 +670,11 @@ class Channel extends AbstractModel
      * Recomputes the denormalised counters from the messages table. Used after
      * bulk operations (message moves, retention pruning, archiving) where
      * tracking increments incrementally would be error-prone.
+     *
+     * `user_count` counts visible members only, the same set MembershipManager
+     * keeps it to: a hidden member counted here made the card read one higher
+     * than the list for each observer, which is the presence joining hidden is
+     * meant to keep quiet.
      */
     public function refreshMetadata(): static
     {
@@ -577,7 +686,10 @@ class Channel extends AbstractModel
         $this->messages_count = $this->messages()->whereNull('deleted_at')->count();
         $this->last_message_id = $last?->id;
         $this->last_message_at = $last?->created_at;
-        $this->user_count = $this->memberships()->whereNull('left_at')->count();
+        $this->user_count = $this->memberships()
+            ->whereNull('left_at')
+            ->where('hidden', false)
+            ->count();
 
         return $this;
     }

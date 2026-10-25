@@ -96,7 +96,10 @@ class ChannelPolicy extends AbstractPolicy
         // that button when this returns false, so the cost to a legitimate visitor
         // is a single deliberate act. For a private channel the join is refused
         // outright, so removal is final until somebody adds them back.
-        return $channel->membershipFor($actor) !== null ? true : false;
+        //
+        // A channel for everyone is joined already, row or not: `includes()` is
+        // false only for someone who left it or was removed from it.
+        return $channel->includes($actor) ? true : false;
     }
 
     public function join(User $actor, Channel $channel): ?bool
@@ -340,6 +343,12 @@ class ChannelPolicy extends AbstractPolicy
     {
         // Structural: the channel has opted out of @here/@all entirely.
         if (! $channel->allow_channel_wide_mentions) {
+            return false;
+        }
+
+        // Structural too: in a channel for everyone, @all is the whole forum, and
+        // one message would notify and badge every account on it.
+        if ($channel->isForEveryone()) {
             return false;
         }
 

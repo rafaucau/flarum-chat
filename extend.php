@@ -369,8 +369,6 @@ return [
     // ── Domain listeners ─────────────────────────────────────────────────────
     (new Extend\Event())
         ->listen(Event\MessageWasSent::class, Listener\SendChatNotifications::class)
-        ->listen(Event\ChannelWasCreated::class, Listener\AutoJoinUsers::class)
-        ->listen(\Flarum\User\Event\Registered::class, Listener\JoinAutoJoinChannels::class)
         ->listen(Event\MessageWasDeleted::class, Listener\RecalculateUnreadCounts::class)
         // Deleting a reported message is what closes the reports about it. Without
         // this the queue keeps offering work that has already been done.
@@ -500,8 +498,6 @@ return [
                 // Once per move rather than once per message, and after the
                 // commit, so both rooms read the rows where they now are.
                 ->listen(Event\MessagesWereMoved::class, Realtime\BroadcastListener::class.'@whenMessagesMoved')
-                // Registered after AutoJoinUsers above, so the members it adds
-                // are already in the audience when this resolves it.
                 ->listen(Event\ChannelWasCreated::class, Realtime\BroadcastListener::class.'@whenChannelCreated')
                 ->listen(Event\ChannelStatusChanged::class, Realtime\BroadcastListener::class.'@whenChannelChanged')
                 ->listen(Event\ChannelWasEdited::class, Realtime\BroadcastListener::class.'@whenChannelChanged')

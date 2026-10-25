@@ -101,7 +101,7 @@ class BroadcastListener
 
     /**
      * Members at which a channel-wide push goes to the queue whatever the
-     * forum's setting: an auto-join channel can hold every account, and
+     * forum's setting: a busy channel can hold thousands of rows, and
      * resolving that audience is not work for the request that created it.
      * Only on a continuously worked queue: under `sync` or `database` it runs
      * inline like any other push (see QueueKind).
@@ -273,9 +273,10 @@ class BroadcastListener
 
     /**
      * A channel that has just come into existence, for whoever it already
-     * holds besides its creator: the other side of a direct conversation, or
-     * everyone an auto-join channel took in. Without it the channel appeared
-     * only on their next fetch of the list.
+     * holds besides its creator: the other side of a direct conversation.
+     * Without it the channel appeared only on their next fetch of the list.
+     * A channel for everyone holds nobody else yet — its members have no row
+     * until they read it — and reaches them through that same fetch.
      *
      * Ids only. Each recipient reads the channel through the API, which decides
      * what of it they may see; the audience itself already went through the

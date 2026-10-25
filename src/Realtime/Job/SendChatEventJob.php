@@ -44,6 +44,13 @@ class SendChatEventJob extends AbstractJob
     public int $tries = 1;
 
     /**
+     * Members a channel push is resolved for at a time. Each batch loads its own
+     * users and groups and is sent before the next is read, so a channel the
+     * size of the forum costs the memory of one batch rather than of all of it.
+     */
+    public const AUDIENCE_BATCH = 500;
+
+    /**
      * @param  array<string, mixed>  $payload
      * @param  int|null  $channelId     Fan out to this channel's members.
      * @param  int|null  $userId        Or deliver to exactly this one user.
@@ -69,16 +76,26 @@ class SendChatEventJob extends AbstractJob
             return;
         }
 
-        $recipients = match (true) {
-            $this->userId !== null => $this->singleUser($this->userId),
-            $this->moderators => $this->chatModerators(),
-            default => $this->channelMembers(),
-        };
+        if ($this->userId !== null) {
+            $this->send($pusher, $log, $this->singleUser($this->userId));
 
-        if ($recipients->isEmpty()) {
             return;
         }
 
+        if ($this->moderators) {
+            $this->send($pusher, $log, $this->chatModerators());
+
+            return;
+        }
+
+        $this->eachMemberBatch(fn (Collection $batch) => $this->send($pusher, $log, $batch));
+    }
+
+    /**
+     * @param  Collection<int, int>  $recipients  User ids.
+     */
+    protected function send(Pusher $pusher, LoggerInterface $log, Collection $recipients): void
+    {
         // Pusher caps a multi-channel trigger at 100 channels per call.
         foreach ($recipients->chunk(100) as $chunk) {
             $channels = $chunk->map(fn (int $id) => 'private-user='.$id)->values()->all();
@@ -96,14 +113,16 @@ class SendChatEventJob extends AbstractJob
     }
 
     /**
-     * @return Collection<int, int> Eligible user ids.
+     * Hands the channel's eligible members to $send, AUDIENCE_BATCH at a time.
+     *
+     * @param  callable(Collection<int, int>): void  $send
      */
-    protected function channelMembers(): Collection
+    protected function eachMemberBatch(callable $send): void
     {
         $channel = Channel::query()->find($this->channelId);
 
         if ($channel === null) {
-            return collect();
+            return;
         }
 
         // Deliberately NOT filtered by who is currently connected.
@@ -116,56 +135,64 @@ class SendChatEventJob extends AbstractJob
         // Triggering on a channel nobody is subscribed to is free: the daemon
         // discards it. Paying for that is strictly better than a race, and it also
         // removes an HTTP round-trip to the daemon per broadcast.
-        $memberIds = ChannelUser::query()
+        //
+        // Read a batch at a time: plucking the whole membership and loading every
+        // user behind it held a general channel's entire audience in memory at
+        // once, inside the request that sent the message.
+        $memberships = ChannelUser::query()
             ->where('channel_id', $channel->id)
             ->whereNull('left_at')
             ->when($this->exceptUserId !== null, fn ($q) => $q->where('user_id', '!=', $this->exceptUserId))
-            ->pluck('user_id')
-            ->map(fn ($id) => (int) $id);
+            ->select(['id', 'user_id']);
 
-        if ($memberIds->isEmpty()) {
-            return collect();
-        }
-
-        // `groups` eager-loaded because `permissionGroupIds()` reads it, and this
-        // runs inside the send request — leaving it lazy put the per-member query
-        // back in by another door.
-        //
-        // `whereKey` rather than `whereIn('id', ...)`: the two do the same thing,
-        // but `whereIn` is reached through Eloquent's mixin onto the query builder
-        // and comes back typed as that builder, which loses the model type and
-        // turns the collection below into one of anonymous rows.
-        $users = User::query()->whereKey($memberIds->all())->with('groups')->get();
-
-        // Decided once per distinct permission set rather than once per member.
-        // This runs inside the request that sent the message, so every query is
-        // latency the sender waits on, and the answer is the same for everyone
-        // whose permissions are the same. See PermissionSetVisibility.
+        // Decided once per distinct permission set rather than once per member,
+        // and shared across batches. This runs inside the request that sent the
+        // message, so every query is latency the sender waits on, and the answer
+        // is the same for everyone whose permissions are the same. See
+        // PermissionSetVisibility.
         $visibility = new PermissionSetVisibility();
-
-        // Every audience passes the chat gate first. A membership row outlives
-        // the permission behind it: a member whose `ramon-chat.use` was revoked,
-        // or who was suspended (flarum/suspend demotes their groups), still holds
-        // the row, and a direct channel's private messages kept reaching them.
-        $users = $users->filter(fn (User $user) => $visibility->usesChat($user));
 
         // For a direct or untagged channel, membership plus the chat gate *is*
         // the visibility rule. A deleted channel is excluded by the scope itself,
         // so asking it would drop everyone — and the one thing still sent about a
         // deleted channel is that it is gone, which its former members must hear.
-        if ($channel->isDirect() || $channel->tag_id === null || $channel->deleted_at !== null) {
-            return $users->map(fn (User $user) => (int) $user->id)->values();
-        }
-
-        // A tag-bound channel inherits the tag's `viewForum`, and a membership row
-        // outlives a permission change — so someone who joined before the category
-        // was restricted must not keep receiving pushes.
+        $gateOnly = $channel->isDirect() || $channel->tag_id === null || $channel->deleted_at !== null;
         $channelId = (int) $channel->id;
 
-        return $users
-            ->filter(fn (User $user) => $visibility->channelVisible($user, $channelId))
-            ->map(fn (User $user) => (int) $user->id)
-            ->values();
+        $memberships->chunkById(self::AUDIENCE_BATCH, function ($batch) use ($send, $visibility, $gateOnly, $channelId) {
+            // `groups` eager-loaded because `permissionGroupIds()` reads it, and
+            // this runs inside the send request — leaving it lazy put the
+            // per-member query back in by another door.
+            //
+            // `whereKey` rather than `whereIn('id', ...)`: the two do the same
+            // thing, but `whereIn` is reached through Eloquent's mixin onto the
+            // query builder and comes back typed as that builder, which loses the
+            // model type and turns the collection below into one of anonymous rows.
+            $users = User::query()
+                ->whereKey($batch->pluck('user_id')->map(fn ($id) => (int) $id)->all())
+                ->with('groups')
+                ->get();
+
+            // Every audience passes the chat gate first. A membership row outlives
+            // the permission behind it: a member whose `ramon-chat.use` was
+            // revoked, or who was suspended (flarum/suspend demotes their groups),
+            // still holds the row, and a direct channel's private messages kept
+            // reaching them.
+            $users = $users->filter(fn (User $user) => $visibility->usesChat($user));
+
+            // A tag-bound channel inherits the tag's `viewForum`, and a membership
+            // row outlives a permission change — so someone who joined before the
+            // category was restricted must not keep receiving pushes.
+            if (! $gateOnly) {
+                $users = $users->filter(fn (User $user) => $visibility->channelVisible($user, $channelId));
+            }
+
+            $ids = $users->map(fn (User $user) => (int) $user->id)->values();
+
+            if ($ids->isNotEmpty()) {
+                $send($ids);
+            }
+        });
     }
 
     /**
