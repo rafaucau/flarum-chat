@@ -670,6 +670,11 @@ class Channel extends AbstractModel
      * Recomputes the denormalised counters from the messages table. Used after
      * bulk operations (message moves, retention pruning, archiving) where
      * tracking increments incrementally would be error-prone.
+     *
+     * `user_count` counts visible members only, the same set MembershipManager
+     * keeps it to: a hidden member counted here made the card read one higher
+     * than the list for each observer, which is the presence joining hidden is
+     * meant to keep quiet.
      */
     public function refreshMetadata(): static
     {
@@ -681,7 +686,10 @@ class Channel extends AbstractModel
         $this->messages_count = $this->messages()->whereNull('deleted_at')->count();
         $this->last_message_id = $last?->id;
         $this->last_message_at = $last?->created_at;
-        $this->user_count = $this->memberships()->whereNull('left_at')->count();
+        $this->user_count = $this->memberships()
+            ->whereNull('left_at')
+            ->where('hidden', false)
+            ->count();
 
         return $this;
     }
