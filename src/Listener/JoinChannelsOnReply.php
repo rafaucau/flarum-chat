@@ -17,12 +17,9 @@ use Ramon\Chat\Service\MembershipManager;
 use Illuminate\Contracts\Events\Dispatcher as Events;
 
 /**
- * Subscribes a user to a channel when they reply to a discussion in the category
- * that channel is bound to, if the channel has `auto_join_on_reply` set.
- *
- * The point is to grow a channel from demonstrated interest instead of pushing it
- * on everyone: someone who takes part in a category gets its chat room in their
- * sidebar. Unlike `auto_join`, this only ever adds one user at a time.
+ * Inscreve o usuário no canal vinculado à categoria em que ele respondeu, se o
+ * canal tiver `auto_join_on_reply`. Diferente de `auto_join`, adiciona uma
+ * pessoa por vez, conforme o interesse demonstrado.
  */
 class JoinChannelsOnReply
 {
@@ -37,13 +34,12 @@ class JoinChannelsOnReply
         $post = $event->post;
         $actor = $event->actor;
 
-        // Posted::$actor is nullable — a post can be created by a background job
-        // or an import with no acting user.
+        // Posted::$actor pode ser null: job em segundo plano ou importação.
         if ($actor === null || ! $actor->exists) {
             return;
         }
 
-        // Guests aside, a user with no chat access should not be silently opted in.
+        // Quem não tem acesso ao chat não é inscrito em silêncio.
         if (! $actor->can('useChat')) {
             return;
         }
@@ -69,8 +65,7 @@ class JoinChannelsOnReply
             ->get();
 
         foreach ($channels as $channel) {
-            // Respect a deliberate departure: someone who left the channel should
-            // not be dragged back in every time they post in the category.
+            // Respeita a saída deliberada: quem saiu não volta a cada post na categoria.
             $everJoined = ChannelUser::query()
                 ->where('channel_id', $channel->id)
                 ->where('user_id', $actor->id)
@@ -80,8 +75,8 @@ class JoinChannelsOnReply
                 continue;
             }
 
-            // The channel inherits the tag's permissions, and a discussion can be
-            // visible to someone the channel is not — so check before joining.
+            // O canal herda as permissões da tag, e a discussão pode ser visível a quem
+            // o canal não é; checa antes de entrar.
             if (! Channel::whereVisibleTo($actor)->whereKey($channel->id)->exists()) {
                 continue;
             }
@@ -89,30 +84,26 @@ class JoinChannelsOnReply
             $this->memberships->join($channel, $actor);
             $channel->refreshMetadata()->save();
 
-            // `automatic`: the user replied to a discussion, they did not ask to be
-            // put in this channel. Announcing it would make a system row out of
-            // every first reply in the category.
+            // `automatic`: a pessoa respondeu, não pediu para entrar. Anunciar viraria
+            // uma linha de sistema a cada primeira resposta.
             $this->events->dispatch(new UserJoinedChannel($channel, $actor, $actor, automatic: true));
         }
     }
 
     /**
-     * The discussion's tag ids, including parents so a channel bound to a parent
-     * category also picks up replies in its children.
+     * Ids das tags da discussão, com as mães, para que um canal vinculado à mãe
+     * também pegue respostas nas filhas.
      *
      * @return int[]
      */
     protected function tagIdsFor(object $discussion): array
     {
-        // Not `method_exists($discussion, 'tags')`: flarum/tags adds the relation
-        // through Extend\Model, which registers it dynamically rather than
-        // declaring a method. method_exists() therefore returns false even though
-        // `$discussion->tags` resolves perfectly — which silently made this method
-        // return [] and the whole listener a no-op.
+        // Não `method_exists($discussion, 'tags')`: o flarum/tags registra a relação
+        // dinamicamente via Extend\Model, e method_exists() retorna false.
         try {
             $tags = $discussion->tags;
         } catch (\Throwable $e) {
-            // tags is not installed, or the relation is unavailable.
+            // flarum/tags ausente ou relação indisponível.
             return [];
         }
 

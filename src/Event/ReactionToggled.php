@@ -18,7 +18,7 @@ class ReactionToggled
         public Message $message,
         public User $actor,
         public string $emoji,
-        /** True when the reaction was added, false when it was removed. */
+        /** true se a reação foi adicionada, false se foi removida. */
         public bool $added
     ) {
     }

@@ -17,21 +17,14 @@ use Ramon\Chat\ChannelUser;
 use Ramon\Chat\Event\ChannelOwnershipTransferred;
 
 /**
- * Who gets the channel when the owner leaves.
+ * Quem fica com o canal quando o dono sai.
  *
- * The longest-serving moderator in the role (`moderator_since`; for roles
- * predating that column, the channel join date, and finally the membership
- * id) who can actually own channels. With none, the channel is left without an
- * owner: chat moderators and administrators stay in control, and an
- * administrator can hand it to someone through the transfer. The channel never
- * goes to an arbitrary member who was given no trust at all.
+ * O moderador mais antigo no papel (`moderator_since`, depois data de entrada,
+ * depois id) que possa ser dono. Sem nenhum, o canal fica sem dono; moderadores
+ * do chat e admins continuam no controle. Nunca vai para um membro qualquer.
  *
- * Only in "members" mode. In "administrators" mode owning grants nothing and
- * the moderator roles are off, so whoever created the channel stays recorded
- * as its creator.
- *
- * `settle()` writes inside the caller's transaction (the channel leave), and
- * `announce()` fires the events after the commit.
+ * Só no modo "membros". `settle()` grava na transação de quem chama (a saída) e
+ * `announce()` dispara os eventos após o commit.
  */
 class OwnershipSuccession
 {
@@ -43,7 +36,7 @@ class OwnershipSuccession
     }
 
     /**
-     * Passes the channel on if the one leaving is the owner. Null when they were not.
+     * Passa o canal adiante se quem sai é o dono. Null se não era.
      *
      * @return array{channel: Channel, previous: User, heir: User|null}|null
      */
@@ -81,8 +74,8 @@ class OwnershipSuccession
     }
 
     /**
-     * What comes after the commit: the pending transfer loses its meaning, and
-     * the room learns of the new owner as in an accepted transfer.
+     * Após o commit: a transferência pendente perde o sentido, e a sala fica
+     * sabendo do novo dono como numa transferência aceita.
      *
      * @param  array{channel: Channel, previous: User, heir: User|null}|null  $settled
      */
@@ -107,8 +100,8 @@ class OwnershipSuccession
     }
 
     /**
-     * Both steps in a transaction of their own, for whoever does not leave
-     * through the endpoint: a deleted or anonymized account.
+     * Os dois passos numa transação própria, para quem não sai pelo endpoint:
+     * conta apagada ou anonimizada.
      */
     public function handOver(Channel $channel, User $leaving, ?User $actor = null): void
     {
@@ -118,7 +111,7 @@ class OwnershipSuccession
     }
 
     /**
-     * All channels the account owns, for deletion and anonymization.
+     * Todos os canais da conta, para exclusão e anonimização.
      */
     public function handOverAll(User $leaving): void
     {
@@ -157,8 +150,8 @@ class OwnershipSuccession
     }
 
     /**
-     * The same yardstick as the transfer: without `manageOwnChannels` owning
-     * would be inert, and the heir would lose the moderator role for nothing.
+     * O mesmo critério da transferência: sem `manageOwnChannels`, ser dono não
+     * daria nada e o herdeiro perderia o papel de moderador à toa.
      */
     protected function mayOwn(User $user): bool
     {

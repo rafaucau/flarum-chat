@@ -15,17 +15,9 @@ use Flarum\Http\RequestUtil;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Content callback for every `/chat/*` route: 404 for anyone who cannot use the
- * chat.
- *
- * Without it these paths answer 200 and serve the forum shell, and the client then
- * renders an empty chat — a page that exists, looks broken, and tells a
- * logged-out visitor nothing. Flarum's own not-found page is the honest answer,
- * and it is what every other gated route on the forum gives.
- *
- * Applies to guests and to anyone whose group lacks `ramon-chat.use`; the
- * per-channel checks still happen at the API, so this is the outer gate rather
- * than the only one.
+ * Content callback das rotas `/chat/*`: 404 para quem não pode usar o chat,
+ * como as demais rotas restritas do Flarum. É só o portão externo; a API
+ * continua checando cada canal.
  */
 class RequireChatAccess
 {
@@ -33,10 +25,8 @@ class RequireChatAccess
     {
         $actor = RequestUtil::getActor($request);
 
-        // `can('useChat')`, not `hasPermissionLike('ramon-chat.use')`: the latter
-        // matches any permission merely *ending* in that string, and it bypassed
-        // GlobalPolicy — so this route and the `canUseChat` attribute the client
-        // reads were answering from two different gates.
+        // `can('useChat')` e não `hasPermissionLike()`: este casa qualquer permissão
+        // terminada no nome e ignora a GlobalPolicy, divergindo do `canUseChat` do cliente.
         if (! $actor->can('useChat')) {
             throw new RouteNotFoundException();
         }

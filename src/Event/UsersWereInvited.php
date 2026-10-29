@@ -14,12 +14,10 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelInvite;
 
 /**
- * One request's invites, after they were all created.
+ * Os convites de uma requisição, depois de todos criados.
  *
- * UserWasInvited still fires per invite, for the listeners that work person
- * by person. This one exists for whoever needs the batch as a whole — the
- * notification sync, which rebuilds the inviter's whole list each time and
- * would otherwise run once per person asked.
+ * UserWasInvited continua disparando por convite. Este serve à sincronização de
+ * notificações, que reconstrói a lista inteira e rodaria uma vez por convidado.
  */
 class UsersWereInvited
 {

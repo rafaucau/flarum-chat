@@ -17,19 +17,10 @@ use Flarum\User\User;
 use Ramon\Chat\Message;
 
 /**
- * "You were mentioned in a chat message."
+ * "Você foi mencionado em uma mensagem do chat."
  *
- * Mentions are the one chat event that earns an email, because they are directed
- * at a specific person rather than being ambient channel traffic.
- *
- * Not alertable, though: like ChatMessageBlueprint, this belongs in the chat's own
- * surfaces rather than in Flarum's bell. The chat already tracks mentions
- * separately from ordinary unreads — `unread_mentions_count` on the membership —
- * and draws them in their own colour on the header button and the sidebar, which
- * is a better place for them than a bell shared with every other extension.
- *
- * Email stays because it reaches you when the forum is closed, which no in-app
- * surface can.
+ * Só e-mail, não alerta: menções já têm contador e cor próprios no chat
+ * (`unread_mentions_count`). O e-mail alcança a pessoa com o fórum fechado.
  */
 class ChatMentionBlueprint implements BlueprintInterface, MailableInterface
 {
@@ -49,8 +40,7 @@ class ChatMentionBlueprint implements BlueprintInterface, MailableInterface
     }
 
     /**
-     * Carries enough to render the notification list entry without loading the
-     * channel — the list shows many notifications at once.
+     * Leva o suficiente para renderizar na lista sem carregar o canal.
      */
     public function getData(): array
     {
@@ -72,7 +62,7 @@ class ChatMentionBlueprint implements BlueprintInterface, MailableInterface
     }
 
     /**
-     * Flarum expects both views; NotificationMailer renders the pair.
+     * O Flarum espera as duas views; o NotificationMailer renderiza o par.
      */
     public function getEmailViews(): array
     {

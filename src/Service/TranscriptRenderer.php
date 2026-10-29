@@ -14,12 +14,8 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Message;
 
 /**
- * Renders a set of chat messages as a quotable transcript.
- *
- * Used by three features that all need the same output: "Quote in discussion",
- * "Copy", and channel archiving. Producing BBCode-ish markup that Flarum's
- * formatter already understands means the transcript renders inside a post
- * without a custom parser.
+ * Renderiza mensagens como transcrição citável, para "Citar na discussão",
+ * "Copiar" e o arquivamento. Usa markup que o formatter do Flarum já entende.
  */
 class TranscriptRenderer
 {
@@ -53,8 +49,7 @@ class TranscriptRenderer
 
             $timestamp = $message->created_at?->toIso8601String() ?? '';
 
-            // Each message becomes its own quote block so authorship stays
-            // attributable after the transcript is pasted somewhere else.
+            // Um bloco de citação por mensagem, para a autoria continuar clara depois de colada.
             $lines[] = '> **'.$this->escape($author).'** · '.$timestamp;
 
             foreach (preg_split('/\R/', (string) $message->content) as $contentLine) {
@@ -72,8 +67,7 @@ class TranscriptRenderer
     }
 
     /**
-     * Renders the plain-text form used by the "Copy" action, where markup would
-     * be noise on the clipboard.
+     * Forma em texto simples do "Copiar", onde markup seria ruído.
      *
      * @param  Collection<int, Message>|Message[]  $messages
      */
@@ -96,8 +90,8 @@ class TranscriptRenderer
     }
 
     /**
-     * Markdown/BBCode control characters that would otherwise let a display name
-     * break out of the quote structure.
+     * Caracteres de controle de Markdown/BBCode que deixariam um nome exibido
+     * escapar da estrutura da citação.
      */
     protected function escape(string $value): string
     {

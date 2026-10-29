@@ -15,8 +15,7 @@ class PruneChatSchedule
 {
     public function __invoke(Event $event): void
     {
-        // Retention is housekeeping: nightly is frequent enough, and 03:30
-        // keeps a destructive job away from peak traffic.
+        // 03:30 mantém um job destrutivo longe do horário de pico.
         $event->daily()->at('03:30');
     }
 }

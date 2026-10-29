@@ -27,43 +27,30 @@ use Ramon\Chat\Event\ChannelWasArchived;
 use Ramon\Chat\Message;
 
 /**
- * Archives a channel by copying its transcript into a discussion.
+ * Arquiva um canal copiando a transcrição para uma discussão. Não é destrutivo:
+ * o canal continua legível e as mensagens ficam.
  *
- * Archiving is non-destructive: the channel stays readable and its messages are
- * left in place. What changes is that the conversation now also exists as a
- * durable, searchable discussion — which is the point of the feature.
+ * Publicar é postar: a transcrição sai em nome de quem arquiva, então exige o
+ * que ele poderia postar à mão (`reply`, que respeita o lock; `startDiscussion`
+ * na categoria; janela de flood; sem precisar de aprovação no flarum/approval,
+ * já que não passa pelos endpoints de post). Também não pode ampliar a
+ * audiência: canal privado só um admin publica, e canal de categoria restrita só
+ * vai para discussão com essa categoria.
  *
- * ## Publishing is posting
- *
- * The transcript lands in the forum under the archiving user's name, so it is held
- * to what that user could post by hand: replying needs `reply` on the discussion
- * (which is where a lock is enforced), starting one needs `startDiscussion` in the
- * channel's category, the post flood window applies, and on a forum with
- * flarum/approval the content must not need approval — the transcript is written
- * here, not through the post endpoints that would hold it for review.
- *
- * It must also not widen the audience. A private channel is invitation-only and no
- * discussion is, so only an administrator may publish one. A channel on a
- * restricted category may only go into a discussion that carries that category.
- *
- * Posts are built here rather than through core's PostResource: a large channel
- * becomes several posts at once, which the API's own flood control would refuse
- * after the first. The work is bounded instead — see MAX_MESSAGES. Administrators
- * are exempt from all of this: they are the forum's final say, and archiving a
- * large room is a job for them.
+ * Os posts são montados aqui, não pelo PostResource: um canal grande vira vários
+ * posts, que o flood control da API recusaria. O trabalho é limitado por
+ * MAX_MESSAGES. Admins ficam isentos de tudo isso.
  */
 class ChannelArchiver
 {
     /**
-     * Messages per post. A channel with tens of thousands of messages cannot
-     * become one post, so the transcript is chunked across replies.
+     * Mensagens por post: canal com dezenas de milhares de mensagens é dividido em respostas.
      */
     protected const MESSAGES_PER_POST = 200;
 
     /**
-     * The most messages a non-administrator may archive. The transcript is
-     * rendered inside the request, so this keeps one click from being minutes of
-     * work; a larger room is an administrator's to archive.
+     * Máximo de mensagens que um não-admin arquiva. A transcrição é gerada na
+     * requisição; canais maiores ficam para um admin.
      */
     public const MAX_MESSAGES = 500;
 
@@ -76,7 +63,7 @@ class ChannelArchiver
     }
 
     /**
-     * @param  int|null  $discussionId  Append to this discussion; null creates one.
+     * @param  int|null  $discussionId  discussão a complementar; null cria uma
      *
      * @throws ValidationException
      */
@@ -112,20 +99,17 @@ class ChannelArchiver
             $discussion = $existing ?? Discussion::start($title, $actor);
 
             if ($existing === null) {
-                // A tag-bound channel archives into its own category so the
-                // transcript lands where the conversation belonged.
+                // Canal de tag arquiva na própria categoria, onde a conversa pertencia.
                 $discussion->save();
 
-                // Not `method_exists($discussion, 'tags')`: flarum/tags registers
-                // the relation through Extend\Model rather than declaring a method,
-                // so that test is false even when tags is enabled — which quietly
-                // filed every archive under no category at all.
+                // Não `method_exists($discussion, 'tags')`: o flarum/tags registra a relação
+                // dinamicamente via Extend\Model, e o teste dá false mesmo com tags ativo.
                 if ($channel->tag_id !== null && $this->extensions->isEnabled('flarum-tags')) {
                     $discussion->tags()->sync([$channel->tag_id]);
                 }
 
-                // Asked of the saved, tagged discussion because that is the shape
-                // the ability takes; throwing here rolls the discussion back.
+                // Perguntado à discussão já salva e com tags, que é o formato da ability;
+                // lançar aqui desfaz a discussão.
                 if (! $actor->isAdmin()) {
                     $this->assertWithoutApproval($actor, 'startWithoutApproval', $discussion);
                 }
@@ -134,14 +118,12 @@ class ChannelArchiver
             $chunks = $this->chunks($channel);
 
             if ($chunks === []) {
-                // Still record an archive marker: an empty channel that was
-                // archived should not silently look un-archived.
+                // Grava o marcador mesmo assim: canal vazio arquivado não pode parecer não arquivado.
                 $chunks = [$this->translator->trans('ramon-chat.api.archive_empty')];
             }
 
-            // Flarum 2 dropped CommentPost::reply(); posts are built by hand.
-            // Post::boot() assigns `type` and the per-discussion `number`, so
-            // only the content and ownership need setting here.
+            // O Flarum 2 removeu CommentPost::reply(). Post::boot() define `type` e o
+            // `number`; aqui só conteúdo e autoria.
             $isFirst = $existing === null;
 
             foreach ($chunks as $body) {
@@ -176,16 +158,11 @@ class ChannelArchiver
     }
 
     /**
-     * Takes a channel out of the archive, closed.
+     * Tira o canal do arquivo, fechado: desfazer o arquivamento não significa
+     * reabrir, que é mais um clique deliberado.
      *
-     * Closed rather than open: whoever undoes an archive has not necessarily
-     * decided the room should take messages again, and reopening is one more
-     * deliberate click from there.
-     *
-     * The archive stamps are cleared, the discussion link included. The
-     * transcript stays in the forum as an ordinary discussion; what goes is the
-     * channel's claim to be archived, which the archive action keys on, and a
-     * channel archived again later gets a link to its new transcript.
+     * As marcas de arquivo saem, inclusive o link da discussão. A transcrição fica
+     * no fórum como discussão comum; um novo arquivamento ganha link novo.
      */
     public function unarchive(Channel $channel, User $actor): Channel
     {
@@ -203,7 +180,7 @@ class ChannelArchiver
     }
 
     /**
-     * The checks the class docblock lists, for a non-administrator.
+     * As checagens do docblock da classe, para um não-admin.
      *
      * @throws ValidationException
      */
@@ -242,9 +219,7 @@ class ChannelArchiver
             $actor->assertCan('startDiscussion');
         }
 
-        // O chat fechado a visitantes não vira, arquivado, uma discussão que
-        // visitantes leem: a transcrição levaria a conversa a quem nunca pôde
-        // entrar nela.
+        // Chat fechado a visitantes não vira, arquivado, discussão que visitantes leem.
         $guest = new Guest();
 
         if (! $guest->hasPermission('ramon-chat.use') && $this->guestReads($guest, $existing, $tag)) {
@@ -292,9 +267,8 @@ class ChannelArchiver
     }
 
     /**
-     * flarum/approval holds back content from accounts it does not trust yet, but
-     * only content made through the post endpoints. What it would hold back is
-     * refused here instead of being published unreviewed.
+     * O flarum/approval só segura conteúdo feito pelos endpoints de post. O que ele
+     * seguraria é recusado aqui, em vez de publicado sem revisão.
      *
      * @throws ValidationException
      */
@@ -312,8 +286,8 @@ class ChannelArchiver
     }
 
     /**
-     * The channel's category and its parent, where either is restricted: what a
-     * reader of the channel is known to hold and a forum visitor is not.
+     * A categoria do canal e a mãe, quando restritas: o que o leitor do canal tem
+     * garantido e um visitante não.
      *
      * @return int[]
      */
@@ -335,7 +309,7 @@ class ChannelArchiver
     }
 
     /**
-     * @return string[] Rendered transcript bodies, in chronological order.
+     * @return string[] corpos da transcrição, em ordem cronológica
      */
     protected function chunks(Channel $channel): array
     {

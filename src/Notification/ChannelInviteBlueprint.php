@@ -16,21 +16,14 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * "X invited you to a channel", with accept and decline on the row.
+ * "X convidou você para um canal", com aceitar e recusar na própria linha.
  *
- * The only way into a private channel is for someone with `manageMembers` to
- * ask you in, and this is the asking: nothing is joined until the invitee says
- * yes. The row is kept in step with the invite table by Listener\NotifyInvitations,
- * so once the invite is answered or withdrawn it leaves the bell.
- *
- * Not mailable. Being asked into a chat room is not urgent enough to interrupt
- * someone's inbox, and the alert is seen the next time they look at the forum.
+ * Nada é feito até o convidado aceitar. Listener\NotifyInvitations mantém a
+ * notificação em sincronia com os convites. Sem e-mail: convite não é urgente.
  */
 /*
- * AlertableInterface is a marker with no methods, and it is easy to leave off —
- * but Flarum's AlertNotificationDriver checks for it before queueing anything, so
- * without it the notification is dropped in silence: no row, no error. That is why
- * the bell never showed chat activity.
+ * AlertableInterface não tem métodos, mas o AlertNotificationDriver do Flarum
+ * exige a interface; sem ela a notificação some em silêncio.
  */
 class ChannelInviteBlueprint implements AlertableInterface, BlueprintInterface
 {
@@ -51,10 +44,8 @@ class ChannelInviteBlueprint implements AlertableInterface, BlueprintInterface
     }
 
     /**
-     * The name is carried rather than looked up when the list renders: a private
-     * channel is only visible to members, and the notification list is rendered
-     * with a serialiser that would rightly refuse to load it for anyone who has
-     * since left.
+     * O nome vai junto porque canal privado só é visível a membros, e quem saiu
+     * não conseguiria carregá-lo na lista de notificações.
      */
     public function getData(): array
     {

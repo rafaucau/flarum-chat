@@ -22,28 +22,18 @@ use Ramon\Chat\Storage\UploadStorage;
 use Ramon\Chat\Upload;
 
 /**
- * Decides which disk an attachment lives on, and moves it there.
+ * Decide em que disco um anexo fica e o move para lá.
  *
- * The chat has two disks. `chat` is under `public/assets/chat`, served by the web
- * server with nothing in front of it: fine for a channel anyone can read, and the
- * cheapest way to deliver a picture. `chat-private` is under `storage`, outside
- * the webroot, reachable only through ServeUploadController — which asks the
- * upload's visibility scope before it streams a byte.
+ * `chat` fica em `public/assets/chat`, servido direto pelo servidor web.
+ * `chat-private` fica em `storage`, fora do webroot, e só sai pelo
+ * ServeUploadController, que checa a visibilidade do upload. Anexo de canal
+ * privado ou DM precisa estar no segundo, senão qualquer um com a URL o baixa.
  *
- * A private channel's attachment has to be on the second disk, or the channel is
- * private in name only: anyone holding the URL, which after one screenshot is
- * anyone at all, could fetch the file with no session. The same goes for a direct
- * conversation, which is private by construction.
+ * Com o fof/upload, arquivos públicos ficam no bucket (ver Storage\UploadStorage);
+ * privados nunca, então privatizar também traz os bytes de volta.
  *
- * When fof/upload is the configured storage, public files live in its bucket
- * instead of on `chat` (see Storage\UploadStorage). Private files never do: a
- * bucket is public by design. So making a file private also means bringing its
- * bytes home, which privatize() does.
- *
- * Privacy is one-way. A channel that is made public later keeps its existing
- * attachments on the private disk; they are still served, just through the
- * controller. Moving them back out would republish files people posted under a
- * different promise.
+ * Privacidade é de mão única: canal que volta a ser público mantém os anexos
+ * no disco privado, para não republicar o que foi postado sob outra promessa.
  */
 class UploadPrivacy
 {
@@ -51,9 +41,8 @@ class UploadPrivacy
     public const PRIVATE_DISK = 'chat-private';
 
     /**
-     * flarum/tags nests two levels deep. The bound is there for a corrupted
-     * hierarchy that loops, which is treated as restricted rather than walked
-     * forever.
+     * O flarum/tags tem dois níveis. O limite é para hierarquia corrompida em
+     * loop, tratada como restrita.
      */
     protected const MAX_TAG_DEPTH = 8;
 
@@ -66,13 +55,8 @@ class UploadPrivacy
     }
 
     /**
-     * Whether attachments posted in this channel must be on the private disk.
-     *
-     * Three kinds of channel are not readable by the world: a direct
-     * conversation, a channel marked private, and a channel bound to a restricted
-     * tag — the last one is what the README means by "a private category produces
-     * a private channel", and its pictures are no less private for having been
-     * restricted by the tag rather than by the channel.
+     * Se os anexos deste canal precisam ficar no disco privado: DM, canal privado
+     * ou canal vinculado a tag restrita.
      */
     public static function requiredFor(Channel $channel): bool
     {
@@ -84,16 +68,14 @@ class UploadPrivacy
             return false;
         }
 
-        // Null when flarum/tags is not enabled, in which case a tag id on the row
-        // is a leftover and restricts nothing.
+        // Null sem o flarum/tags; aí um tag id na linha é resto e não restringe nada.
         $relation = $channel->tag();
 
         if ($relation === null) {
             return false;
         }
 
-        // A relation loaded before the channel was rebound to another tag would
-        // answer for the old one.
+        // Relação carregada antes de trocar a tag responderia pela antiga.
         $loaded = $channel->relationLoaded('tag') ? $channel->getRelation('tag') : null;
         $tag = $loaded !== null && (int) $loaded->getKey() === (int) $channel->tag_id
             ? $loaded
@@ -103,13 +85,11 @@ class UploadPrivacy
     }
 
     /**
-     * Whether a tag, or any tag above it, is restricted.
+     * Se a tag, ou alguma acima dela, é restrita.
      *
-     * flarum/tags hides a child whose parent the reader cannot see, so an
-     * unrestricted child of a restricted parent is no more public than the
-     * parent. A tag that is missing — the bound one deleted, or a parent gone
-     * from under its child — counts as restricted: the channel is hidden from
-     * everyone but admins then, and its files must not be readable by URL.
+     * O flarum/tags esconde filha de mãe invisível, então a filha não é mais
+     * pública que a mãe. Tag ausente (apagada) conta como restrita: o canal só
+     * aparece para admins, e os arquivos não podem ficar legíveis pela URL.
      */
     public static function tagIsRestricted(?AbstractModel $tag): bool
     {
@@ -138,19 +118,15 @@ class UploadPrivacy
     }
 
     /**
-     * Moves the file off the public disk and flags the row. The file goes first:
-     * if the row flips and the move fails, the URL 404s, which is a broken image
-     * and not a leak; the other order leaves a public file behind a private URL.
+     * Move o arquivo para fora do disco público e marca a linha, nessa ordem: se a
+     * movimentação falhar, a URL dá 404 (imagem quebrada, não vazamento).
      *
-     * A file on fof/upload goes the other way round. Its public URL lives in the
-     * bucket, outside anything this code can take down quickly, so the row flips
-     * first: from that moment Upload::url() hands out the controller route and
-     * no new copy of the bucket URL leaves the forum. Then the bytes are pulled
-     * onto the private disk and the remote copy is deleted. A row that is
-     * already private but still remote is one of those moves left unfinished,
-     * and is finished here.
+     * No fof/upload é o contrário: a URL pública está no bucket, então a linha muda
+     * antes e o Upload::url() passa a dar a rota do controller; depois os bytes vêm
+     * para o disco privado e a cópia remota é apagada. Linha privada ainda remota é
+     * movimentação inacabada, concluída aqui.
      *
-     * @throws \RuntimeException when the file cannot be moved.
+     * @throws \RuntimeException quando o arquivo não pode ser movido
      */
     public function privatize(Upload $upload): void
     {
@@ -176,10 +152,10 @@ class UploadPrivacy
     }
 
     /**
-     * Every attachment of the given messages that is still public.
+     * Os anexos ainda públicos das mensagens dadas.
      *
      * @param  int[]  $messageIds
-     * @return int How many were moved.
+     * @return int quantos foram movidos
      */
     public function privatizeMessages(array $messageIds): int
     {
@@ -198,11 +174,11 @@ class UploadPrivacy
     }
 
     /**
-     * The given rows, whatever channel they belong to. For callers that found
-     * them by something other than a message or a channel.
+     * As linhas dadas, de qualquer canal, para quem as achou por outro caminho
+     * que não mensagem ou canal.
      *
      * @param  iterable<Upload>  $uploads
-     * @return int How many were moved.
+     * @return int quantos foram movidos
      */
     public function privatizeUploads(iterable $uploads): int
     {
@@ -210,20 +186,18 @@ class UploadPrivacy
     }
 
     /**
-     * Every public attachment in a channel, for when a channel becomes private
-     * after the fact. Chunked: a busy room can hold thousands.
+     * Todos os anexos públicos de um canal que ficou privado. Em chunks: um canal
+     * movimentado pode ter milhares.
      *
-     * @return int How many were moved.
+     * @return int quantos foram movidos
      */
     public function privatizeChannel(Channel $channel): int
     {
         $moved = 0;
 
-        // Files on fof/upload are flagged here, in this request, so none of them
-        // is handed out by its bucket URL again; the bytes follow in a job,
-        // because each is a download and an upload and a busy room's history
-        // does not fit in one request. Flagged first, so the local pass below
-        // does not see them.
+        // Arquivos do fof/upload são marcados aqui, para a URL do bucket não sair
+        // de novo; os bytes vêm num job, pois cada um é download e upload. Marcados
+        // antes para a passada local abaixo não os pegar.
         $remote = Upload::query()
             ->where('storage', Upload::STORAGE_FOF)
             ->where('is_private', false)
@@ -245,11 +219,10 @@ class UploadPrivacy
     }
 
     /**
-     * The job's half of privatizeChannel(): every file in the channel that is
-     * flagged private but whose bytes are still on fof/upload. Safe to run again;
-     * a file already pulled back is local and no longer matches.
+     * A metade do job de privatizeChannel(): arquivos marcados privados ainda no
+     * fof/upload. Pode rodar de novo; o que já voltou é local e não casa.
      *
-     * @return array{0: int, 1: int} How many were moved, and how many were found.
+     * @return array{0: int, 1: int} quantos foram movidos e quantos encontrados
      */
     public function pullRemoteInChannel(int $channelId): array
     {
@@ -269,10 +242,9 @@ class UploadPrivacy
     }
 
     /**
-     * Pushed, not run: on Flarum's default sync queue that is the same thing,
-     * and on a real queue it takes the downloads off the request. A failure to
-     * push is logged rather than thrown — the rows are already flagged, so
-     * nothing is handed out publicly, and a channel edit must not fail on it.
+     * Enfileirado, não executado: na fila sync padrão dá no mesmo, e numa fila de
+     * verdade tira os downloads da requisição. Falha ao enfileirar só é logada;
+     * as linhas já estão marcadas, e editar o canal não pode falhar por isso.
      */
     protected function queueRemote(int $channelId): void
     {
@@ -287,13 +259,12 @@ class UploadPrivacy
     }
 
     /**
-     * Copies a remote file onto the private disk under a fresh local path, then
-     * deletes the remote copy, then points the row at the local one.
+     * Copia o arquivo remoto para o disco privado num caminho novo, apaga a cópia
+     * remota e aponta a linha para a local.
      *
-     * If the remote copy will not go, the local copy is removed again and the
-     * row is left as it was — private, still remote — so the next attempt starts
-     * from the same place. Recording the move anyway would leave a public copy
-     * in the bucket that no row points at and nothing would ever clean up.
+     * Se a remota não sair, a local é removida e a linha fica como estava, para a
+     * próxima tentativa recomeçar do mesmo ponto. Gravar mesmo assim deixaria uma
+     * cópia pública no bucket sem dono.
      */
     protected function pullRemote(Upload $upload): void
     {
@@ -334,10 +305,9 @@ class UploadPrivacy
     }
 
     /**
-     * Best effort over a set: one file that will not move must not leave the
-     * rest published. The failure is logged at error level, because a file that
-     * stayed public in a private channel is exactly what an operator needs to
-     * hear about.
+     * Melhor esforço: um arquivo que não move não pode deixar o resto publicado. A
+     * falha é logada como error, pois arquivo público em canal privado é o que o
+     * operador precisa saber.
      *
      * @param  iterable<Upload>  $uploads
      */
@@ -367,8 +337,7 @@ class UploadPrivacy
         $to = $this->filesystem->disk(self::PRIVATE_DISK);
 
         if (! $from->exists($path)) {
-            // Already moved, or never written. Either way there is nothing public
-            // to take down, and the row may still be flagged.
+            // Já movido ou nunca gravado: nada público a tirar, e a linha pode ainda estar marcada.
             if (! $to->exists($path)) {
                 $this->log->warning('[ramon-chat] upload file missing from both disks', ['path' => $path]);
             }
@@ -382,7 +351,7 @@ class UploadPrivacy
             throw new \RuntimeException("Could not read {$path} from the public chat disk.");
         }
 
-        // Flysystem reads from the handle and leaves closing it to the caller.
+        // O Flysystem lê do handle e deixa fechá-lo para quem chamou.
         try {
             $written = $to->writeStream($path, $stream);
         } finally {

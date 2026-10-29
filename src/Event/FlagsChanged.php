@@ -12,12 +12,10 @@ namespace Ramon\Chat\Event;
 use Flarum\User\User;
 
 /**
- * The moderation queue moved: a report was filed, or one or more were closed.
+ * A fila de moderação mudou: denúncia aberta ou fechada.
  *
- * Carries no flag: what each moderator counts depends on which messages they
- * can see, so whoever needs the number asks for their own. It does name the
- * messages whose reports changed, so a moderator already looking at one can
- * see it marked or cleared.
+ * Não leva contagem: cada moderador vê mensagens diferentes e calcula a sua.
+ * Leva os ids das mensagens afetadas, para quem já está vendo uma atualizá-la.
  */
 class FlagsChanged
 {

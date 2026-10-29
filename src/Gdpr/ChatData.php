@@ -27,24 +27,14 @@ use Ramon\Chat\ThreadUser;
 use Ramon\Chat\Upload;
 
 /**
- * The chat's contribution to flarum/gdpr's export and erasure.
+ * A parte do chat na exportação e no apagamento do flarum/gdpr.
  *
- * Registered through `Flarum\Gdpr\Extend\UserData`, behind a Conditional so the
- * class is only loaded when the extension is enabled — its parent lives in
- * flarum/gdpr, and referencing it unconditionally would fatal on a forum without it.
+ * Registrado via `UserData` dentro de um Conditional: a classe-mãe é do
+ * flarum/gdpr e daria fatal sem ele.
  *
- * ## What anonymising means here, and why it is not deletion
- *
- * A chat is a conversation. Deleting one participant's lines leaves everyone else's
- * replies answering nothing, which damages other people's records to satisfy one
- * person's request. Anonymising therefore detaches authorship — `user_id` becomes
- * null, which the schema already allows for system messages — and leaves the text
- * in place. Deletion is the stronger request and does remove the messages; that is
- * the user's choice to make, and flarum/gdpr presents both.
- *
- * Uploads are removed in both cases: a file is personal data in a way a sentence in
- * a shared conversation is not, and an orphaned attachment under someone else's
- * reply serves nobody.
+ * Anonimizar desvincula a autoria (`user_id` null) e mantém o texto, para não
+ * deixar as respostas dos outros sem contexto; apagar remove as mensagens. Os
+ * uploads saem nos dois casos.
  */
 class ChatData extends Type
 {
@@ -54,9 +44,8 @@ class ChatData extends Type
     }
 
     /**
-     * Overridden because the base builds its key from the type name and looks it up
-     * under `flarum-gdpr.lib.data.*`, where a third-party type has no entry. Ours
-     * live in our own locale file.
+     * Sobrescrito porque a base procura a chave em `flarum-gdpr.lib.data.*`, onde
+     * um tipo de terceiro não existe; as nossas ficam no locale do chat.
      */
     public static function exportDescription(): string
     {
@@ -74,9 +63,8 @@ class ChatData extends Type
     }
 
     /**
-     * Keys of the exported files that carry what the user wrote or named:
-     * message text and its earlier versions, attachment names, bookmark names
-     * and the free text of a report.
+     * Arquivos exportados com o que o usuário escreveu ou nomeou: texto e versões
+     * anteriores, nomes de anexos e de favoritos e o texto livre das denúncias.
      */
     public static function piiFields(): array
     {
@@ -88,10 +76,9 @@ class ChatData extends Type
         $exportData = [];
         $userId = (int) $this->user->id;
 
-        // Only what this user wrote. `whereVisibleTo` is deliberately not applied:
-        // an export is of *their* data, and a message they wrote in a channel they
-        // have since left is still theirs. Earlier versions go with it when they
-        // made the edit themselves; a moderator's edit is the moderator's record.
+        // Só o que o usuário escreveu, sem `whereVisibleTo`: mensagem em canal de onde
+        // ele saiu continua sendo dele. Versões antigas só se a edição foi dele; a de
+        // um moderador é registro do moderador.
         Message::query()
             ->where('user_id', $userId)
             ->where('type', Message::TYPE_TEXT)
@@ -125,8 +112,7 @@ class ChatData extends Type
                 ];
             });
 
-        // Channel membership is personal data in its own right: which rooms someone
-        // was in says something about them even with no message attached.
+        // Participar de um canal já é dado pessoal, mesmo sem mensagem.
         $memberships = ChannelUser::query()
             ->where('user_id', $userId)
             ->with('channel')
@@ -143,8 +129,8 @@ class ChatData extends Type
             $exportData[] = ['chat/channels.json' => $this->encodeForExport($memberships)];
         }
 
-        // The ranks the channels' owners gave them. Labels about this person,
-        // so theirs to see; who gave them, and the rank's settings, are not.
+        // Cargos dados pelos donos: rótulos sobre a pessoa, então ela pode ver; quem
+        // deu e as configurações do cargo, não.
         $ranks = ChannelRankUser::query()
             ->where('user_id', $userId)
             ->with(['rank', 'channel'])
@@ -179,8 +165,8 @@ class ChatData extends Type
             $exportData[] = ['chat/bookmarks.json' => $this->encodeForExport($bookmarks)];
         }
 
-        // Reports this user filed, in their own words. Reports filed about them,
-        // and how a moderator resolved any of them, belong to the moderators.
+        // Denúncias feitas por ele, nas palavras dele. As feitas sobre ele e as
+        // resoluções pertencem aos moderadores.
         $flags = MessageFlag::query()
             ->where('user_id', $userId)
             ->orderBy('id')
@@ -203,14 +189,13 @@ class ChatData extends Type
 
     public function anonymize(): void
     {
-        // Authorship goes, the conversation stays legible. Reactions and drafts are
-        // removed outright — neither has any value once detached from its author.
+        // Autoria sai, conversa fica legível. Reações e rascunhos saem de vez: sem o
+        // autor não valem nada.
         Message::query()
             ->where('user_id', $this->user->id)
             ->update(['user_id' => null]);
 
-        // A report stays a moderation record, but no longer says who filed it or
-        // in what words.
+        // A denúncia continua como registro, mas sem quem a fez nem o texto.
         MessageFlag::query()
             ->where('user_id', $this->user->id)
             ->update(['user_id' => null, 'detail' => null]);
@@ -221,8 +206,7 @@ class ChatData extends Type
 
     public function delete(): void
     {
-        // Attachments first: the rows are what point at the stored files, and a
-        // cascade would take them away before anything could clean up.
+        // Anexos antes: as linhas apontam para os arquivos, e o cascade as levaria.
         $this->deleteUploads();
 
         Message::query()->where('user_id', $this->user->id)->delete();
@@ -233,10 +217,9 @@ class ChatData extends Type
     }
 
     /**
-     * What stays on rows that are not this user's: their name in the stream's
-     * narration ("X joined", "X added Y", the announcement of their discussion),
-     * and their id as the editor of someone else's message or the resolver of a
-     * report. The rows stay; the name and the id go.
+     * O que fica em linhas de outros: o nome na narração ("X entrou", "X adicionou
+     * Y", o anúncio da discussão) e o id como editor ou resolvedor de denúncia. As
+     * linhas ficam; nome e id saem.
      */
     protected function detachFromOthersRecords(): void
     {
@@ -252,13 +235,11 @@ class ChatData extends Type
     }
 
     /**
-     * System and bot messages snapshot a display name into `system_data`, not an
-     * id — the narration has to read the same after a rename. So the name is
-     * what is matched: the username and the display name as they are now, before
-     * flarum/gdpr renames the account (its own type runs last).
+     * Mensagens de sistema e de bot guardam o nome exibido em `system_data`, não o
+     * id, para ler igual após renomear. Por isso casa pelo nome atual, antes de o
+     * flarum/gdpr renomear a conta (o tipo dele roda por último).
      *
-     * The query narrows by a fragment of the stored JSON; the comparison that
-     * decides is the exact one in PHP, so a loose fragment only costs time.
+     * A consulta filtra por um trecho do JSON; quem decide é a comparação exata no PHP.
      */
     protected function scrubNarration(): void
     {
@@ -321,10 +302,9 @@ class ChatData extends Type
     }
 
     /**
-     * The longest run of the name, as it sits inside stored JSON, that contains
-     * no backslash: JSON escapes non-ASCII and slashes, and a backslash is an
-     * escape character in some databases' LIKE. Null when no run is long enough
-     * to narrow anything, in which case every narration row is checked.
+     * O maior trecho do nome, como fica no JSON, sem barra invertida: o JSON escapa
+     * não-ASCII e barras, e a barra é escape no LIKE de alguns bancos. Null se
+     * nenhum trecho filtra o suficiente; aí toda narração é checada.
      */
     protected function likeFragment(string $name): ?string
     {
@@ -335,8 +315,7 @@ class ChatData extends Type
     }
 
     /**
-     * The name flarum/gdpr gives the account, so the narration matches the
-     * profile it now links to.
+     * O nome que o flarum/gdpr dá à conta, para a narração bater com o perfil.
      */
     protected function anonymousName(): string
     {
@@ -346,15 +325,13 @@ class ChatData extends Type
     }
 
     /**
-     * Reactions, drafts, bookmarks, memberships, read state and uploads:
-     * everything that is only ever about this one user.
+     * Reações, rascunhos, favoritos, memberships, leitura e uploads: o que é só
+     * deste usuário.
      */
     protected function purgeIncidentals(): void
     {
-        // Channels this account owns go to their oldest moderator first, the
-        // same succession as leaving them, before the memberships it would
-        // read are deleted below. Resolved here for the reason deleteUploads
-        // gives: the gdpr base type owns the constructor.
+        // Canais dele passam ao moderador mais antigo, como ao sair, antes de as
+        // memberships serem apagadas. Resolvido aqui porque o construtor é da base do gdpr.
         resolve(OwnershipSuccession::class)->handOverAll($this->user);
 
         $this->deleteUploads();
@@ -367,8 +344,7 @@ class ChatData extends Type
         ChannelRankUser::query()->where('user_id', $this->user->id)->delete();
         ChannelInvite::query()->where('user_id', $this->user->id)->delete();
 
-        // Pending ownership handovers either side of: an offer to someone who
-        // is no longer there, or from them, has nobody left to answer it.
+        // Transferências pendentes em qualquer direção ficam sem ninguém para responder.
         ChannelTransfer::query()
             ->where('from_user_id', $this->user->id)
             ->orWhere('to_user_id', $this->user->id)
@@ -377,18 +353,15 @@ class ChatData extends Type
 
     protected function deleteUploads(): void
     {
-        // Resolved here rather than injected: the gdpr base type owns the
-        // constructor. The resolver knows whether a file is on the chat's disks
-        // or on fof/upload, which the row alone cannot reach.
+        // Resolvido aqui, não injetado: o construtor é da base do gdpr. O resolver sabe
+        // se o arquivo está nos discos do chat ou no fof/upload.
         $storage = resolve(UploadStorage::class);
 
         Upload::query()
             ->where('user_id', $this->user->id)
             ->each(function (Upload $upload) use ($storage) {
-                // Best effort on the stored file, logged by the resolver when it
-                // fails. A missing or unreadable file must not stop the erasure:
-                // removing the row is what matters legally, and an exception here
-                // would abort the whole request.
+                // Melhor esforço no arquivo; o resolver loga a falha. Remover a linha é o que
+                // importa legalmente, e uma exceção abortaria a requisição inteira.
                 $storage->delete($upload);
 
                 $upload->delete();

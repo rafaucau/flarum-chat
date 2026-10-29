@@ -16,16 +16,10 @@ use Ramon\Chat\Event\MessageWasDeleted;
 use Ramon\Chat\MessageFlag;
 
 /**
- * Closes the open reports about a message once it is deleted.
+ * Fecha as denúncias abertas de uma mensagem quando ela é apagada: a exclusão
+ * é a resolução.
  *
- * Without this the queue keeps showing work already done: a moderator deletes the
- * offending message and the report about it stays open, so the next moderator opens
- * a tombstone and has to work out whether anyone dealt with it. The deletion *is*
- * the resolution.
- *
- * The rows are marked, not removed. A message reported by five people and deleted
- * is part of that author's history, and history that disappears when the evidence
- * does is not history.
+ * As linhas são marcadas, não removidas: fazem parte do histórico do autor.
  */
 class ResolveFlagsOnModeration
 {
@@ -41,14 +35,13 @@ class ResolveFlagsOnModeration
             ->whereNull('resolved_at')
             ->update([
                 'resolved_at'    => Carbon::now(),
-                // Null when the deletion came from somewhere without an actor —
-                // retention pruning, for one. The report is still closed; it just
-                // has nobody to attribute the decision to.
+                // Null quando a exclusão não tem ator (ex.: retenção). A denúncia fecha
+                // mesmo assim, sem a quem atribuir.
                 'resolved_by_id' => $event->actor?->id,
             ]);
 
-        // Most deletions close nothing, and those must not cost every
-        // moderator a recount.
+        // A maioria das exclusões não fecha nada e não deve custar recontagem a
+        // cada moderador.
         if ($closed > 0) {
             $this->events->dispatch(new FlagsChanged($event->actor, [(int) $event->message->id]));
         }

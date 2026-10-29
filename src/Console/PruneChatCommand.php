@@ -22,16 +22,13 @@ use Ramon\Chat\Thread;
 use Ramon\Chat\Upload;
 
 /**
- * Enforces message retention and sweeps orphaned uploads.
- *
- * Scheduled nightly (see extend.php). Destructive by design — retention means
- * deletion — so it supports --dry-run and reports counts before acting.
+ * Aplica a retenção de mensagens e remove uploads órfãos. Roda toda noite; é
+ * destrutivo por natureza, por isso tem --dry-run.
  */
 class PruneChatCommand extends AbstractCommand
 {
     /**
-     * Orphaned uploads younger than this are left alone: a composer session may
-     * still be open with the attachment pending.
+     * Órfãos mais novos que isso ficam: o composer pode estar aberto com o anexo pendente.
      */
     protected const ORPHAN_GRACE_HOURS = 24;
 
@@ -69,16 +66,14 @@ class PruneChatCommand extends AbstractCommand
 
         $uploadsDeleted = $this->pruneOrphanedUploads($dryRun);
 
-        // Counters are derived from the messages table, so every channel that lost
-        // messages needs rebuilding — otherwise its list entry keeps showing a
-        // last message that no longer exists.
+        // Contadores derivam da tabela de mensagens; sem recalcular, a lista
+        // mostraria uma última mensagem que não existe mais.
         if (! $dryRun && $touched !== []) {
             Channel::query()
                 ->whereIn('id', array_keys($touched))
                 ->each(fn (Channel $channel) => $channel->refreshMetadata()->save());
 
-            // Tópicos e contadores de não lidas também vêm das mensagens: sem
-            // recontar, ficavam apontando para o que foi apagado.
+            // Tópicos e não lidas também derivam das mensagens.
             Thread::query()
                 ->whereIn('channel_id', array_keys($touched))
                 ->each(fn (Thread $thread) => $thread->refreshMetadata()->save());
@@ -103,11 +98,11 @@ class PruneChatCommand extends AbstractCommand
     }
 
     /**
-     * @param  array<int, true>  $touched  Channel ids that lost messages.
+     * @param  array<int, true>  $touched  canais que perderam mensagens
      */
     protected function pruneByType(string $type, int $days, bool $dryRun, array &$touched): int
     {
-        // 0 means "keep forever", which is the documented default for DMs.
+        // 0 é "guardar para sempre", o padrão documentado para DMs.
         if ($days <= 0) {
             return 0;
         }
@@ -127,9 +122,8 @@ class PruneChatCommand extends AbstractCommand
         Message::query()
             ->whereIn('channel_id', $channelIds)
             ->where('created_at', '<', $cutoff)
-            // Fica o que alguém ainda usa: mensagens fixadas, as que têm denúncia
-            // aberta (a evidência some com elas) e a raiz de um tópico que ainda
-            // recebe respostas.
+            // Ficam as fixadas, as com denúncia aberta (são a evidência) e a raiz
+            // de tópico ainda ativo.
             ->whereNull('pinned_at')
             ->whereDoesntHave('flags', fn ($query) => $query->whereNull('resolved_at'))
             ->whereNotIn('id', Thread::query()
@@ -137,7 +131,7 @@ class PruneChatCommand extends AbstractCommand
                 ->whereNotNull('original_message_id')
                 ->select('original_message_id'))
             ->select(['id', 'channel_id'])
-            // Chunk by id so deleting rows cannot shift the pages being iterated.
+            // chunkById para que apagar linhas não desloque as páginas.
             ->chunkById(500, function ($messages) use (&$deleted, &$touched, $dryRun) {
                 $ids = $messages->pluck('id')->all();
 
@@ -146,9 +140,8 @@ class PruneChatCommand extends AbstractCommand
                 }
 
                 if (! $dryRun) {
-                    // Attachment files first: the DB rows cascade on delete, so
-                    // after the message is gone there is nothing left to locate
-                    // the files by.
+                    // Arquivos antes: as linhas de upload caem em cascata e
+                    // depois não haveria como achá-los.
                     $this->deleteFilesFor($ids);
 
                     Message::query()->whereIn('id', $ids)->delete();
@@ -167,16 +160,14 @@ class PruneChatCommand extends AbstractCommand
         $deleted = 0;
 
         Upload::query()
-            // `where(..., null)` is Laravel's IS NULL, spelled through Eloquent's
-            // own `where` so the rows stay typed as models; `whereNull` is reached
-            // through the base query builder and comes back typed as stdClass.
+            // `where(..., null)` em vez de `whereNull` para o PHPStan tipar as
+            // linhas como models, não stdClass.
             ->where('message_id', null)
             ->where('created_at', '<', $cutoff)
             ->chunkById(500, function ($uploads) use (&$deleted, $dryRun) {
                 if (! $dryRun) {
                     foreach ($uploads as $upload) {
-                        // A file that will not go is not a reason to abort the
-                        // sweep; the row still needs removing either way.
+                        // Falha em um arquivo não aborta a varredura; a linha sai de qualquer jeito.
                         if (! $this->storage->delete($upload)) {
                             $this->error('Could not delete '.$upload->path.'; see the log.');
                         }

@@ -13,12 +13,10 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * A message was removed outright, tombstone and all.
+ * Mensagem apagada de vez, sem tombstone.
  *
- * Carries ids and the channel rather than the Message, unlike its siblings: by
- * the time anything can listen, the row is gone. The channel is passed because
- * the broadcaster needs it to work out who was in the conversation, and it can
- * no longer be reached through the message.
+ * Leva ids e o canal em vez da Message: quando o listener roda, a linha já não
+ * existe, e o broadcaster precisa do canal para saber quem estava na conversa.
  */
 class MessageWasPurged
 {

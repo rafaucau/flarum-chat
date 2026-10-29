@@ -17,9 +17,8 @@ use Ramon\Chat\Service\InvitationManager;
 /**
  * Encerra o convite pendente de quem sai ou é removido do canal.
  *
- * O convite só era apagado ao ser aceito, recusado ou retirado. Quem entrava
- * por outro caminho (respondendo na categoria) e depois era removido ficava com
- * ele, e voltava ao canal privado aceitando o convite antigo.
+ * Sem isso, quem entrou por outro caminho (respondendo na categoria) e foi
+ * removido voltaria ao canal privado aceitando o convite antigo.
  */
 class ConsumeInvites
 {

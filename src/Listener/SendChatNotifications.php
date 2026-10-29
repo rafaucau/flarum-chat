@@ -26,10 +26,9 @@ use Ramon\Chat\Service\UnreadTracker;
 use Ramon\Chat\ThreadUser;
 
 /**
- * Fans a new message out to notifications.
+ * Distribui uma mensagem nova em notificações.
  *
- * Two audiences, and a user in both gets only the mention — the stronger signal
- * wins so nobody is notified twice for one message.
+ * Dois públicos; quem está nos dois recebe só a menção, o sinal mais forte.
  */
 class SendChatNotifications
 {
@@ -44,7 +43,7 @@ class SendChatNotifications
     {
         $message = $event->message;
 
-        // System messages are stream furniture, not events worth notifying about.
+        // Mensagens de sistema não geram notificação.
         if ($message->isSystem()) {
             return;
         }
@@ -59,12 +58,10 @@ class SendChatNotifications
 
         $mentioned = $this->recipientsFor($message, $mentionedIds, isMention: true);
 
-        // The mention blueprint is delivered by email alone, so this preference
-        // is the switch for it, on top of core's `notify_chatMention_email` that
-        // the notification grid shows. Both default to on; either one turned off
-        // stops the mail. Filtered here because the recipients are what
-        // NotificationSyncer is handed; the watchers below are still told apart
-        // from everyone mentioned, mailed or not.
+        // A menção só sai por e-mail, então esta preferência é o interruptor, além do
+        // `notify_chatMention_email` do core. Os dois começam ligados; qualquer um
+        // desligado corta o e-mail. Os observadores abaixo continuam excluindo todos
+        // os mencionados, com e-mail ou não.
         $mailable = array_values(array_filter(
             $mentioned,
             fn (User $user) => (bool) $user->getPreference('ramon-chat.emailNotifications', true)
@@ -74,18 +71,14 @@ class SendChatNotifications
             $this->dispatch(new ChatMentionBlueprint($message), $mailable);
         }
 
-        // Resolving watchers is not free — reading them is a scan of the channel's
-        // memberships, and each recipient then costs a visibility query — so it
-        // is only worth doing if something will actually be delivered.
-        // ChatMessageBlueprint has no delivery channel any more: a new message
-        // belongs in the chat's own unread counters, not in Flarum's bell. That
-        // makes the rest of this a no-op, and asking before the reads rather than
-        // after them takes it off every message, not only the busy ones.
+        // Resolver observadores custa uma varredura das memberships e uma consulta
+        // de visibilidade por destinatário. ChatMessageBlueprint não tem canal de
+        // entrega, então perguntar antes tira esse custo de toda mensagem.
         if (! $this->delivers(ChatMessageBlueprint::class)) {
             return;
         }
 
-        // Watchers, minus anyone already notified as a mention.
+        // Observadores, menos quem já foi notificado pela menção.
         $watcherIds = ChannelUser::query()
             ->where('channel_id', $channel->id)
             ->whereNull('left_at')
@@ -99,9 +92,8 @@ class SendChatNotifications
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        // Thread participants watching the thread are notified even when their
-        // channel level is lower — opting into a thread is a stronger signal than
-        // the channel default.
+        // Participantes de uma thread são notificados mesmo com nível de canal mais
+        // baixo: seguir a thread é um sinal mais forte.
         if ($message->thread_id !== null) {
             $threadWatcherIds = ThreadUser::query()
                 ->where('thread_id', $message->thread_id)
@@ -133,32 +125,22 @@ class SendChatNotifications
     }
 
     /**
-     * Whether a blueprint has any driver that would deliver it.
-     *
-     * Asked of the class rather than hard-coded, so removing or restoring a
-     * delivery channel is a change in one place — the blueprint — instead of two
-     * that can disagree.
+     * Se algum driver entregaria o blueprint. Perguntado à classe para que
+     * adicionar ou tirar um canal de entrega mude só o blueprint.
      */
     protected function delivers(string $blueprint): bool
     {
-        // `Flarum\Notification\AlertableInterface`, not `…\Blueprint\…`. Only
-        // the first exists; `is_a()` against a class that does not exist returns
-        // false without complaint, so naming the wrong one would quietly report
-        // "delivers nothing" for every alert-only blueprint.
+        // `Flarum\Notification\AlertableInterface`, não `…\Blueprint\…`: `is_a()`
+        // com classe inexistente retorna false sem reclamar.
         return is_a($blueprint, AlertableInterface::class, true)
             || is_a($blueprint, MailableInterface::class, true);
     }
 
     /**
-     * Sends a notification without letting a delivery failure take the message
-     * with it.
+     * Envia a notificação sem deixar falha de entrega levar a mensagem junto.
      *
-     * On the sync queue driver, NotificationSyncer mails inline — so an
-     * unreachable mail server would otherwise propagate out of this listener,
-     * abort the send, and make the channel unusable until mail was fixed. A
-     * message that was accepted must stay accepted; the notification is the
-     * expendable half.
-     *
+     * Com fila sync, o NotificationSyncer manda e-mail na hora; um servidor de
+     * e-mail fora do ar abortaria o envio. A mensagem aceita fica aceita.
      * @param  User[]  $recipients
      */
     protected function dispatch(BlueprintInterface $blueprint, array $recipients): void
@@ -173,14 +155,10 @@ class SendChatNotifications
     }
 
     /**
-     * Resolves ids to users who may actually receive this notification.
-     *
-     * Three filters apply, and all three are necessary:
-     *  - the user must still be able to see the message (permissions can change
-     *    between send and fan-out, and a mention must never leak content);
-     *  - the user must not have opted out of chat entirely;
-     *  - for channel-wide mentions, the user must not have opted out of @here/@all.
-     *
+     * Resolve ids para usuários que podem receber a notificação. Precisa de:
+     *  - ainda ver a mensagem (permissões mudam, e menção não pode vazar conteúdo);
+     *  - não ter desativado o chat;
+     *  - em menção de canal inteiro, não ter desativado @here/@all.
      * @param  int[]  $userIds
      * @return User[]
      */
@@ -190,7 +168,7 @@ class SendChatNotifications
             return [];
         }
 
-        // Shared permission buckets are valid for DMs only after membership is settled.
+        // Buckets de permissão compartilhados só valem para DMs após checar a membership.
         if ($message->channel?->isDirect()) {
             $userIds = ChannelUser::query()
                 ->where('channel_id', $message->channel_id)
@@ -204,21 +182,14 @@ class SendChatNotifications
 
         $recipients = [];
 
-        // One resolved answer per distinct permission set, shared across every
-        // chunk. A channel-wide mention used to run the visibility `EXISTS` — the
-        // one carrying the whole tag subquery — once per member, inside the
-        // request that sent the message; in a large channel that was the single
-        // slowest thing about posting an @here.
+        // Uma resposta por conjunto de permissões, compartilhada entre chunks: o
+        // `EXISTS` de visibilidade com a subconsulta de tags é caro demais por membro.
         $visibility = new PermissionSetVisibility();
         $channelId = (int) $message->channel_id;
 
-        // Chunked so a channel-wide mention in a large channel does not load every
-        // member at once. `groups` eager-loaded because the bucket key reads it.
-        //
-        // `whereKey` rather than `whereIn('id', ...)`: the two do the same thing,
-        // but `whereIn` is reached through Eloquent's mixin onto the query builder
-        // and comes back typed as that builder, which loses the model type — and
-        // with it `with()`, and the User type every filter below depends on.
+        // Em chunks para não carregar todos os membros de uma vez; `groups` vem junto
+        // porque a chave do bucket o lê. `whereKey` em vez de `whereIn('id', ...)`:
+        // este volta tipado como query builder e perde o tipo User.
         foreach (array_chunk($userIds, 200) as $chunk) {
             $users = User::query()->whereKey($chunk)->with('groups')->get();
 
@@ -231,7 +202,7 @@ class SendChatNotifications
                     continue;
                 }
 
-                // Check per-user access first so an outsider cannot seed a shared channel denial.
+                // Acesso por usuário antes, para um estranho não semear uma negação compartilhada.
                 if (
                     ! ScopeMessageVisibility::rowVisibleTo($user, $message, true)
                     || ! $visibility->channelVisible($user, $channelId)

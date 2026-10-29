@@ -17,7 +17,7 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelTransfer;
 
 /**
- * "X declined to receive #channel." Goes to whoever started the transfer.
+ * "X recusou receber #canal." Vai a quem iniciou a transferência.
  */
 class OwnershipTransferDeclinedBlueprint implements AlertableInterface, BlueprintInterface
 {

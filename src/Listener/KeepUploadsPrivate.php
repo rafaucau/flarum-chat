@@ -18,16 +18,12 @@ use Ramon\Chat\Service\UploadPrivacy;
 use Ramon\Chat\Storage\Job\PrivatizeTagChannels;
 
 /**
- * Keeps a private channel's attachments off the public disk after the fact.
+ * Tira do disco público os anexos que passam a pertencer a um canal privado.
  *
- * Sending is covered by MessageDispatcher, which moves a message's files as it
- * binds them. Three other paths put an existing file under a private channel: a
- * channel that is switched to private or rebound to a restricted category with
- * a history behind it, a message a moderator moves into one, and a category
- * that becomes restricted — or is moved under one that is — while channels are
- * bound to it. All arrive here. What none of them catches (flarum/tags reorders
- * its hierarchy with bulk updates that fire no event) the hourly
- * `chat:uploads:privatize-pending` sweep picks up.
+ * O envio é coberto pelo MessageDispatcher. Aqui chegam: canal que vira privado
+ * ou é vinculado a categoria restrita, mensagem movida para um canal assim, e
+ * categoria que fica restrita. O que nenhum evento cobre (o flarum/tags reordena
+ * com updates em massa) fica para o `chat:uploads:privatize-pending` de hora em hora.
  */
 class KeepUploadsPrivate
 {
@@ -42,8 +38,7 @@ class KeepUploadsPrivate
     {
         $channel = $event->channel;
 
-        // `wasChanged` reads what the save just wrote, so an edit that touched
-        // only the description does not walk the whole channel's attachments.
+        // `wasChanged` lê o que o save gravou: editar só a descrição não percorre os anexos.
         if (! $channel->wasChanged(['is_private', 'tag_id']) || ! UploadPrivacy::requiredFor($channel)) {
             return;
         }
@@ -61,12 +56,11 @@ class KeepUploadsPrivate
     }
 
     /**
-     * A flarum/tags tag was saved. Typed loosely so this file never names a
-     * class from an extension that may be absent; it is only registered when
-     * flarum/tags is enabled.
+     * Tag do flarum/tags salva. Tipado de forma solta para não citar classe de uma
+     * extensão que pode faltar; só é registrado com o flarum/tags ativo.
      *
-     * A tag is saved on every post in it (its last-posted columns), so the test
-     * is on what changed and runs no query; the channels are found in a job.
+     * A tag é salva a cada post (colunas de último post), então o teste olha o que
+     * mudou sem consulta; os canais são buscados num job.
      */
     public function whenTagSaved(AbstractModel $tag): void
     {
@@ -80,8 +74,8 @@ class KeepUploadsPrivate
         try {
             $this->queue->push(new PrivatizeTagChannels((int) $tag->getKey()));
         } catch (\Throwable $e) {
-            // The tag edit already committed and must not fail on this; the
-            // hourly sweep finds the channels the job would have.
+            // A edição da tag já foi gravada e não pode falhar por isso; a varredura de
+            // hora em hora encontra os canais.
             $this->log->error('[ramon-chat] could not queue privatizing the channels of a restricted tag', [
                 'tag'   => $tag->getKey(),
                 'error' => $e->getMessage(),

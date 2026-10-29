@@ -16,36 +16,15 @@ use Ramon\Chat\Event\UserLeftChannel;
 use Ramon\Chat\Service\MessageDispatcher;
 
 /**
- * Posts a system message when someone joins or leaves a channel.
+ * Publica uma mensagem de sistema quando alguém entra ou sai de um canal.
  *
- * Without this, a departure was invisible: the other party kept messaging a
- * conversation the recipient had walked out of, with no indication anything had
- * changed. The system rows are rendered from a locale key rather than user prose —
- * see Message::TYPE_SYSTEM and ChatMessage.systemRow.
+ * Renderizada por chave de locale (ver Message::TYPE_SYSTEM e
+ * ChatMessage.systemRow). Quem foi adicionado por outro aparece como "X foi
+ * adicionado por Y", não "X entrou". Não anuncia entrada oculta (nem a saída
+ * correspondente) nem entrada automática por `auto_join_on_reply`.
  *
- * ## What is and is not announced
- *
- * Arrivals and departures are both announced, in every kind of channel. They are
- * the same fact about who is in the room, and a room that narrates only exits
- * reads as though people keep leaving a channel nobody ever joined.
- *
- * An arrival is narrated as an arrival or as an addition depending on who caused
- * it: someone added by another member is reported as "X was added by Y", since
- * "X joined" would credit them with a decision they did not make.
- *
- * Two exceptions, and both are about the join not being an event at all:
- *
- *  - a hidden join, and the departure that ends it. The point of joining unseen
- *    is that nobody learns of it, which has to include learning of it afterwards.
- *  - an automatic join. `auto_join_on_reply` puts somebody in a channel for
- *    replying in the category it is bound to; announcing those would make a
- *    system row out of every first reply and bury the conversation. This is the
- *    reason category joins went unannounced entirely for a while — the fix is to
- *    tell the two kinds of join apart, not to silence both.
- *
- * A channel for everyone never reaches here for its members: they are in it
- * without joining, and the row they get the first time they read it is written
- * without the event, so the room cannot narrate itself into thousands of rows.
+ * Canais para todos nunca chegam aqui para seus membros: a linha de membership
+ * é criada sem o evento, senão a sala se narraria em milhares de linhas.
  */
 class AnnounceMembershipChanges
 {
@@ -57,23 +36,18 @@ class AnnounceMembershipChanges
 
     public function whenJoined(UserJoinedChannel $event): void
     {
-        // The entire point of a hidden join is that it goes unremarked.
+        // Entrada oculta não é comentada.
         if ($event->hidden) {
             return;
         }
 
-        // A side effect of replying elsewhere is not an arrival.
+        // Efeito colateral de responder em outro lugar não é chegada.
         if ($event->automatic) {
             return;
         }
 
-        // Someone put them here, rather than them walking in: the "add members"
-        // endpoint dispatches the event with the actor who did it. Reported as
-        // such, because "X joined the channel" for somebody who was added credits
-        // them with a decision that was not theirs, and leaves the room unable to
-        // tell an arrival from an invitation.
-        // An accepted invitation: the room hears who asked them in, so an
-        // arrival in a private channel is never a stranger appearing unannounced.
+        // Convite aceito: a sala vê quem convidou, então ninguém aparece do nada num
+        // canal privado. Adicionado por outro membro é narrado como adição.
         if ($event->acceptedInvite) {
             if ($event->invitedBy !== null) {
                 $this->announce($event->channel, 'user_accepted_invite', [
@@ -107,9 +81,8 @@ class AnnounceMembershipChanges
 
     public function whenLeft(UserLeftChannel $event): void
     {
-        // Somebody whose arrival was never announced cannot have their departure
-        // announced either: the room would learn from the exit line that they had
-        // been there all along.
+        // Quem entrou sem anúncio sai sem anúncio, senão a sala descobriria pela saída
+        // que a pessoa estava lá.
         if ($event->hidden) {
             return;
         }
@@ -120,10 +93,8 @@ class AnnounceMembershipChanges
     }
 
     /**
-     * A join carried out by an actor other than the person joining.
-     *
-     * The actor is null on paths that have none, and equal to the user on a
-     * self-join — both of which are arrivals, not additions.
+     * Entrada feita por outro ator que não o próprio usuário. Ator null ou igual
+     * ao usuário é chegada, não adição.
      */
     protected function addedBySomeoneElse(UserJoinedChannel $event): bool
     {
@@ -136,7 +107,7 @@ class AnnounceMembershipChanges
      */
     protected function announce(Channel $channel, string $key, array $data): void
     {
-        // A frozen channel takes no new rows, system or otherwise.
+        // Canal congelado não recebe linhas novas, nem de sistema.
         if (! $channel->acceptsMessages()) {
             return;
         }
@@ -144,8 +115,8 @@ class AnnounceMembershipChanges
         try {
             $this->dispatcher->sendSystem($channel, $key, $data);
         } catch (\Throwable $e) {
-            // The membership change already committed. Failing to narrate it must
-            // not roll that back or surface as an error to the user who left.
+            // A mudança de membership já foi gravada; falhar na narração não pode
+            // desfazê-la nem virar erro para quem saiu.
             $this->log->warning('[ramon/chat] could not announce '.$key.': '.$e->getMessage());
         }
     }

@@ -15,8 +15,8 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelUser;
 
 /**
- * Creates, updates and retires channel memberships, keeping the channel's
- * denormalised user_count in step.
+ * Cria, atualiza e encerra memberships, mantendo o `user_count`
+ * desnormalizado do canal em dia.
  */
 class MembershipManager
 {
@@ -26,19 +26,17 @@ class MembershipManager
     }
 
     /**
-     * Idempotent: joining a channel you are already in re-activates a previous
-     * departure rather than creating a duplicate row, which is what makes
-     * "restarting a DM links you back to the earlier messages" work.
+     * Idempotente: entrar de novo reativa a saída anterior em vez de duplicar a
+     * linha, o que faz uma DM reiniciada reaver as mensagens antigas.
      */
     /**
-     * @param  bool  $hidden  Join without appearing to anyone else — no entry in the
-     *                        member list, no change to `user_count`, and no join
-     *                        announcement. For moderators reading a channel without
-     *                        their presence changing how people talk in it.
+     * @param  bool  $hidden  entrar sem aparecer: fora da lista de membros e do
+     *                        `user_count`, sem anúncio. Para moderadores lerem o
+     *                        canal sem mudar a conversa.
      *
-     * Whether anything changed is on the returned row: `wasRecentlyCreated`, or
-     * `wasChanged(['left_at', 'hidden'])`. A caller announcing the join reads that
-     * instead of assuming, so repeating the request is not a way to repeat the line.
+     * Se algo mudou está na linha retornada (`wasRecentlyCreated` ou
+     * `wasChanged(['left_at', 'hidden'])`); quem anuncia lê isso, para repetir a
+     * requisição não repetir o anúncio.
      */
     public function join(
         Channel $channel,
@@ -73,18 +71,15 @@ class MembershipManager
                 $membership->notification_level = $notificationLevel;
             }
 
-            // A returning member should not face a badge for everything they
-            // missed while away — start them level with the channel.
+            // Quem volta começa em dia com o canal, sem badge do que perdeu.
             if ($wasGone) {
                 $membership->markReadUpTo($channel->last_message_id);
             }
 
             $membership->save();
 
-            // `user_count` is what everyone else sees, so it tracks visible
-            // membership only. Each branch below is a transition *of visibility*,
-            // not of membership: someone can go from hidden to visible without
-            // having joined or left in the meantime.
+            // `user_count` é o que os outros veem, então conta só membros visíveis. Cada
+            // ramo abaixo é uma transição de visibilidade, não de membership.
             $wasVisible = ! $isNew && ! $wasGone && ! $wasHidden;
             $isVisible = ! $hidden;
 
@@ -96,9 +91,8 @@ class MembershipManager
                 }
             }
 
-            // The instance memoises its lookups, and the endpoint that called this
-            // serialises the same instance straight afterwards — a stale miss here
-            // is a member told they are not one.
+            // A instância memoiza as consultas e o endpoint a serializa logo depois; um
+            // miss velho diria ao membro que ele não é membro.
             $channel->forgetMembership($user);
 
             return $membership;
@@ -106,12 +100,10 @@ class MembershipManager
     }
 
     /**
-     * Leaves without destroying the membership row, so read state and history
-     * survive a rejoin.
+     * Sai sem apagar a linha, para leitura e histórico sobreviverem a uma volta.
      *
-     * An owner leaving hands the channel to its oldest moderator in the same
-     * transaction (OwnershipSuccession); the announcement goes out after the
-     * commit, before the caller announces the departure itself.
+     * Dono que sai passa o canal ao moderador mais antigo na mesma transação
+     * (OwnershipSuccession); o anúncio sai após o commit, antes do da saída.
      */
     public function leave(Channel $channel, User $user, ?User $actor = null): ?ChannelUser
     {
@@ -139,8 +131,7 @@ class MembershipManager
             $membership->unread_mentions_count = 0;
             $membership->save();
 
-            // A hidden member was never counted, so leaving must not decrement —
-            // otherwise a lurker's departure silently undercounts the channel.
+            // Membro oculto nunca foi contado, então a saída não decrementa.
             if (! $wasHidden && $channel->user_count > 0) {
                 $channel->decrement('user_count');
             }
@@ -170,10 +161,8 @@ class MembershipManager
             ->whereNull('left_at')
             ->first();
 
-        // Only on a live membership. Setting a preference used to imply joining,
-        // and that made this a side door past the join policy: a closed channel,
-        // or a private one seen through an invitation, could be entered by
-        // choosing how loudly it should notify.
+        // Só com membership ativa: senão escolher o nível de notificação seria porta
+        // lateral para entrar em canal fechado ou privado.
         if ($membership === null) {
             return null;
         }
@@ -185,8 +174,7 @@ class MembershipManager
         if ($muted !== null) {
             $membership->muted = $muted;
 
-            // Muting clears outstanding badge pressure so the sidebar settles
-            // immediately rather than on the next read.
+            // Silenciar zera as pendências para a barra lateral assentar na hora.
             if ($muted) {
                 $membership->unread_count = 0;
                 $membership->unread_mentions_count = 0;
@@ -195,22 +183,19 @@ class MembershipManager
 
         $membership->save();
 
-        // This row was loaded by its own query, so the instance may be holding a
-        // different object for the same membership — drop it rather than let the
-        // next read answer with the pre-change preferences.
+        // A linha veio de consulta própria e a instância pode ter outro objeto da
+        // mesma membership; descarta para a próxima leitura não usar o valor antigo.
         $channel->forgetMembership($user);
 
         return $membership;
     }
 
     /**
-     * The user's live membership, written on the spot for someone a channel for
-     * everyone includes without one — the first time there is something of
-     * theirs to store. Null for anyone the channel does not include.
+     * A membership ativa do usuário, criada na hora para quem um canal para todos
+     * inclui sem linha, na primeira vez que há algo a guardar. Null para quem o
+     * canal não inclui.
      *
-     * Started level with the channel, the way a returning member is: being in
-     * a room from the start is not the same as having read all of it. And
-     * quiet, because the room never saw them arrive; nothing announces it.
+     * Começa em dia com o canal, como quem volta, e em silêncio: a sala nunca viu a chegada.
      */
     public function ensure(Channel $channel, User $user): ?ChannelUser
     {
@@ -228,9 +213,8 @@ class MembershipManager
     }
 
     /**
-     * Takes someone out of a channel for everyone they were in without a row:
-     * the departed row is what keeps them out of it. Not announced, for the same
-     * reason a hidden member's departure is not — their arrival never was.
+     * Tira alguém de um canal para todos em que estava sem linha: a linha de saída
+     * é o que o mantém fora. Sem anúncio, pois a chegada também não teve.
      */
     protected function optOut(Channel $channel, User $user): void
     {

@@ -14,27 +14,22 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * Who creates and runs channels: a forum-wide switch, then the permissions of
- * the "Members" section, then a per-channel role.
+ * Quem cria e administra canais: uma chave global, as permissões da seção
+ * "Membros" e um papel por canal.
  *
- * In MODE_ADMIN only administrators create channels, whatever the permission
- * grid says, and neither the creator nor anyone they promoted holds anything
- * over a channel. In MODE_MEMBERS:
+ * Em MODE_ADMIN só administradores criam canais e ninguém tem direitos sobre
+ * eles. Em MODE_MEMBERS:
  *
- *  - `createChannel` opens a room;
- *  - `manageOwnChannels` makes the creator its owner — members, moderators,
- *    closing, archiving, deleting, removing messages, managing threads;
- *  - `editOwnChannels` lets the creator change its settings;
- *  - an owner may promote a member to *channel moderator*, who then adds and
- *    removes members, removes messages and manages threads there — but does
- *    not change the settings, archive or delete the room, or promote others.
+ *  - `createChannel` abre um canal;
+ *  - `manageOwnChannels` torna o criador dono (membros, moderadores, fechar,
+ *    arquivar, apagar, remover mensagens, threads);
+ *  - `editOwnChannels` deixa o criador mudar as configurações;
+ *  - o dono promove membros a moderador do canal, que gerencia membros,
+ *    mensagens e threads, mas não configura, arquiva, apaga nem promove.
  *
- * The owner is whoever `creator_id` names, so handing a channel over
- * (OwnershipTransfers) moves every right listed here in one write.
- *
- * Owners and channel moderators are exempt from the channel's slow mode, the
- * way `bypassSlowMode` exempts globally. Chat moderators (`ramon-chat.moderate`)
- * keep every channel in both modes.
+ * O dono é `creator_id`, então transferir (OwnershipTransfers) é uma escrita só.
+ * Dono e moderadores do canal ignoram o modo lento; moderadores do chat
+ * (`ramon-chat.moderate`) mandam em todo canal nos dois modos.
  */
 class ChannelOwnership
 {
@@ -55,8 +50,8 @@ class ChannelOwnership
     }
 
     /**
-     * Whether the actor owns this channel: members mode, their own category
-     * channel, and `manageOwnChannels` granted.
+     * Se o ator é dono do canal: modo membros, canal de categoria dele e
+     * `manageOwnChannels` concedida.
      */
     public function manages(User $actor, Channel $channel): bool
     {
@@ -64,8 +59,8 @@ class ChannelOwnership
     }
 
     /**
-     * Whether the actor may change this channel's settings as its creator.
-     * Owning implies it, the way forum-wide `moderate` implies `editChannel`.
+     * Se o ator pode mudar as configurações como criador. Ser dono implica isso,
+     * como `moderate` global implica `editChannel`.
      */
     public function edits(User $actor, Channel $channel): bool
     {
@@ -77,10 +72,10 @@ class ChannelOwnership
     }
 
     /**
-     * Whether the actor was promoted to moderator of this channel by its owner.
+     * Se o ator foi promovido a moderador do canal pelo dono.
      *
-     * Read only in members mode, and only from a live membership: a role left on
-     * a row after the person left the channel means nothing until they are back.
+     * Só no modo membros e só com membership ativa: o papel numa linha de quem saiu
+     * não vale até a pessoa voltar.
      */
     public function moderatesChannel(User $actor, Channel $channel): bool
     {
@@ -94,13 +89,12 @@ class ChannelOwnership
     }
 
     /**
-     * Forum-wide `ramon-chat.moderate`, ownership, or the channel's own
-     * moderator role: what it takes to act on other people's messages and on
-     * the member list here. Every policy that used to ask for the forum-wide
-     * right alone reads this instead, so the three cannot drift apart.
+     * `ramon-chat.moderate` global, ser dono ou moderador do canal: o necessário
+     * para agir sobre mensagens alheias e membros. Toda policy lê daqui, para as
+     * três não divergirem.
      *
-     * `hasPermission` rather than `can`: it reads the actor's groups directly and
-     * short-circuits for administrators, without re-entering the Gate.
+     * `hasPermission` em vez de `can`: lê os grupos direto e atalha para admins,
+     * sem reentrar no Gate.
      */
     public function moderates(User $actor, Channel $channel): bool
     {
@@ -110,9 +104,8 @@ class ChannelOwnership
     }
 
     /**
-     * Forum-wide `ramon-chat.moderate` or ownership: the irreversible acts —
-     * archiving, deleting — and choosing who moderates. A channel moderator's
-     * trust stops short of these.
+     * `ramon-chat.moderate` global ou ser dono: atos irreversíveis (arquivar,
+     * apagar) e escolher moderadores. Moderador do canal não chega a isso.
      */
     public function controls(User $actor, Channel $channel): bool
     {
@@ -120,9 +113,8 @@ class ChannelOwnership
     }
 
     /**
-     * Whether the channel's pace does not apply to the actor: the people running
-     * the room are the ones answering in it, and a cooldown on them slows the
-     * room down rather than calming it.
+     * Se o ritmo do canal não se aplica ao ator: quem conduz a sala é quem
+     * responde nela, e o cooldown só a deixaria mais lenta.
      */
     public function exemptFromSlowMode(User $actor, Channel $channel): bool
     {
@@ -130,9 +122,8 @@ class ChannelOwnership
     }
 
     /**
-     * Whether the actor may know that hidden members exist: the two grants that
-     * can join hidden themselves or oversee those who do. An owner is not one of
-     * them — a room's owner is exactly who an inspector is unseen by.
+     * Se o ator pode saber que existem membros ocultos: só as permissões de entrar
+     * oculto ou supervisionar quem entra. Dono não está entre elas.
      */
     public function seesHiddenMembers(User $actor): bool
     {

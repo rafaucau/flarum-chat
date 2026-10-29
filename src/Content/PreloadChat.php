@@ -22,48 +22,22 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
 /**
- * Puts everything the chat draws on first paint into the boot payload.
+ * Coloca no payload de boot tudo o que o chat desenha na primeira pintura
+ * (canais, rascunhos, mensagens, fixada), em `app.data.ramonChat`. O ChatState
+ * lê isso antes do primeiro view(); o que faltar cai no caminho assíncrono.
  *
- * Without it a visit to /chat is several round trips deep before anything but a
- * skeleton is on screen: the page mounts, asks for the channel list, and only
- * once that lands does ChannelView mount and ask for the first page of messages,
- * the pinned bar and the drafts. Each of those swaps a placeholder for content,
- * and the result is the staggered flash the chat opened with — the list, then
- * the conversation, then the pinned strip sliding in over it.
- *
- * The same requests are made here instead, server-side, in the process that is
- * already rendering the page, and the results are handed to the client as
- * `app.data.ramonChat`. ChatState reads them synchronously before the first
- * view(), so the chat paints complete. The async paths are untouched: this is an
- * optimisation, and anything missing from the payload — a failed call, a route
- * it does not cover — falls back to them.
- *
- * Registered on the forum frontend as a whole rather than per route, because
- * Extend\Frontend::route() already spends its third argument on
- * RequireChatAccess. The route guard below is what keeps these queries off the
- * rest of the forum — except where the drawer is open.
- *
- * The drawer is the case the route list cannot see. It stays open across the
- * forum, and a reload on any page brings it back — so that page's boot is where
- * the conversation is assembled, over the same round trips /chat used to pay.
- * ChatState mirrors "drawer open, on channel N" into a cookie (see
- * persistDrawerCookie), and when it is present this preloads for that channel
- * on every route. The cookie is absent whenever the drawer is closed, so a
- * reader who is not chatting costs nothing here.
+ * Registrado no frontend inteiro porque o terceiro argumento de
+ * Extend\Frontend::route() já é o RequireChatAccess. Fora das rotas do chat só
+ * roda com o cookie do drawer aberto (ver persistDrawerCookie no ChatState).
  */
 class PreloadChat
 {
     /**
-     * Set by the client while the drawer is open; carries the open channel's id,
-     * or 0 for an open drawer with nothing selected.
+     * Gravado pelo cliente com o drawer aberto: id do canal, ou 0 sem seleção.
      */
     private const DRAWER_COOKIE = 'ramon_chat_drawer';
     /**
-     * The routes this runs for.
-     *
-     * An explicit list rather than a `chat.` prefix test: the prefix is not ours
-     * to reserve, and a route another extension happens to name that way would
-     * silently start paying for queries it has no use for.
+     * Lista explícita, não prefixo `chat.`: outra extensão pode usar o prefixo.
      */
     private const ROUTES = [
         'chat.index',
@@ -78,11 +52,8 @@ class PreloadChat
     ];
 
     /**
-     * The routes that put a conversation on screen, and so the only ones worth
-     * the message and pin queries.
-     *
-     * The section routes fill the main pane themselves — see ChatPage::mainPane —
-     * so a stream fetched for them would be paid for and never rendered.
+     * Rotas que mostram uma conversa; só elas pagam as consultas de mensagens.
+     * As de seção preenchem o painel sozinhas (ChatPage::mainPane).
      */
     private const CHANNEL_ROUTES = [
         'chat.index',
@@ -90,15 +61,14 @@ class PreloadChat
         'chat.thread',
     ];
 
-    /** Mirrors the page[limit] that ChatState.loadChannels() asks for. */
+    /** Igual ao page[limit] de ChatState.loadChannels(). */
     private const CHANNEL_LIMIT = 50;
 
-    /** Mirrors PAGE_SIZE in ChatState. */
+    /** Igual ao PAGE_SIZE do ChatState. */
     private const MESSAGE_LIMIT = 50;
 
     /**
-     * The lazy chunk holding the chat UI, as `loadChatUi()` in
-     * js/src/forum/utils/lazy.ts names it: extension id, then chunk path.
+     * Chunk lazy da UI, com o mesmo nome usado por `loadChatUi()` no cliente.
      */
     private const UI_CHUNK = 'ramon-chat/forum/chatUi.js';
 
@@ -121,17 +91,13 @@ class PreloadChat
 
         $actor = RequestUtil::getActor($request);
 
-        // RequireChatAccess has already thrown for anyone who fails this, on every
-        // route in the list above. Checked again because this callback is attached
-        // to the frontend rather than to the routes, so a future route added
-        // without the guard must not start leaking channel lists.
+        // O RequireChatAccess já barra isso nas rotas, mas este callback é do
+        // frontend inteiro: uma rota nova sem o guard não pode vazar canais.
         if (! $actor->exists || ! $actor->can('useChat')) {
             return;
         }
 
-        // Every page this runs for mounts the chat UI, which lives in a lazy
-        // chunk forum.js only asks for once it has booted. Preloading it overlaps
-        // the two downloads instead of chaining them.
+        // O forum.js só pede o chunk depois do boot; o preload baixa os dois em paralelo.
         $uiChunk = $this->uiChunkUrl();
 
         if ($uiChunk !== null) {
@@ -144,9 +110,7 @@ class PreloadChat
             'page' => ['limit' => self::CHANNEL_LIMIT],
         ]);
 
-        // The list is what everything else is keyed off. Without it there is
-        // nothing the client could use, so leave the payload absent entirely and
-        // let the normal path run.
+        // Sem a lista nada mais serve ao cliente; deixa o caminho normal rodar.
         if ($channels === null) {
             return;
         }
@@ -168,9 +132,8 @@ class PreloadChat
         }
 
         if ($channelId !== null) {
-            // Sent so the client knows which stream the messages below belong to.
-            // It cannot infer it: on /chat with nothing selected the answer is
-            // "whichever channel sorted first", which is a decision made here.
+            // O cliente não consegue deduzir: em /chat sem seleção, o canal é
+            // decidido aqui.
             $payload['channelId'] = $channelId;
 
             $messages = $this->fetch($request, '/chat-messages', [
@@ -183,9 +146,6 @@ class PreloadChat
                 $payload['messages'] = $messages;
             }
 
-            // The pinned bar is the strip that used to slide in over a conversation
-            // which had already finished painting, because ChannelView fires this
-            // request without awaiting it.
             $pinned = $this->fetch($request, '/chat-messages', [
                 'filter' => [
                     'channel' => $channelId,
@@ -221,21 +181,9 @@ class PreloadChat
     }
 
     /**
-     * Which conversation the page is about to show.
-     *
-     * Mirrors ChatPage::boot: the id the route names, otherwise the first channel
-     * in the list, which is what the page selects on /chat. An id that is not in
-     * the list is still returned — a deep link into a channel the sidebar does not
-     * carry is the case that benefits most from arriving already loaded.
-     *
-     * Bare /chat restores the last channel the reader had open, which ChatState
-     * keeps in localStorage — invisible here — and mirrors into the drawer
-     * cookie. With the cookie the answer is exact; without it the first channel
-     * in the list is a guess, and knowingly so: the sort makes it right most of
-     * the time, since the last channel read is usually the last one written to,
-     * and a miss costs only the stream loading the way it always did.
-     * /chat/c/{id}, which is what a reload or a shared link produces, is exact
-     * either way.
+     * A conversa que a página vai mostrar, como em ChatPage::boot: o id da rota,
+     * o do cookie do drawer ou o primeiro da lista. Em /chat sem cookie o
+     * primeiro canal é um palpite; errar só custa o carregamento assíncrono.
      *
      * @param array<string, mixed> $channels
      */
@@ -257,18 +205,9 @@ class PreloadChat
     }
 
     /**
-     * The chunk URL exactly as ExportRegistry#chunkUrl() builds it on the client,
-     * revision query included. Any difference, even in the query string, and the
-     * browser treats the preload and the real request as two resources and
-     * downloads the chunk twice.
-     *
-     * The manifest is keyed by path, and a Windows host writes those keys with
-     * backslashes. The client looks them up with forward slashes, so the native
-     * spelling is only tried as a fallback, for forums that normalise the
-     * manifest on the client.
-     *
-     * Null when the assets disk cannot produce URLs, in which case the client
-     * cannot build the chunk URL either.
+     * URL idêntica à de ExportRegistry#chunkUrl() no cliente, com a revisão;
+     * qualquer diferença faz o navegador baixar o chunk duas vezes. No Windows o
+     * manifest usa barra invertida, tentada só como fallback.
      */
     private function uiChunkUrl(): ?string
     {
@@ -292,10 +231,8 @@ class PreloadChat
     }
 
     /**
-     * The drawer cookie: null when absent or malformed, otherwise the channel id
-     * it carries (0 for an open drawer with nothing selected). A bare digit
-     * string is all that is accepted — it is client-written, so nothing else
-     * about it is trusted, and the id still goes through the API as the actor.
+     * Id do cookie do drawer, ou null. Escrito pelo cliente: só aceita dígitos, e
+     * o id ainda passa pela API como o ator.
      */
     private function drawerChannel(ServerRequestInterface $request): ?int
     {
@@ -317,15 +254,9 @@ class PreloadChat
     }
 
     /**
-     * One API call, made as the visitor.
-     *
-     * `withParentRequest` is what makes the preload honour visibility: every
-     * policy, scope and capability flag resolves against the real actor, so this
-     * hands the client nothing that the same request over HTTP would not have.
-     *
-     * A failure returns null rather than propagating. The payload is optional by
-     * design — a preload that took the page down with it would be strictly worse
-     * than the flash it exists to remove.
+     * Chamada à API como o visitante: `withParentRequest` aplica as mesmas
+     * policies e scopes de uma requisição HTTP. Falha vira null; o preload é
+     * opcional e não pode derrubar a página.
      *
      * @param array<string, mixed> $params
      * @return array<string, mixed>|null

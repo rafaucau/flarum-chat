@@ -16,12 +16,11 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * "X made you a moderator of #channel."
+ * "X tornou você moderador de #canal."
  *
- * Only ids in the data: the recipient is a channel member, so the name comes
- * from the channel itself, which the notification list loads as the subject
- * and filters by visibility. The promoted user's id goes in the data so one
- * person's notification never matches another's in the NotificationSyncer.
+ * Só ids: o nome vem do canal, carregado como subject e filtrado por
+ * visibilidade. O id do promovido evita que o NotificationSyncer confunda
+ * notificações de pessoas diferentes.
  */
 class ModeratorPromotedBlueprint implements AlertableInterface, BlueprintInterface
 {

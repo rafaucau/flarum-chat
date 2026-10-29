@@ -17,12 +17,10 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelTransfer;
 
 /**
- * "X wants to hand #channel over to you", with accept and decline on the row
- * itself.
+ * "X quer passar #canal para você", com aceitar e recusar na linha.
  *
- * Only ids in the data. The transfer id separates one request from the next,
- * so a new request shows up as new, and so a closed request leaves the bell
- * without taking another with it (see NotifyOwnershipTransfers).
+ * Só ids. O id da transferência separa um pedido do outro, para que fechar um
+ * não tire outro do sino (ver NotifyOwnershipTransfers).
  */
 class OwnershipTransferBlueprint implements AlertableInterface, BlueprintInterface
 {

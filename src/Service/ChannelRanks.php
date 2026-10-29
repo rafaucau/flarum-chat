@@ -25,14 +25,13 @@ use Ramon\Chat\Rank\RankBook;
 use WeakMap;
 
 /**
- * A channel's ranks: the book read next to each name, and the writes of
- * whoever manages them.
+ * Os cargos de um canal: o livro lido ao lado de cada nome e as escritas de
+ * quem os gerencia.
  *
- * The book does not depend on who reads it, so it is cached per channel and
- * cleared on every change that affects it: the writes here and, through
- * Listener\ForgetChannelRanks, promotions, transfers, joins and leaves. Within
- * a request it is remembered on the channel instance itself, which the
- * messages of a page share, so a page of fifty messages reads the cache once.
+ * O livro não depende de quem lê, então fica em cache por canal e é limpo a
+ * cada mudança (aqui e via Listener\ForgetChannelRanks). Na requisição fica na
+ * instância do canal, compartilhada pelas mensagens da página: uma leitura de
+ * cache por página.
  */
 class ChannelRanks
 {
@@ -52,7 +51,7 @@ class ChannelRanks
     }
 
     /**
-     * Null for a direct conversation, which has no ranks.
+     * Null para DM, que não tem cargos.
      *
      * @return array<string, mixed>|null
      */
@@ -77,7 +76,7 @@ class ChannelRanks
     }
 
     /**
-     * The rank shown next to the author's name, or null.
+     * O cargo exibido ao lado do nome do autor, ou null.
      *
      * @return array<string, mixed>|null
      */
@@ -137,8 +136,8 @@ class ChannelRanks
     }
 
     /**
-     * Edits an owner-created rank, or customizes a built-in one. `$target` is
-     * the id of one, or 'owner' / 'moderator'.
+     * Edita um cargo do dono ou personaliza um embutido. `$target` é o id de um
+     * cargo, ou 'owner' / 'moderator'.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -157,16 +156,14 @@ class ChannelRanks
     }
 
     /**
-     * Deletes an owner-created rank, and with it whoever held it. On a built-in
-     * one, it reverts to the default.
+     * Apaga um cargo do dono e as atribuições dele. Num embutido, volta ao padrão.
      */
     public function delete(Channel $channel, User $actor, int|string $target): void
     {
         $rank = $this->find($channel, $target);
 
         if ($rank->exists) {
-            // The foreign key cascades too; deleting the holds by hand keeps a
-            // database without enforced keys from keeping orphans.
+            // A FK também cascateia; apagar à mão evita órfãos em banco sem FK aplicada.
             $channel->getConnection()->transaction(function () use ($rank) {
                 ChannelRankUser::query()->where('rank_id', $rank->id)->delete();
                 $rank->delete();
@@ -177,7 +174,7 @@ class ChannelRanks
     }
 
     /**
-     * The new order of the owner-created ranks: all of them, each once.
+     * A nova ordem dos cargos do dono: todos, cada um uma vez.
      *
      * @param  array<int, mixed>  $ids
      */
@@ -215,10 +212,10 @@ class ChannelRanks
     }
 
     /**
-     * A member's ranks, all at once: the ones not in the list are removed.
+     * Os cargos de um membro de uma vez; os ausentes da lista saem.
      *
-     * Only for someone who is in the channel and shows up in it: a hidden
-     * member gets the same response as a non-member.
+     * Só para quem está no canal e aparece nele: membro oculto recebe a mesma
+     * resposta de quem não é membro.
      *
      * @param  array<int, mixed>  $rankIds
      */
@@ -283,7 +280,7 @@ class ChannelRanks
     }
 
     /**
-     * Reads only the known fields, each validated. The rest are ignored.
+     * Lê só os campos conhecidos, cada um validado; o resto é ignorado.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -346,8 +343,7 @@ class ChannelRanks
     }
 
     /**
-     * A built-in without a row comes back as a new model with the defaults;
-     * saving it is what customizes it.
+     * Embutido sem linha volta como model novo com os padrões; salvá-lo é o que o personaliza.
      */
     protected function find(Channel $channel, int|string $target): ChannelRank
     {
@@ -397,9 +393,8 @@ class ChannelRanks
     }
 
     /**
-     * Two queries: the ranks (which RankBook orders), and the present, visible
-     * members who are moderators or hold some rank, already with each one's
-     * ranks.
+     * Duas consultas: os cargos (ordenados pelo RankBook) e os membros presentes e
+     * visíveis que são moderadores ou têm cargo, já com os cargos de cada um.
      *
      * @return array{ranks: list<array<string, mixed>>, moderatorIds: list<int>, assignments: array<int, list<int>>}
      */

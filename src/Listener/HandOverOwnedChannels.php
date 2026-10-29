@@ -13,10 +13,9 @@ use Flarum\User\Event\Deleting;
 use Ramon\Chat\Service\OwnershipSuccession;
 
 /**
- * A deleted account stops owning its channels before it disappears: each one
- * goes to the oldest moderator, as if the owner had left. Without this the
- * foreign key would only null the owner, and the moderators would not know
- * the channel now has nobody in charge.
+ * Conta apagada deixa de ser dona dos canais antes de sumir: cada um vai para o
+ * moderador mais antigo, como se o dono tivesse saído. Sem isso a FK só zeraria
+ * o dono, sem avisar ninguém.
  */
 class HandOverOwnedChannels
 {

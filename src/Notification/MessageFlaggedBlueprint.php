@@ -17,17 +17,10 @@ use Ramon\Chat\Message;
 use Ramon\Chat\MessageFlag;
 
 /**
- * "A chat message was reported."
+ * "Uma mensagem do chat foi denunciada." Vai aos moderadores.
  *
- * Sent to the moderators, so a report reaches them the way a flag on a post does
- * rather than waiting to be discovered the next time someone opens the queue.
- *
- * AlertableInterface is a marker with no methods and easy to leave off — Flarum's
- * AlertNotificationDriver checks for it before queueing anything, so without it
- * the notification is dropped in silence: no row, no error.
- *
- * Not mailable. A busy channel can produce a run of reports, and a mailbox is the
- * wrong place for a queue; the alert is seen the next time they look at the forum.
+ * AlertableInterface não tem métodos, mas sem ela o AlertNotificationDriver
+ * descarta a notificação em silêncio. Sem e-mail: denúncias vêm em rajadas.
  */
 class MessageFlaggedBlueprint implements AlertableInterface, BlueprintInterface
 {
@@ -49,13 +42,10 @@ class MessageFlaggedBlueprint implements AlertableInterface, BlueprintInterface
     }
 
     /**
-     * Ids and the reason key only.
+     * Só ids e a chave do motivo.
      *
-     * The `data` column is returned verbatim to every recipient with no policy
-     * re-check, so the reported text must never live here: a message hidden or
-     * deleted after the report would still be readable from the notification.
-     * The channel name is the one exception, and it is safe because the recipients
-     * are moderators who could open the channel anyway.
+     * A coluna `data` volta a cada destinatário sem checar policy, então o texto
+     * denunciado nunca vai aqui. O nome do canal é exceção segura: só moderadores recebem.
      */
     public function getData(): array
     {

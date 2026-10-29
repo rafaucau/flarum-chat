@@ -13,7 +13,7 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * A member was made a moderator of a channel, or stopped being one.
+ * Um membro virou moderador do canal ou deixou de ser.
  */
 class ChannelModeratorChanged
 {

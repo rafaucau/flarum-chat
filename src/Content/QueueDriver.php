@@ -14,10 +14,9 @@ use Illuminate\Contracts\Queue\Queue;
 use Ramon\Chat\Realtime\QueueKind;
 
 /**
- * The forum's queue kind (sync, database or other), for the realtime card on
- * the admin settings page, which offers the queue toggle only where a
- * continuous worker exists. Admin frontend only; no connection detail leaves
- * the server, just the kind.
+ * Tipo de fila do fórum (sync, database ou outro) para o card de realtime do
+ * admin, que só oferece a opção de fila com worker contínuo. Só o tipo sai do
+ * servidor, nenhum detalhe de conexão.
  */
 class QueueDriver
 {

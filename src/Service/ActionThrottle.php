@@ -12,17 +12,13 @@ namespace Ramon\Chat\Service;
 use Illuminate\Contracts\Cache\Repository as Cache;
 
 /**
- * A fixed-window counter for the chat's side actions: reactions, typing,
- * drafts, bookmarks and webhook deliveries.
+ * Contador de janela fixa para as ações secundárias do chat: reações, digitação,
+ * rascunhos, favoritos e entregas de webhook.
  *
- * Message sends have their own limiter, with a setting behind it, because how
- * fast people may talk is a forum's decision. These are not: each is an action
- * no person performs more than a few times a second, and a cap on each is what
- * keeps a script from turning one of them into a flood of writes or pushes.
- *
- * `add` then `increment`, rather than read and put, so two requests landing in
- * the same instant cannot both see the counter below the cap. The window key
- * carries its own start, so a counter never needs resetting; it expires.
+ * Envios têm limiter próprio, configurável. Estas ações ninguém faz mais que
+ * poucas vezes por segundo; o teto impede um script de virá-las em enxurrada.
+ * `add` + `increment` para que duas requisições simultâneas não passem do teto;
+ * a chave carrega o início da janela e simplesmente expira.
  */
 class ActionThrottle
 {
@@ -32,7 +28,7 @@ class ActionThrottle
     }
 
     /**
-     * Records one attempt and says whether it was within the limit.
+     * Registra uma tentativa e diz se ficou dentro do limite.
      */
     public function attempt(string $key, int $max, int $windowSeconds): bool
     {

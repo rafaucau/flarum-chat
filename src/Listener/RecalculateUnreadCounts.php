@@ -14,15 +14,11 @@ use Ramon\Chat\Event\MessageWasMoved;
 use Ramon\Chat\Service\UnreadTracker;
 
 /**
- * Keeps unread counters right after a delete or move.
+ * Mantém as não lidas certas após apagar ou mover uma mensagem.
  *
- * One message changes, so only the memberships still counting it change, by
- * one: a deleted message leaves the counters of the members who had not read
- * past it, and a moved one leaves its old channel's and joins its new one's the
- * same way. This used to recount every membership of the channel from source,
- * two COUNTs per member per event, which on a large channel turned each delete
- * into a burst of queries proportional to its size. See UnreadTracker for the
- * targeted updates.
+ * Só mudam, em um, as memberships que ainda contavam a mensagem: quem não leu
+ * além dela. Recontar todos os membros seria proporcional ao tamanho do canal.
+ * Ver UnreadTracker.
  */
 class RecalculateUnreadCounts
 {

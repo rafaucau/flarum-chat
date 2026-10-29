@@ -14,22 +14,12 @@ use Ramon\Chat\Storage\UploadStorage;
 use Ramon\Chat\Upload;
 
 /**
- * Takes a deleted message's attachments off the disk.
+ * Tira do disco os anexos de uma mensagem apagada.
  *
- * Deleting a message hid its text and left its files exactly where they were.
- * The chat disk is public — it lives under `public/assets/chat` and is served by
- * the web server with no authorisation in front of it — so an image stayed fully
- * readable to anyone holding its URL, which after a moderator removal is the
- * whole channel. The tombstone was a curtain in front of an open door.
- *
- * Only retention pruning cleaned these up, and only for forums that configured a
- * retention window at all; the default of 0 means never.
- *
- * The trade this makes: restoring a deleted message brings back its text but not
- * its attachments. That is a real loss and it is the deliberate side to lose —
- * the alternative is a picture that stays published after being deleted, and no
- * amount of restorability is worth that. The rows go with the files so a restored
- * message does not render broken images.
+ * O disco do chat é público (`public/assets/chat`, servido sem autorização),
+ * então o arquivo continuaria acessível pela URL. Restaurar a mensagem traz o
+ * texto, mas não os anexos: é a perda escolhida. As linhas saem junto para a
+ * mensagem restaurada não mostrar imagens quebradas.
  */
 class PurgeUploadsOnDeletion
 {
@@ -48,9 +38,8 @@ class PurgeUploadsOnDeletion
             return;
         }
 
-        // Best effort per file, wherever it is stored: the row still has to go,
-        // and refusing to continue would leave the rest of the message's
-        // attachments published. A failure is logged by the resolver.
+        // Melhor esforço por arquivo: a linha sai de qualquer jeito, e parar deixaria
+        // os outros anexos publicados. O resolver loga a falha.
         foreach ($uploads as $upload) {
             $this->storage->delete($upload);
         }

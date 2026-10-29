@@ -15,8 +15,8 @@ class PrivatizePendingUploadsSchedule
 {
     public function __invoke(Event $event): void
     {
-        // A file that should be private and is not is a leak until the next
-        // run, so hourly; the command only queues, so it is cheap.
+        // Arquivo que devia ser privado vaza até a próxima execução; o comando
+        // só enfileira, então rodar de hora em hora é barato.
         $event->hourly();
     }
 }

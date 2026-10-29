@@ -14,12 +14,9 @@ use Psr\Log\LoggerInterface;
 use Ramon\Chat\Storage\UploadStorage;
 
 /**
- * The fof/upload adapters the admin may store chat attachments with, for the
- * dropdown on the settings page.
- *
- * Admin frontend only, and wired only while fof/upload is enabled, so neither
- * the forum payload nor a forum without fof/upload ever runs it. Adapter keys
- * only: no bucket, region or credential is read here.
+ * Adapters do fof/upload disponíveis para anexos, para o dropdown do admin.
+ * Só no frontend admin e com o fof/upload ativo; envia apenas as chaves, nunca
+ * bucket, região ou credencial.
  */
 class FofUploadAdapters
 {
@@ -38,8 +35,7 @@ class FofUploadAdapters
                 $keys = $this->storage->fof()->adapterKeys();
             }
         } catch (\Throwable $e) {
-            // An adapter whose package is half installed must not take the
-            // admin panel down with it; the dropdown then offers the mapping only.
+            // Adapter com pacote meio instalado não pode derrubar o painel.
             $this->log->warning('[ramon-chat] could not list fof/upload adapters: '.$e->getMessage());
         }
 

@@ -15,11 +15,10 @@ use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
 
 /**
- * Throttles message sends per user.
+ * Limita envios de mensagem por usuário.
  *
- * Chat inverts the usual forum assumption that posting is rare, so an
- * unthrottled endpoint is a trivial flood vector. Discourse exposes the same
- * control as "chat max messages per second".
+ * No chat postar é frequente, então um endpoint sem limite vira vetor de flood.
+ * Equivale ao "chat max messages per second" do Discourse.
  */
 class RateLimiter
 {
@@ -35,8 +34,7 @@ class RateLimiter
      */
     public function assertWithinLimit(User $actor): void
     {
-        // Admins are exempt: they are the ones who would need to talk their way
-        // out of a misconfigured limit.
+        // Admins ficam isentos: são quem precisaria corrigir um limite mal configurado.
         if ($actor->isAdmin()) {
             return;
         }
@@ -47,8 +45,8 @@ class RateLimiter
             return;
         }
 
-        // Janela fixa de um segundo, contada com `add` + `increment` (atômicos):
-        // ler e depois gravar deixava N envios em paralelo passarem todos.
+        // Janela fixa de um segundo com `add` + `increment` (atômicos), para envios
+        // em paralelo não passarem todos.
         if (! $this->throttle->attempt('rate.'.$actor->id, (int) ceil($perSecond), 1)) {
             throw new ValidationException([
                 'content' => $this->translator->trans('ramon-chat.api.rate_limited'),
