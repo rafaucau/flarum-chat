@@ -18,14 +18,13 @@ return [
             $table->string('name', 100);
             $table->text('description')->nullable();
 
-            // Display identity for posted messages — a webhook does not need a
-            // real user account.
+            // Identidade exibida nas mensagens; o webhook não precisa de conta real.
             $table->string('username', 100)->nullable();
             $table->string('emoji', 60)->nullable();
 
             $table->unsignedInteger('channel_id');
 
-            // Secret path segment used to authenticate deliveries.
+            // Segmento secreto do path que autentica as entregas.
             $table->string('key', 64);
 
             $table->unsignedInteger('creator_id')->nullable();

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Ramon\Chat\Formatter\ResolvesMentionedPosts;
 
 /**
- * One prior state of a message's content, written immediately before an edit.
+ * Estado anterior do conteúdo, gravado logo antes de uma edição.
  *
  * @property int $id
  * @property int $message_id
@@ -40,7 +40,6 @@ class MessageRevision extends AbstractModel implements Formattable
     protected $table = 'chat_message_revisions';
 
     public $timestamps = false;
-
 
     protected $casts = [
         'message_id'   => 'integer',

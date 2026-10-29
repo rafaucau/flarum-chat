@@ -31,7 +31,6 @@ class Bookmark extends AbstractModel
 
     public $timestamps = true;
 
-
     protected $casts = [
         'message_id' => 'integer',
         'user_id'    => 'integer',

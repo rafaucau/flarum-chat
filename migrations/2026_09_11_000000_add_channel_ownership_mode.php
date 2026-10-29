@@ -11,26 +11,16 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Who creates and manages channels becomes a switch
- * (`ramon-chat.channel_ownership`) plus three permissions in the "Member
- * channels" section: create channels, manage own channels and edit own channels.
+ * Quem cria e gerencia canais vira um switch (`ramon-chat.channel_ownership`)
+ * mais três permissões: criar, gerenciar e editar os próprios canais.
  *
- * Two things happen here, in this order:
+ *  1. Fórum que já concedia `createChannel` a um grupo não admin vai para o modo
+ *     "members"; aplicar o padrão "administrators" revogaria isso no upgrade.
+ *  2. As três permissões são semeadas a Member. Inertes no modo
+ *     "administrators", então basta virar o switch.
  *
- *  1. A forum that already granted `createChannel` to some group other than
- *     administrator is put in "members" mode. The switch defaults to
- *     "administrators", and applying it blindly would revoke, on upgrade, a right
- *     the admin granted on purpose.
- *  2. The three permissions are seeded to the Member group. Inert in
- *     "administrators" mode (the GlobalPolicy denies creation to non-admins, and
- *     ChannelOwnership only reads the other two in "members" mode), so flipping
- *     the switch is all the admin needs to do for members to start creating and
- *     looking after their own channels.
- *
- * The seed only runs when the group exists and the row does not yet: a forum may
- * have deleted the group, and `group_permission.group_id` is an FK to `groups`, so
- * inserting blindly aborts the whole extension's activation with
- * SQLSTATE[23000].
+ * Só semeia se o grupo existir e a linha ainda não: `group_permission.group_id`
+ * é FK para `groups` e inserir às cegas aborta a ativação (SQLSTATE[23000]).
  */
 return [
     'up' => function (Builder $schema) {

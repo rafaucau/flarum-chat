@@ -11,32 +11,17 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Backs the stream itself — the most-run query in the extension.
+ * Índices para o stream, a query mais executada da extensão.
  *
- * A channel opens with `where channel_id = ? order by id desc limit 50`, and
- * pages backwards with the same shape. Every existing index on the table leads
- * with `created_at`, `number` or `updated_at`, so MySQL could narrow to the
- * channel but then had to sort the whole matching set to find the newest fifty:
- * `Using where; Using filesort`. That is free on a channel with a few hundred
- * messages and a full sort of half a million on one that has been busy for a
- * year.
+ * O canal abre com `where channel_id = ? order by id desc limit 50`. Sem índice
+ * começando em `channel_id, id`, o MySQL fazia filesort de todas as mensagens do
+ * canal. Com `(channel_id, id)` vira backward index scan que para em 50 linhas;
+ * `(thread_id, id)` faz o mesmo no painel de thread.
  *
- * With `(channel_id, id)` the plan becomes a backward index scan that stops
- * after fifty rows — measured on this install, the same query goes from
- * `Using filesort` to `Backward index scan`. The optimiser will keep preferring
- * the older index while a channel is small, which is correct: the cost of this
- * one is that it exists, and it starts paying the moment sorting is no longer
- * free.
+ * Closure crua porque os helpers de Migration não cobrem índices. Cada índice
+ * é detectado pela lista de colunas, não pelo nome gerado pelo Laravel.
  *
- * `(thread_id, id)` is the same query for the thread panel.
- *
- * The raw closure form rather than a Migration helper: the helpers cover columns
- * and tables, not indexes. Each index is probed by its column list rather than by
- * a generated name, so the guard does not depend on Laravel's naming scheme
- * staying what it is today.
- *
- * On a forum whose `chat_messages` is already large, this is DDL on a table the
- * chat reads constantly — run it in a quiet window, as with any index build.
+ * Em `chat_messages` grande é DDL numa tabela muito lida: rode num horário calmo.
  */
 return [
     'up' => function (Builder $schema) {

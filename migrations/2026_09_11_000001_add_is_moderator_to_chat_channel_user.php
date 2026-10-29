@@ -11,12 +11,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Channel moderator: a role the owner gives to a member of that channel.
+ * Moderador de canal, papel dado pelo dono a um membro.
  *
- * A property of the membership, not of the user, because trust is local: whoever
- * moderates one room does not moderate the others. Only read in "members" mode
- * (Service\ChannelOwnership), so a forum that returns to "administrators" mode
- * switches these roles off without deleting them.
+ * Fica na associação porque a confiança é local ao canal. Só é lido no modo
+ * "members" (Service\ChannelOwnership); voltar a "administrators" desliga os
+ * papéis sem apagá-los.
  */
 return [
     'up' => function (Builder $schema) {

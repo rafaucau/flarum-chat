@@ -15,7 +15,7 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A user's tracking level and read state within a thread.
+ * Nível de acompanhamento e estado de leitura de um usuário numa thread.
  *
  * @property int $id
  * @property int $thread_id
@@ -35,7 +35,6 @@ class ThreadUser extends AbstractModel
     protected $table = 'chat_thread_user';
 
     public $timestamps = true;
-
 
     protected $casts = [
         'thread_id'            => 'integer',

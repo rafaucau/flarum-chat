@@ -11,17 +11,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Pinned messages.
+ * Mensagens fixadas.
  *
- * Columns on the message rather than a pivot table: a message is pinned or not,
- * once, for the whole channel — there is no per-user pin. That makes it an
- * attribute of the message, and keeps the pinned list a plain indexed query
- * instead of a join.
+ * Colunas na mensagem, não pivot: o pin vale para o canal todo, não por usuário,
+ * e a lista vira uma query indexada simples.
  *
- * `pinned_by_id` is kept so the act is attributable; it is nulled on unpin along
- * with the timestamp, so `pinned_at IS NOT NULL` is the single source of truth.
- * ON DELETE SET NULL, because deleting the moderator's account must not delete
- * everyone's pinned messages.
+ * `pinned_by_id` é zerado junto com `pinned_at`, que é a única fonte de verdade.
+ * ON DELETE SET NULL: apagar a conta do moderador não pode apagar os pins.
  */
 return [
     'up' => function (Builder $schema) {
@@ -34,7 +30,7 @@ return [
                 ->on('users')
                 ->onDelete('set null');
 
-            // The pinned list is always scoped to one channel.
+            // A lista de fixadas é sempre por canal.
             $table->index(['channel_id', 'pinned_at']);
         });
     },

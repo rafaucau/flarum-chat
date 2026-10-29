@@ -29,7 +29,6 @@ class MessageReaction extends AbstractModel
 
     public $timestamps = false;
 
-
     protected $casts = [
         'message_id' => 'integer',
         'user_id'    => 'integer',

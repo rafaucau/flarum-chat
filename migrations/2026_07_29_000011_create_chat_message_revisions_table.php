@@ -17,8 +17,7 @@ return [
 
             $table->unsignedInteger('message_id');
 
-            // The content as it stood *before* the edit that created this row,
-            // so replaying revisions oldest-first reconstructs the history.
+            // Conteúdo *antes* da edição; reaplicar do mais antigo reconstrói o histórico.
             $table->mediumText('content')->nullable();
 
             $table->unsignedInteger('edited_by_id')->nullable();

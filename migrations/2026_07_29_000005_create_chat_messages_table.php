@@ -18,27 +18,24 @@ return [
             $table->unsignedInteger('channel_id');
             $table->unsignedInteger('user_id')->nullable();
 
-            // Set when the message belongs to a thread. The thread's root message
-            // also carries its own thread_id, so a thread reads as one query.
+            // A raiz também tem thread_id, então a thread inteira sai numa query.
             $table->unsignedInteger('thread_id')->nullable();
 
-            // Per-channel monotonic sequence. Gives stable ordering and cursor
-            // pagination that survives edits and soft deletes, which raw ids
-            // cannot do once messages move between channels.
+            // Sequência por canal. Ordenação e paginação por cursor estáveis mesmo com
+            // edições, soft deletes e mensagens movidas entre canais, o que o id não garante.
             $table->unsignedInteger('number')->nullable();
 
-            // Inline reply pointer (distinct from threading).
+            // Resposta inline (diferente de thread).
             $table->unsignedInteger('reply_to_id')->nullable();
 
             $table->mediumText('content')->nullable();
 
-            // text | system. System messages carry a key + JSON data instead of
-            // user prose, e.g. "user joined", "channel archived".
+            // text | system. Mensagens de sistema guardam chave + JSON, não texto do usuário.
             $table->string('type', 20)->default('text');
             $table->string('system_key', 60)->nullable();
             $table->text('system_data')->nullable();
 
-            // Set once the message has been used as a webhook delivery target.
+            // Webhook que entregou a mensagem.
             $table->unsignedInteger('webhook_id')->nullable();
 
             $table->dateTime('edited_at')->nullable();

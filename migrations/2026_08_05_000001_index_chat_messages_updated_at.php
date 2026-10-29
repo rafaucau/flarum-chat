@@ -11,18 +11,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Backs the polling fallback's second cursor.
+ * Índices para o segundo cursor do polling.
  *
- * `filter[updatedSince]` asks "what changed in this channel — or this thread —
- * since T", and the table's existing indexes are both on `created_at`, so that
- * question was a scan of every message in the channel on every poll. Two
- * compound indexes turn it into a range read, which matters because the query
- * runs for every open client on a forum with no websocket.
+ * `filter[updatedSince]` varria o canal inteiro a cada poll, pois os índices
+ * eram de `created_at`. Os índices compostos viram leitura por faixa, o que
+ * importa porque a query roda para cada cliente aberto sem websocket.
  *
- * The raw closure form rather than a Migration helper: the helpers cover columns
- * and tables, not indexes. Each index is probed by its column list rather than
- * by a generated name, so the guard does not depend on Laravel's naming scheme
- * staying what it is today.
+ * Closure crua porque os helpers de Migration não cobrem índices. Cada índice
+ * é detectado pela lista de colunas, não pelo nome gerado pelo Laravel.
  */
 return [
     'up' => function (Builder $schema) {

@@ -15,9 +15,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A pending invite: someone with `manageMembers` called a user into the
- * channel and they have not answered yet. Goes away when accepted, declined or
- * cancelled.
+ * Convite pendente feito por quem tem `manageMembers`. Some ao ser aceito,
+ * recusado ou cancelado.
  *
  * @property int $id
  * @property int $channel_id

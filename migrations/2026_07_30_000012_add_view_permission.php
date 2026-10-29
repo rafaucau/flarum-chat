@@ -11,40 +11,22 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Reading the chat, as a right separate from taking part in it.
+ * Ler o chat como direito separado de participar (`ramon-chat.use`).
  *
- * `ramon-chat.use` has always meant "participate": it gates the chat as a whole
- * and everything inside it. Making a public channel readable to logged-out
- * visitors needed a narrower right, because granting `use` to guests would also
- * be granting them every ability that defers to it.
+ * Não concede a GUEST: valeria para a internet inteira. Semeia só MEMBER; quem
+ * quiser leitura pública marca a coluna Guest.
  *
- * ## Why this grants nothing to guests
- *
- * Per CLAUDE.md §4, GUEST is group 2, and a permission granted to that group is
- * granted to the entire internet — search engines, scrapers, anyone. Whether the
- * chat should be public is a decision about a particular forum, not a default an
- * extension gets to make on the admin's behalf. So this seeds MEMBER only, and
- * an admin who wants public reading ticks the Guest column themselves.
- *
- * The seed only runs when the group exists: a forum may have deleted it, and
- * `group_permission.group_id` is an FK to `groups`, so inserting blindly aborts
- * the whole extension's activation with SQLSTATE[23000]. Same guard that
- * `Migration::addPermissions` applies.
+ * Só semeia se o grupo existir: `group_permission.group_id` é FK para `groups`
+ * e inserir às cegas aborta a ativação (SQLSTATE[23000]).
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface. Typing
-    // the parameter as the latter is a TypeError that aborts the *whole extension's*
-    // migration run — every later migration silently stops too, and the console
-    // reports only "Migrating extension: ramon-chat" before exiting 255. The
-    // connection is reached through the builder, which is what the other
-    // permission migrations here do.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $db = $schema->getConnection();
 
-        // Scoped to the row this actually seeds. Checking for *any* grant of the
-        // permission meant a single unrelated one — an admin who had already
-        // ticked Guest, say — suppressed the MEMBER seed entirely, and the
-        // migration recorded itself as done. Which is exactly what happened here.
+        // Checa só a linha que esta migration semeia: checar qualquer concessão
+        // faria um Guest já marcado pelo admin pular a semente de MEMBER.
         $exists = $db->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.view')
@@ -58,9 +40,8 @@ return [
             return;
         }
 
-        // MEMBER only. Moderators and administrators inherit through the groups
-        // they already hold, and seeding them explicitly is what produced the
-        // duplicated badges in the admin permission grid before.
+        // Só MEMBER: moderadores e admins herdam pelos grupos, e semeá-los duplica
+        // o badge na grade.
         $db->table('group_permission')->insert([
             ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.view'],
         ]);
@@ -69,8 +50,7 @@ return [
     'down' => function (Builder $schema) {
         $db = $schema->getConnection();
 
-        // Only what `up` created. Dropping every grant of the permission would take
-        // an admin's own Guest grant with it, which this migration never made.
+        // Só o que `up` criou; não leva junto um Guest concedido pelo admin.
         $db->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.view')

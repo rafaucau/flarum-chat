@@ -10,29 +10,17 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Withdraws `ramon-chat.view`.
+ * Remove `ramon-chat.view`.
  *
- * It existed to let logged-out visitors read public channels. That is no longer
- * wanted, so the permission goes rather than being left in the admin grid as a
- * row that grants nothing — a permission that does not do what its name says is
- * worse than one that is absent.
+ * A leitura por visitantes deslogados deixou de ser desejada; uma permissão que
+ * não faz nada não deve ficar na grade. Todas as concessões saem, Guest inclusive.
+ * `use` continua governando o chat.
  *
- * Every grant is removed, Guest included. That is the point of the change: a
- * forum that had ticked the Guest column keeps working, it simply stops being
- * readable to the internet. The `use` permission, which members hold, is
- * untouched and is what governs the chat now.
- *
- * Irreversible by design: `down` does not restore the grants, because the code
- * that consulted this permission is gone too and recreating the rows would only
- * put a dead entry back in the database.
+ * Irreversível: o código que lia a permissão também saiu.
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface. Typing
-    // the parameter as the latter is a TypeError that aborts the *whole extension's*
-    // migration run — every later migration silently stops too, and the console
-    // reports only "Migrating extension: ramon-chat" before exiting 255. The
-    // connection is reached through the builder, which is what the other
-    // permission migrations here do.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $schema->getConnection()
             ->table('group_permission')
@@ -41,6 +29,6 @@ return [
     },
 
     'down' => function (Builder $schema) {
-        // Nothing. See above.
+        // Nada; ver acima.
     },
 ];

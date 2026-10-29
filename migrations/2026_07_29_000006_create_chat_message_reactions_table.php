@@ -18,7 +18,7 @@ return [
             $table->unsignedInteger('message_id');
             $table->unsignedInteger('user_id');
 
-            // Emoji shortcode without colons, e.g. "heart", "+1".
+            // Shortcode sem dois-pontos, ex.: "heart", "+1".
             $table->string('emoji', 60);
 
             $table->dateTime('created_at')->nullable();

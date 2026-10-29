@@ -10,9 +10,8 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Webhook deliveries used to be stored as authorless text messages, which the
- * stream draws as a deleted account. They are bot messages: the client draws
- * those with the bot's name and avatar.
+ * Entregas de webhook gravadas como texto sem autor apareciam como conta
+ * apagada. Viram mensagens de bot, desenhadas com nome e avatar do bot.
  */
 return [
     'up' => function (Builder $schema) {

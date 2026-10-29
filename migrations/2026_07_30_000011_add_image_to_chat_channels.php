@@ -11,16 +11,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * A picture for the channel, as an alternative to its emoji.
+ * Imagem do canal, alternativa ao emoji.
  *
- * Stored as a path on the `flarum-assets` disk rather than a URL, matching how core
- * keeps the logo and favicon: the forum can move host without every channel icon
- * turning into a dead link.
- *
- * It sits beside `emoji` instead of replacing it. An emoji costs nothing to set and
- * suits most channels; an uploaded picture is for the few that want a real mark. The
- * client prefers the image when both are present, so switching back is a matter of
- * removing the upload rather than re-picking an emoji.
+ * Caminho no disco `flarum-assets`, não URL, como logo e favicon do core: o fórum
+ * pode mudar de host sem quebrar os ícones. Fica ao lado de `emoji`; o cliente
+ * prefere a imagem, e remover o upload volta ao emoji.
  */
 return [
     'up' => function (Builder $schema) {

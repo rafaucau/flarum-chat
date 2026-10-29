@@ -10,14 +10,10 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Removes `ramon-chat.default_reactions`.
+ * Remove `ramon-chat.default_reactions`.
  *
- * The setting was serialised to every forum payload and read by nothing: the
- * reaction bar draws its own set, and the only remaining mention of the key was a
- * docblock. Deleting the extender alone would have left the row behind, still
- * shipped on every page load and still shown in any tool that lists settings.
- *
- * No down. Restoring a value nobody reads is not a rollback of anything.
+ * Era serializada em todo payload sem ninguém ler. Tirar só o extender deixaria
+ * a linha no banco. Sem down.
  */
 return [
     'up' => function (Builder $schema) {

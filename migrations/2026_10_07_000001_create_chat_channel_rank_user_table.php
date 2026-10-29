@@ -11,9 +11,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Who holds each owner-created rank. A member can hold several; the one shown
- * is the highest priority. `channel_id` is repeated here so a channel's rank
- * book comes out in a single query, without going through the ranks.
+ * Quem tem cada cargo criado pelo dono; vale o de maior prioridade.
+ * `channel_id` repetido para os cargos do canal saírem numa query só.
  */
 return [
     'up' => function (Builder $schema) {

@@ -15,7 +15,7 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A user's membership of, and read state within, a channel.
+ * Associação de um usuário a um canal e seu estado de leitura.
  *
  * @property int $id
  * @property int $channel_id
@@ -36,19 +36,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ChannelUser extends AbstractModel
 {
-    /** Notify on every message in the channel. */
+    /** Notifica toda mensagem do canal. */
     public const LEVEL_ALWAYS = 2;
 
-    /** Notify only when directly mentioned. The default. */
+    /** Notifica só menções diretas. Padrão. */
     public const LEVEL_MENTIONS = 1;
 
-    /** Never notify. */
+    /** Nunca notifica. */
     public const LEVEL_NEVER = 0;
 
     protected $table = 'chat_channel_user';
 
     public $timestamps = true;
-
 
     protected $casts = [
         'channel_id'            => 'integer',
@@ -90,8 +89,8 @@ class ChannelUser extends AbstractModel
     }
 
     /**
-     * Whether the channel's owner made this member a moderator of it. What that
-     * grants is decided by Service\ChannelOwnership.
+     * Se o dono fez deste membro um moderador. O que isso concede fica em
+     * Service\ChannelOwnership.
      */
     public function isModerator(): bool
     {
@@ -99,17 +98,10 @@ class ChannelUser extends AbstractModel
     }
 
     /**
-     * Whether this membership is a hidden one — in the channel without appearing
-     * in its member list or count.
+     * Membro oculto: está no canal sem aparecer na lista nem na contagem.
      *
-     * Reads the attribute by name instead of `$this->hidden`, and that is not
-     * style: Eloquent declares `protected $hidden` for its own serialisation
-     * allow-list, and this table has a column of the same name. From outside the
-     * class the property is inaccessible, so PHP falls through to `__get()` and
-     * the column wins — by accident. From inside one — an accessor, a scope, a
-     * subclass — `$this->hidden` is Eloquent's array and the column is
-     * unreachable. Naming the attribute is the only form that means the same
-     * thing in both places.
+     * Usa getAttribute() porque `$this->hidden` dentro da classe é o array de
+     * serialização do Eloquent, não a coluna de mesmo nome.
      */
     public function isHidden(): bool
     {
@@ -117,8 +109,8 @@ class ChannelUser extends AbstractModel
     }
 
     /**
-     * Muting is deliberately separate from level 0: a muted channel also stops
-     * contributing unread badges, whereas level 0 only suppresses notifications.
+     * Silenciar difere do nível 0: também tira o canal dos badges de não lidas,
+     * enquanto o nível 0 só suprime notificações.
      */
     public function wantsNotificationFor(bool $isMention): bool
     {

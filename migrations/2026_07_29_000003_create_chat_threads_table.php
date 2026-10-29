@@ -17,12 +17,11 @@ return [
 
             $table->unsignedInteger('channel_id');
 
-            // The channel message the thread hangs off. Nullable only during the
-            // brief window where the thread row is written before its root
-            // message gets its thread_id back-filled.
+            // Mensagem raiz. Nullable só no instante entre gravar a thread e preencher
+            // o thread_id da raiz.
             $table->unsignedInteger('original_message_id')->nullable();
 
-            // Author-editable, and what "My Threads" lists.
+            // Editável pelo autor; é o que "Minhas threads" lista.
             $table->string('title', 200)->nullable();
 
             $table->unsignedInteger('creator_id')->nullable();

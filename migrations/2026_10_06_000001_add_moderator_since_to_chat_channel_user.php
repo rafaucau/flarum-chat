@@ -11,11 +11,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * When the member became a moderator of the channel.
+ * Quando o membro virou moderador do canal.
  *
- * Decides who inherits the channel when the owner leaves: the longest-serving
- * moderator (Service\OwnershipSuccession). Roles granted before this column
- * existed stay null and fall back to the date the member joined the channel.
+ * Decide quem herda o canal quando o dono sai (Service\OwnershipSuccession).
+ * Papéis anteriores à coluna ficam null e usam a data de entrada no canal.
  */
 return [
     'up' => function (Builder $schema) {

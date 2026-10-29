@@ -11,18 +11,15 @@ use Flarum\Foundation\Paths;
 use Illuminate\Database\Query\Builder as Query;
 use Illuminate\Database\Schema\Builder;
 
-// Declared ahead of the `return`: a function inside a condition is not hoisted,
-// and a file-level `return` ends the file before anything written below it
-// runs — so a helper placed after the array is never defined at all.
+// Declarada antes do `return`: função dentro de condição não sofre hoisting
+// e o `return` do arquivo encerra antes de qualquer coisa abaixo.
 if (! function_exists('chat_uploads_relocate')) {
     /**
-     * Moves one stored file between the two roots.
+     * Move um arquivo entre as duas raízes.
      *
-     * Paths are server-generated (`Y/m/<random>.<ext>`), never client input, but
-     * a row is still refused if it does not look like one: a migration is the
-     * wrong place to find out otherwise. A file that is already at its target
-     * counts as moved; a file missing from both is left alone and its row
-     * unchanged, which is the state that makes the least claims.
+     * Paths são gerados pelo servidor, mas uma linha fora do formato é recusada
+     * mesmo assim. Já no destino conta como movido; ausente nos dois, linha e
+     * arquivo ficam como estão.
      */
     function chat_uploads_relocate(string $path, string $fromRoot, string $toRoot): bool
     {
@@ -56,17 +53,14 @@ if (! function_exists('chat_uploads_relocate')) {
 }
 
 /**
- * Takes the attachments already posted in private and direct channels off the
- * public disk.
+ * Tira do disco público os anexos já postados em canais privados e diretos.
  *
- * Before the private disk existed every file went under `public/assets/chat`,
- * so a picture sent in a private room was readable by anyone holding its URL.
- * Flagging the rows alone would leave those files where they are, so this
- * moves each one and flags its row only once the file is where the flag says.
+ * Antes do disco privado, tudo ia para `public/assets/chat` e era legível por
+ * quem tivesse a URL. Move cada arquivo e só marca a linha quando o arquivo já
+ * está onde a flag diz.
  *
- * Native `rename` rather than the filesystem disks: the extension's extenders,
- * and with them its disks, are not guaranteed to be registered while its own
- * migrations run. The paths come from Paths, the same source the disks use.
+ * `rename` nativo, não os discos: os extenders (e os discos) podem não estar
+ * registrados durante as migrations. Os paths vêm de Paths, como nos discos.
  */
 return [
     'up' => function (Builder $schema) {
@@ -78,8 +72,7 @@ return [
         $from = $paths->public.'/assets/chat';
         $to = $paths->storage.'/chat-uploads';
 
-        // Restricted tags count too, when the tags table is there to ask. A
-        // channel on a staff-only category is as private as one flagged so.
+        // Tags restritas também contam, quando a tabela de tags existe.
         $tags = $schema->hasTable('tags');
 
         $schema->getConnection()->table('chat_uploads')

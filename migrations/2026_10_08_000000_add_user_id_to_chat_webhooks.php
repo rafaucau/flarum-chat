@@ -11,8 +11,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * The account a webhook posts as. Null means the chat's bot. Deleting the
- * account drops the webhook back to the bot instead of breaking it.
+ * Conta usada pelo webhook; null é o bot. Apagar a conta volta ao bot sem
+ * quebrar o webhook.
  */
 return [
     'up' => function (Builder $schema) {

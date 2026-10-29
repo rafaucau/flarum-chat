@@ -15,9 +15,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * An ownership transfer in progress: whoever started it hands the channel to
- * a member. Before confirmation it awaits the code emailed to whoever started
- * it; afterwards, it awaits the answer from the recipient.
+ * Transferência de dono em andamento. Antes da confirmação espera o código
+ * enviado por e-mail a quem iniciou; depois, a resposta do destinatário.
  *
  * @property int $id
  * @property int $channel_id

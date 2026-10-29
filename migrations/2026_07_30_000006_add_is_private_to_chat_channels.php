@@ -11,21 +11,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Public and private category channels.
+ * Canais de categoria públicos e privados.
  *
- * A public channel is discoverable: it appears in Browse for anyone the category's
- * permissions already admit, and they may join it themselves. A private one is
- * invitation-only — it is visible solely to people who are already members, so it
- * does not appear in Browse, cannot be joined from there, and its existence is not
- * advertised to the rest of the forum.
+ * Público aparece no Browse para quem a categoria admite e pode entrar sozinho.
+ * Privado é só por convite: visível apenas a membros, fora do Browse.
  *
- * This composes with, rather than replaces, the category binding: a private channel
- * bound to a tag is restricted twice over, and one with no tag is restricted purely
- * by its membership. Direct channels are unaffected — they are private by
- * construction and never carry this flag.
- *
- * Defaults to false so every existing channel stays exactly as discoverable as it
- * was before the column existed.
+ * Soma-se ao vínculo com a tag. Canais diretos nunca têm a flag. Padrão false
+ * para os canais existentes não mudarem.
  */
 return [
     'up' => function (Builder $schema) {

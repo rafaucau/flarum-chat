@@ -10,23 +10,17 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Drops the memberships "add all users" wrote that nobody ever used.
+ * Apaga associações criadas por "adicionar todos" que nunca foram usadas.
  *
- * A channel for everyone no longer needs a row per member: whoever can see it
- * is in it, and a row is written once there is something of theirs to keep.
- * Forums that turned the setting on before still hold one row per account,
- * and every push to the channel walks each of them. A row that was never read,
- * never configured, holds no role and is not the creator's carries nothing its
- * owner would lose, and removing it leaves them in the channel as before.
+ * Canal para todos não precisa mais de uma linha por membro, e cada push
+ * percorria todas. Linha nunca lida nem configurada, sem papel e que não é do
+ * criador não carrega nada; o usuário continua no canal.
  *
- * Deleted by id in batches, so a forum of hundreds of thousands of accounts
- * runs bounded statements, and safe to run again. There is no `down`: the
- * rows held nothing to restore.
+ * Em lotes por id, com statements limitados, e pode rodar de novo. Sem `down`.
  */
 return [
     'up' => function (Builder $schema) {
-        // Flarum's Migrator hands a closure migration the schema builder and
-        // nothing else, so the connection is reached through it.
+        // O Migrator só entrega o schema builder; a conexão vem dele.
         $db = $schema->getConnection();
 
         $channels = $db->table('chat_channels')
@@ -55,8 +49,7 @@ return [
                 })
                 ->select('chat_channel_user.id');
 
-            // By id rather than by offset, so deleting a batch does not shift the
-            // next one past rows it should have seen.
+            // Por id, não offset, para apagar um lote não deslocar o próximo.
             $untouched->chunkById(1000, function ($rows) use ($db) {
                 $db->table('chat_channel_user')
                     ->whereIn('id', $rows->pluck('id')->all())

@@ -11,16 +11,10 @@ use Flarum\Database\Migration;
 use Flarum\Group\Group;
 
 /**
- * Pinning a message is its own right, granted to administrators.
+ * Fixar mensagem é um direito próprio, fora de `moderate`: é editorial, decide
+ * o que todos veem primeiro.
  *
- * Kept out of `moderate` deliberately: moderation is about removing and moving
- * other people's messages, whereas a pin is editorial — it decides what everyone
- * in a channel sees first. A forum may well want those in different hands.
- */
-/*
- * Nothing is granted here. The permission exists and is checked; it simply has
- * no default holder beyond administrators, who bypass permission checks anyway.
- * Granting to the Administrator group explicitly would make the admin badge
- * render twice in the permission grid — see 2026_07_30_000010.
+ * Nada é concedido: sem dono padrão além dos admins, que passam direto. Conceder
+ * ao grupo Administrator duplicaria o badge na grade (ver 2026_07_30_000010).
  */
 return Migration::addPermissions([]);

@@ -10,22 +10,15 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Removes the forum-wide send-key default.
+ * Remove o padrão de tecla de envio do fórum.
  *
- * Which key sends is now the member's own two-state preference, defaulting to
- * Enter, so the admin switch had no reader left — an operator could flip it and
- * nothing would happen. Members who never chose keep sending on Enter, which is
- * what the shipped default was.
- *
- * Only the setting row goes. The per-user preference stays: `sendKeyPreference()`
- * reads anything that is not "ctrl" as Enter, so the "default" values stored
- * under the old three-state preference resolve correctly without being rewritten.
+ * Agora é preferência do membro (padrão Enter) e a configuração não tinha mais
+ * leitor. A preferência fica: `sendKeyPreference()` lê tudo que não é "ctrl"
+ * como Enter, então os "default" antigos resolvem sem reescrita.
  */
 return [
-    // Flarum's migrator always hands the closure a schema Builder — see
-    // Migrator::runClosureMigration. Typing this as ConnectionInterface is a
-    // TypeError that aborts the whole extension's migration run; the connection
-    // comes off the builder instead.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $schema->getConnection()
             ->table('settings')
@@ -33,7 +26,6 @@ return [
             ->delete();
     },
 
-    // No rollback: the setting no longer has a reader, so restoring the row would
-    // put a value in the table that nothing consults.
+    // Sem rollback: a configuração não tem mais leitor.
     'down' => fn () => null,
 ];

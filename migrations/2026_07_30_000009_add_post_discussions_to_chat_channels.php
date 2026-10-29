@@ -11,15 +11,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Announce new discussions from the bound category in the channel.
+ * Anuncia no canal as novas discussões da categoria vinculada.
  *
- * Turns a category channel into the live-chat counterpart of its category: someone
- * starts a discussion, and the room it belongs to hears about it. Only meaningful
- * for a tag-bound channel — there is no category to watch otherwise — which is why
- * it sits beside `auto_join_on_reply` rather than being a global setting.
- *
- * Off by default. An announcement per new discussion is welcome in a quiet
- * category and unbearable in a busy one, so it is opted into per channel.
+ * Por canal, ao lado de `auto_join_on_reply`, porque só faz sentido com tag.
+ * Desligado por padrão: bem-vindo numa categoria calma, insuportável numa movimentada.
  */
 return [
     'up' => function (Builder $schema) {

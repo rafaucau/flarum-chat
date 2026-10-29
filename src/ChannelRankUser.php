@@ -14,7 +14,7 @@ use Flarum\Database\AbstractModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A member holding a rank created by the channel owner.
+ * Membro com um cargo criado pelo dono do canal.
  *
  * @property int $rank_id
  * @property int $user_id
