@@ -11,6 +11,7 @@ namespace Ramon\Chat\Service;
 
 use Carbon\Carbon;
 use Flarum\Database\AbstractModel;
+use Flarum\User\Guest;
 use Illuminate\Contracts\Filesystem\Factory;
 use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Support\Collection;
@@ -61,12 +62,19 @@ class UploadPrivacy
     }
 
     /**
-     * Se os anexos deste canal precisam ficar no disco privado: DM, canal privado
-     * ou canal vinculado a tag restrita.
+     * Se os anexos deste canal precisam ficar no disco privado: DM, canal privado,
+     * canal apagado, canal vinculado a tag restrita, ou qualquer canal quando o
+     * fórum é fechado a visitantes (o disco público serve sem login).
      */
+    /** Visitantes não leem o fórum: nada do chat pode sair do disco público. */
+    public static function forumClosed(): bool
+    {
+        return ! (new Guest())->hasPermission('viewForum');
+    }
+
     public static function requiredFor(Channel $channel): bool
     {
-        if ($channel->isDirect() || $channel->isPrivate()) {
+        if ($channel->isDirect() || $channel->isPrivate() || $channel->isDeleted() || self::forumClosed()) {
             return true;
         }
 

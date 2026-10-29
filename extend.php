@@ -257,6 +257,7 @@ return [
         // público. O envio em si é tratado no dispatcher.
         ->listen(Event\MessageWasMoved::class, Listener\KeepUploadsPrivate::class.'@whenMessageMoved')
         ->listen(Event\ChannelWasEdited::class, Listener\KeepUploadsPrivate::class.'@whenChannelEdited')
+        ->listen(Event\ChannelWasDeleted::class, Listener\KeepUploadsPrivate::class.'@whenChannelDeleted')
         // Entradas e saídas aparecem no stream.
         ->listen(Event\UserJoinedChannel::class, Listener\AnnounceMembershipChanges::class.'@whenJoined')
         ->listen(Event\UserLeftChannel::class, Listener\AnnounceMembershipChanges::class.'@whenLeft')

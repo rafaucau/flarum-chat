@@ -191,6 +191,32 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertStatus(416, $served);
     }
 
+    public function test_a_forum_closed_to_guests_keeps_every_file_off_the_public_disk(): void
+    {
+        $this->database()->table('group_permission')->where('group_id', Group::GUEST_ID)->where('permission', 'viewForum')->delete();
+
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+
+        $this->assertTrue($upload['attributes']['isPrivate']);
+        $this->assertFileExists($this->privateRoot().'/'.$this->storedPath((int) $upload['id']));
+        $this->assertStatus(404, $this->fetch((int) $upload['id'], null));
+    }
+
+    public function test_deleting_a_channel_takes_its_files_off_the_public_disk(): void
+    {
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+        $this->sendMessage(self::MEMBER, self::CH_PUBLIC, [(int) $upload['id']]);
+        $path = $this->storedPath((int) $upload['id']);
+
+        $this->assertFileExists($this->publicRoot().'/'.$path);
+
+        $deleted = $this->send($this->request('DELETE', '/api/chat-channels/'.self::CH_PUBLIC, ['authenticatedAs' => 1]));
+        $this->assertStatus(204, $deleted);
+
+        $this->assertFileDoesNotExist($this->publicRoot().'/'.$path);
+        $this->assertFileExists($this->privateRoot().'/'.$path);
+    }
+
     public function test_making_a_channel_private_moves_what_was_posted_in_it(): void
     {
         $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);

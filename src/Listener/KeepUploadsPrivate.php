@@ -12,6 +12,7 @@ namespace Ramon\Chat\Listener;
 use Flarum\Database\AbstractModel;
 use Illuminate\Contracts\Queue\Queue;
 use Psr\Log\LoggerInterface;
+use Ramon\Chat\Event\ChannelWasDeleted;
 use Ramon\Chat\Event\ChannelWasEdited;
 use Ramon\Chat\Event\MessageWasMoved;
 use Ramon\Chat\Service\UploadPrivacy;
@@ -44,6 +45,12 @@ class KeepUploadsPrivate
         }
 
         $this->privacy->privatizeChannel($channel);
+    }
+
+    /** Canal apagado sai da lista, mas os anexos continuavam publicados. */
+    public function whenChannelDeleted(ChannelWasDeleted $event): void
+    {
+        $this->privacy->privatizeChannel($event->channel);
     }
 
     public function whenMessageMoved(MessageWasMoved $event): void

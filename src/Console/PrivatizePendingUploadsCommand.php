@@ -102,11 +102,14 @@ class PrivatizePendingUploadsCommand extends AbstractCommand
     {
         $queued = 0;
 
+        // Com o fórum fechado a visitantes, todo canal conta; aberto, só os que
+        // podem pedir privacidade (DM, privado, apagado ou com tag).
         Channel::query()
-            ->where(fn (Builder $query) => $query
+            ->unless(UploadPrivacy::forumClosed(), fn (Builder $channels) => $channels->where(fn (Builder $query) => $query
                 ->where('type', Channel::TYPE_DIRECT)
                 ->orWhere('is_private', true)
-                ->orWhereNotNull('tag_id'))
+                ->orWhereNotNull('deleted_at')
+                ->orWhereNotNull('tag_id')))
             ->whereHas('messages', fn (Builder $messages) => $messages->whereHas(
                 'uploads',
                 fn (Builder $uploads) => $uploads->where('is_private', false)

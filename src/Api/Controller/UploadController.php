@@ -116,7 +116,7 @@ class UploadController implements RequestHandlerInterface
         // disco público. É dica, não trava: o dispatcher confere de novo no envio.
         // Canal invisível ao ator responde "não encontrado".
         $channelId = (int) Arr::get($request->getParsedBody(), 'channelId', 0);
-        $private = false;
+        $private = UploadPrivacy::forumClosed();
 
         if ($channelId > 0) {
             /** @var Channel|null $channel */
