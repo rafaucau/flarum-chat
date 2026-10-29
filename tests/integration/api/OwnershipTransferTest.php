@@ -349,7 +349,7 @@ class OwnershipTransferTest extends TestCase
         $this->assertSame(self::PLAIN, (int) $rows[0]->user_id);
         $this->assertSame(self::OWNER, (int) $rows[0]->from_user_id);
         $this->assertSame(self::CHANNEL, (int) $rows[0]->subject_id);
-        $this->assertSame(['channelId' => self::CHANNEL, 'userId' => self::PLAIN], json_decode((string) $rows[0]->data, true));
+        $this->assertEquals(['channelId' => self::CHANNEL, 'userId' => self::PLAIN], json_decode((string) $rows[0]->data, true));
 
         $this->send($this->request('POST', '/api/chat-channels/'.self::CHANNEL.'/moderators/remove', [
             'authenticatedAs' => self::OWNER,

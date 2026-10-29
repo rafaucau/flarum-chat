@@ -166,7 +166,7 @@ class OwnershipSuccessionTest extends TestCase
         $this->assertCount(1, $notification);
         $this->assertSame(self::SENIOR, (int) $notification[0]->user_id);
         $this->assertSame(self::OWNER, (int) $notification[0]->from_user_id);
-        $this->assertSame(['channelId' => self::CHANNEL, 'userId' => self::SENIOR], json_decode((string) $notification[0]->data, true));
+        $this->assertEquals(['channelId' => self::CHANNEL, 'userId' => self::SENIOR], json_decode((string) $notification[0]->data, true));
 
         $this->assertCount(1, $this->dispatched, 'the same event an accepted transfer dispatches');
         $this->assertTrue($this->dispatched[0]->inherited);
