@@ -75,7 +75,12 @@ class AcceptInviteController implements RequestHandlerInterface
             throw new PermissionDeniedException();
         }
 
-        $this->invitations->accept($channel, $actor);
+        // Outro aceite em paralelo já usou o convite: a entrada é dele, e
+        // anunciá-la de novo escrevia a linha "entrou" duas vezes.
+        if ($this->invitations->accept($channel, $actor) === null) {
+            return new JsonResponse($this->serialize($request, $channel));
+        }
+
         $this->memberships->join($channel, $actor);
 
         $this->events->dispatch(new UserJoinedChannel(

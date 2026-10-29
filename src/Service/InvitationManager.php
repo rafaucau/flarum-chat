@@ -217,9 +217,12 @@ class InvitationManager
     {
         return ChannelInvite::query()->getConnection()->transaction(function () use ($channel, $user) {
             /** @var ChannelInvite|null $invite */
+            // Travado: dois aceites em paralelo liam o mesmo convite e os dois
+            // anunciavam a entrada. O segundo agora espera e não acha nada.
             $invite = ChannelInvite::query()
                 ->where('channel_id', $channel->id)
                 ->where('user_id', $user->id)
+                ->lockForUpdate()
                 ->with('inviter')
                 ->first();
 
