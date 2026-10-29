@@ -45,10 +45,13 @@ class MembershipManager
         bool $hidden = false
     ): ChannelUser {
         return ChannelUser::query()->getConnection()->transaction(function () use ($channel, $user, $notificationLevel, $hidden) {
+            // Travada até o commit: dois retornos simultâneos veriam `left_at` e
+            // somariam o membro duas vezes em `user_count`.
             /** @var ChannelUser|null $membership */
             $membership = ChannelUser::query()
                 ->where('channel_id', $channel->id)
                 ->where('user_id', $user->id)
+                ->lockForUpdate()
                 ->first();
 
             $isNew = $membership === null;
@@ -110,11 +113,13 @@ class MembershipManager
         $settled = null;
 
         $membership = ChannelUser::query()->getConnection()->transaction(function () use ($channel, $user, &$settled) {
+            // Travada pelo mesmo motivo do join: duas saídas não descontam duas vezes.
             /** @var ChannelUser|null $membership */
             $membership = ChannelUser::query()
                 ->where('channel_id', $channel->id)
                 ->where('user_id', $user->id)
                 ->whereNull('left_at')
+                ->lockForUpdate()
                 ->first();
 
             if ($membership === null) {

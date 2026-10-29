@@ -93,10 +93,21 @@ class StartDirectController implements RequestHandlerInterface
         $participantIds[] = (int) $actor->id;
         sort($participantIds);
 
-        $channel = $this->findExisting($participantIds);
-        $created = false;
+        // Busca e criação na mesma transação, com as linhas dos participantes
+        // travadas em ordem de id: dois pedidos ao mesmo grupo ao mesmo tempo
+        // não criam duas conversas, e a ordem fixa evita deadlock.
+        [$channel, $created] = Channel::query()->getConnection()->transaction(function () use ($actor, $users, $participantIds) {
+            User::query()->whereIn('id', $participantIds)->orderBy('id')->lockForUpdate()->pluck('id');
 
-        if ($channel === null) {
+            $existing = $this->findExisting($participantIds);
+
+            if ($existing !== null) {
+                // Re-join é idempotente.
+                $this->memberships->join($existing, $actor);
+
+                return [$existing, false];
+            }
+
             // Só conta conversa nova: reabrir não cria nada na lista de ninguém.
             // Sem o limite, variar os participantes encheria a sidebar alheia.
             if (! $actor->isAdmin() && ! $this->throttle->attempt('direct.'.$actor->id, self::NEW_PER_HOUR, 3600)) {
@@ -105,27 +116,22 @@ class StartDirectController implements RequestHandlerInterface
                 ]);
             }
 
-            $channel = Channel::query()->getConnection()->transaction(function () use ($actor, $users) {
-                $channel = Channel::build(Channel::TYPE_DIRECT, creator: $actor);
-                $channel->save();
+            $channel = Channel::build(Channel::TYPE_DIRECT, creator: $actor);
+            $channel->save();
 
-                $this->memberships->join($channel, $actor);
-
-                foreach ($users as $user) {
-                    $this->memberships->join($channel, $user);
-                }
-
-                $channel->refreshMetadata()->save();
-
-                return $channel;
-            });
-
-            $created = true;
-
-            $this->events->dispatch(new ChannelWasCreated($channel, $actor));
-        } else {
-            // Re-join é idempotente.
             $this->memberships->join($channel, $actor);
+
+            foreach ($users as $user) {
+                $this->memberships->join($channel, $user);
+            }
+
+            $channel->refreshMetadata()->save();
+
+            return [$channel, true];
+        });
+
+        if ($created) {
+            $this->events->dispatch(new ChannelWasCreated($channel, $actor));
         }
 
         return new JsonResponse(
