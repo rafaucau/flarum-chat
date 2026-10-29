@@ -185,7 +185,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
 
         {chatState.drawerCollapsed ? null : (
           <div className="ChatDrawer-body">
-            <ErrorBoundary area="drawer">{this.body(channel)}</ErrorBoundary>
+            <ErrorBoundary area="drawer" render={() => this.body(channel)} />
           </div>
         )}
       </div>
