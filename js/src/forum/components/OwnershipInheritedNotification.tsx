@@ -1,13 +1,8 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 
-import {
-  channelIdOf,
-  channelNameOf,
-  fromName,
-  openChannelFromNotification,
-} from "./ModeratorPromotedNotification";
+import { channelIdOf, channelNameOf, fromName, openChannelFromNotification } from './ModeratorPromotedNotification';
 
 /**
  * "X left #channel, so you are now its owner."
@@ -18,25 +13,20 @@ import {
  */
 export default class OwnershipInheritedNotification extends Notification {
   icon(): string {
-    return "fas fa-crown";
+    return 'fas fa-crown';
   }
 
   href(): string {
     const channelId = channelIdOf(this);
 
-    return channelId
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId ? app.route('chat.channel', { id: channelId }) : app.route('chat.index');
   }
 
   content(): Mithril.Children {
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.ownership_inherited",
-      {
-        username: fromName(this),
-        channel: channelNameOf(this),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.ownership_inherited', {
+      username: fromName(this),
+      channel: channelNameOf(this),
+    });
   }
 
   excerpt(): Mithril.Children {

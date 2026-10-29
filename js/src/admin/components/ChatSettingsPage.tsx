@@ -1,21 +1,21 @@
-import app from "flarum/admin/app";
-import ExtensionPage from "flarum/admin/components/ExtensionPage";
-import Form from "flarum/common/components/Form";
-import extractText from "flarum/common/utils/extractText";
-import type Mithril from "mithril";
+import app from 'flarum/admin/app';
+import ExtensionPage from 'flarum/admin/components/ExtensionPage';
+import Form from 'flarum/common/components/Form';
+import extractText from 'flarum/common/utils/extractText';
+import type Mithril from 'mithril';
 
-import BotSettings from "./BotSettings";
-import { BrandingPreview } from "./ChatPreview";
-import WebhooksPanel from "./WebhooksPanel";
+import BotSettings from './BotSettings';
+import { BrandingPreview } from './ChatPreview';
+import WebhooksPanel from './WebhooksPanel';
 
 /** Where public attachments are stored: "local" or "fof-upload". */
-export const STORAGE_SETTING = "ramon-chat.upload_storage";
+export const STORAGE_SETTING = 'ramon-chat.upload_storage';
 
 /** The fof/upload adapter key; empty follows fof/upload's own mime mapping. */
-export const ADAPTER_SETTING = "ramon-chat.fof_upload_adapter";
+export const ADAPTER_SETTING = 'ramon-chat.fof_upload_adapter';
 
 /** Realtime pushes through the queue; only offered on a continuous worker. */
-const QUEUE_SETTING = "ramon-chat.queue_realtime";
+const QUEUE_SETTING = 'ramon-chat.queue_realtime';
 
 /**
  * The forum's queue kind, from the admin payload (Content\QueueDriver):
@@ -26,13 +26,13 @@ const QUEUE_SETTING = "ramon-chat.queue_realtime";
 function queueKind(): string {
   const kind = app.data.ramonChatQueueKind;
 
-  return typeof kind === "string" ? kind : "sync";
+  return typeof kind === 'string' ? kind : 'sync';
 }
 
 /** The switch at the top of the webhooks card; a registered setting like the rest. */
-const WEBHOOKS_SWITCH = "ramon-chat.webhooks_enabled";
+const WEBHOOKS_SWITCH = 'ramon-chat.webhooks_enabled';
 
-type GroupKey = "general" | "messages" | "delivery" | "integrations";
+type GroupKey = 'general' | 'messages' | 'delivery' | 'integrations';
 
 /**
  * The tabs along the top of the page. Each holds two subjects that are
@@ -40,10 +40,10 @@ type GroupKey = "general" | "messages" | "delivery" | "integrations";
  * does not scroll past eight unrelated cards on the way.
  */
 const GROUPS: readonly { key: GroupKey; icon: string }[] = [
-  { key: "general", icon: "fas fa-comments" },
-  { key: "messages", icon: "fas fa-message" },
-  { key: "delivery", icon: "fas fa-tower-broadcast" },
-  { key: "integrations", icon: "fas fa-plug" },
+  { key: 'general', icon: 'fas fa-comments' },
+  { key: 'messages', icon: 'fas fa-message' },
+  { key: 'delivery', icon: 'fas fa-tower-broadcast' },
+  { key: 'integrations', icon: 'fas fa-plug' },
 ];
 
 /**
@@ -66,61 +66,52 @@ interface Section {
 
 const SECTIONS: readonly Section[] = [
   {
-    key: "channels",
-    group: "general",
-    icon: "fas fa-people-group",
-    keys: [
-      "ramon-chat.channel_ownership",
-      "ramon-chat.allow_archiving_channels",
-      "ramon-chat.threading_default",
-    ],
+    key: 'channels',
+    group: 'general',
+    icon: 'fas fa-people-group',
+    keys: ['ramon-chat.channel_ownership', 'ramon-chat.allow_archiving_channels', 'ramon-chat.threading_default'],
   },
   {
-    key: "appearance",
-    group: "general",
-    icon: "fas fa-palette",
-    keys: ["ramon-chat.title", "ramon-chat.icon", "ramon-chat.show_icon"],
+    key: 'appearance',
+    group: 'general',
+    icon: 'fas fa-palette',
+    keys: ['ramon-chat.title', 'ramon-chat.icon', 'ramon-chat.show_icon'],
     columns: 2,
   },
   {
-    key: "messages",
-    group: "messages",
-    icon: "fas fa-message",
+    key: 'messages',
+    group: 'messages',
+    icon: 'fas fa-message',
     keys: [
-      "ramon-chat.max_message_length",
-      "ramon-chat.min_message_length",
-      "ramon-chat.max_messages_per_second",
-      "ramon-chat.message_edit_window_minutes",
+      'ramon-chat.max_message_length',
+      'ramon-chat.min_message_length',
+      'ramon-chat.max_messages_per_second',
+      'ramon-chat.message_edit_window_minutes',
     ],
     columns: 2,
   },
   {
-    key: "uploads",
-    group: "messages",
-    icon: "fas fa-paperclip",
+    key: 'uploads',
+    group: 'messages',
+    icon: 'fas fa-paperclip',
     // The last two are registered only while fof/upload is enabled; a key that
     // was never registered is simply not drawn.
-    keys: [
-      "ramon-chat.allow_uploads",
-      "ramon-chat.max_upload_size",
-      STORAGE_SETTING,
-      ADAPTER_SETTING,
-    ],
+    keys: ['ramon-chat.allow_uploads', 'ramon-chat.max_upload_size', STORAGE_SETTING, ADAPTER_SETTING],
     columns: 2,
   },
   {
-    key: "realtime",
-    group: "delivery",
-    icon: "fas fa-bolt",
-    keys: [QUEUE_SETTING, "ramon-chat.notification_sound"],
+    key: 'realtime',
+    group: 'delivery',
+    icon: 'fas fa-bolt',
+    keys: [QUEUE_SETTING, 'ramon-chat.notification_sound'],
   },
   {
-    key: "retention",
-    group: "delivery",
-    icon: "fas fa-broom",
-    keys: ["ramon-chat.channel_retention_days", "ramon-chat.dm_retention_days"],
+    key: 'retention',
+    group: 'delivery',
+    icon: 'fas fa-broom',
+    keys: ['ramon-chat.channel_retention_days', 'ramon-chat.dm_retention_days'],
     columns: 2,
-    warning: "ramon-chat.admin.settings.retention_warning",
+    warning: 'ramon-chat.admin.settings.retention_warning',
   },
 ];
 
@@ -134,13 +125,9 @@ interface Card {
   body: () => Mithril.Children;
 }
 
-type SettingEntry = Parameters<
-  ExtensionPage["buildSettingComponent"]
->[0] extends infer E
-  ? Exclude<E, (...args: any[]) => any>
-  : never;
+type SettingEntry = Parameters<ExtensionPage['buildSettingComponent']>[0] extends infer E ? Exclude<E, (...args: any[]) => any> : never;
 
-const TAB_STORAGE_KEY = "ramon-chat.admin.tab";
+const TAB_STORAGE_KEY = 'ramon-chat.admin.tab';
 
 /**
  * The open tab, remembered between visits: saving a setting that needs a
@@ -153,13 +140,13 @@ let activeGroup: GroupKey = (() => {
 
     if (saved && GROUPS.some((group) => group.key === saved)) return saved;
   } catch {
-    return "general";
+    return 'general';
   }
 
-  return "general";
+  return 'general';
 })();
 
-let query = "";
+let query = '';
 
 /**
  * The chat's admin page.
@@ -178,15 +165,11 @@ let query = "";
  */
 export default class ChatSettingsPage extends ExtensionPage {
   content(vnode: Mithril.VnodeDOM<any, any>) {
-    const entries = (app.registry.getSettings(this.extension.id) ?? []).filter(
-      (entry): entry is SettingEntry => typeof entry !== "function",
-    );
+    const entries = (app.registry.getSettings(this.extension.id) ?? []).filter((entry): entry is SettingEntry => typeof entry !== 'function');
 
     const cards = this.cards(entries);
     const needle = query.trim().toLowerCase();
-    const visible = needle
-      ? cards.filter((card) => card.haystack.includes(needle))
-      : cards.filter((card) => card.group === activeGroup);
+    const visible = needle ? cards.filter((card) => card.haystack.includes(needle)) : cards.filter((card) => card.group === activeGroup);
 
     const changes = this.isChanged();
 
@@ -194,41 +177,32 @@ export default class ChatSettingsPage extends ExtensionPage {
       <div className="ExtensionPage-settings ChatAdmin">
         <div className="container">
           <Form>
-            {this.toolbar(cards, needle !== "")}
+            {this.toolbar(cards, needle !== '')}
 
             {visible.length > 0 ? (
               <div
                 className="ChatAdmin-grid"
                 id="ChatAdmin-panel"
                 role="tabpanel"
-                aria-labelledby={
-                  needle ? undefined : `ChatAdmin-tab-${activeGroup}`
-                }
+                aria-labelledby={needle ? undefined : `ChatAdmin-tab-${activeGroup}`}
               >
-                {visible.map((card) =>
-                  this.card(card, needle !== "" ? card.group : null),
-                )}
+                {visible.map((card) => this.card(card, needle !== '' ? card.group : null))}
               </div>
             ) : (
               <p className="ChatAdmin-empty" role="status">
                 <i className="fas fa-comment-slash" aria-hidden="true" />
-                {app.translator.trans("ramon-chat.admin.layout.search_empty")}
+                {app.translator.trans('ramon-chat.admin.layout.search_empty')}
               </p>
             )}
 
-            <div
-              className={
-                "Form-group Form-controls ChatAdmin-controls" +
-                (changes ? " is-dirty" : "")
-              }
-            >
+            <div className={'Form-group Form-controls ChatAdmin-controls' + (changes ? ' is-dirty' : '')}>
               <span className="ChatAdmin-status" role="status">
                 <span className="ChatAdmin-statusDot" aria-hidden="true" />
                 {changes
-                  ? app.translator.trans("ramon-chat.admin.layout.unsaved", {
+                  ? app.translator.trans('ramon-chat.admin.layout.unsaved', {
                       count: changes,
                     })
-                  : app.translator.trans("ramon-chat.admin.layout.saved")}
+                  : app.translator.trans('ramon-chat.admin.layout.saved')}
               </span>
 
               <span className="ChatAdmin-actions">
@@ -238,14 +212,13 @@ export default class ChatSettingsPage extends ExtensionPage {
                     label: entry.label,
                   })),
                   app.translator.trans(
-                    "core.admin.extension.reset_settings.title_extension",
+                    'core.admin.extension.reset_settings.title_extension',
                     {
-                      extensionTitle:
-                        this.extension.extra["flarum-extension"].title,
+                      extensionTitle: this.extension.extra['flarum-extension'].title,
                     },
-                    true,
+                    true
                   ),
-                  this.extension.id,
+                  this.extension.id
                 )}
                 {this.submitButton()}
               </span>
@@ -263,10 +236,7 @@ export default class ChatSettingsPage extends ExtensionPage {
    */
   protected cards(entries: SettingEntry[]): Card[] {
     const byKey = new Map(entries.map((entry) => [entry.setting, entry]));
-    const placed = new Set([
-      ...SECTIONS.flatMap((section) => section.keys),
-      WEBHOOKS_SWITCH,
-    ]);
+    const placed = new Set([...SECTIONS.flatMap((section) => section.keys), WEBHOOKS_SWITCH]);
     const leftover = entries.filter((entry) => !placed.has(entry.setting));
 
     const cards: Card[] = [];
@@ -289,38 +259,30 @@ export default class ChatSettingsPage extends ExtensionPage {
     }
 
     cards.push({
-      key: "announcer",
-      group: "integrations",
-      icon: "fas fa-robot",
-      haystack: this.haystack("announcer", [], "bot avatar"),
+      key: 'announcer',
+      group: 'integrations',
+      icon: 'fas fa-robot',
+      haystack: this.haystack('announcer', [], 'bot avatar'),
       body: () => <BotSettings />,
     });
 
     const webhooksEntry = byKey.get(WEBHOOKS_SWITCH);
 
     cards.push({
-      key: "webhooks",
-      group: "integrations",
-      icon: "fas fa-plug",
-      haystack: this.haystack(
-        "webhooks",
-        webhooksEntry ? [webhooksEntry] : [],
-        "slack",
-      ),
+      key: 'webhooks',
+      group: 'integrations',
+      icon: 'fas fa-plug',
+      haystack: this.haystack('webhooks', webhooksEntry ? [webhooksEntry] : [], 'slack'),
       body: () => this.webhooksBody(webhooksEntry),
     });
 
     if (leftover.length > 0) {
       cards.push({
-        key: "other",
-        group: "integrations",
-        icon: "fas fa-sliders",
-        haystack: this.haystack("other", leftover),
-        body: () => (
-          <div className="ChatAdmin-fields">
-            {leftover.map((entry) => this.buildSettingComponent(entry))}
-          </div>
-        ),
+        key: 'other',
+        group: 'integrations',
+        icon: 'fas fa-sliders',
+        haystack: this.haystack('other', leftover),
+        body: () => <div className="ChatAdmin-fields">{leftover.map((entry) => this.buildSettingComponent(entry))}</div>,
       });
     }
 
@@ -331,25 +293,19 @@ export default class ChatSettingsPage extends ExtensionPage {
    * What the search box matches for a card: its title and description, and
    * the label and help of every field in it.
    */
-  protected haystack(key: string, fields: SettingEntry[], extra = ""): string {
+  protected haystack(key: string, fields: SettingEntry[], extra = ''): string {
     const parts = [
-      this.sectionText(key, "title"),
-      this.sectionText(key, "help"),
+      this.sectionText(key, 'title'),
+      this.sectionText(key, 'help'),
       extra,
-      ...fields.map((entry) =>
-        [extractText(entry.label), extractText(entry.help as any)].join(" "),
-      ),
+      ...fields.map((entry) => [extractText(entry.label), extractText(entry.help as any)].join(' ')),
     ];
 
-    return parts.join(" ").toLowerCase();
+    return parts.join(' ').toLowerCase();
   }
 
-  protected sectionText(key: string, part: "title" | "help"): string {
-    return app.translator.trans(
-      `ramon-chat.admin.sections.${key}_${part}`,
-      {},
-      true,
-    ) as string;
+  protected sectionText(key: string, part: 'title' | 'help'): string {
+    return app.translator.trans(`ramon-chat.admin.sections.${key}_${part}`, {}, true) as string;
   }
 
   /**
@@ -362,23 +318,13 @@ export default class ChatSettingsPage extends ExtensionPage {
         <div
           className="ChatAdmin-tabs"
           role="tablist"
-          aria-label={app.translator.trans(
-            "ramon-chat.admin.layout.groups_aria",
-            {},
-            true,
-          )}
+          aria-label={app.translator.trans('ramon-chat.admin.layout.groups_aria', {}, true)}
           onkeydown={(e: KeyboardEvent) => this.onTabKey(e)}
         >
           {GROUPS.map((group) => {
-            const count = cards.filter(
-              (card) => card.group === group.key,
-            ).length;
+            const count = cards.filter((card) => card.group === group.key).length;
             const active = !searching && group.key === activeGroup;
-            const label = app.translator.trans(
-              `ramon-chat.admin.layout.group_${group.key}`,
-              {},
-              true,
-            ) as string;
+            const label = app.translator.trans(`ramon-chat.admin.layout.group_${group.key}`, {}, true) as string;
 
             return (
               <button
@@ -386,13 +332,13 @@ export default class ChatSettingsPage extends ExtensionPage {
                 type="button"
                 role="tab"
                 id={`ChatAdmin-tab-${group.key}`}
-                aria-selected={active ? "true" : "false"}
+                aria-selected={active ? 'true' : 'false'}
                 aria-controls="ChatAdmin-panel"
                 tabindex={active || (searching && group === GROUPS[0]) ? 0 : -1}
                 data-group={group.key}
                 title={label}
                 aria-label={label}
-                className={"ChatAdmin-tab" + (active ? " is-active" : "")}
+                className={'ChatAdmin-tab' + (active ? ' is-active' : '')}
                 onclick={() => this.selectGroup(group.key)}
               >
                 <i className={group.icon} aria-hidden="true" />
@@ -410,35 +356,23 @@ export default class ChatSettingsPage extends ExtensionPage {
           <input
             type="search"
             className="ChatAdmin-searchInput"
-            aria-label={app.translator.trans(
-              "ramon-chat.admin.layout.search_placeholder",
-              {},
-              true,
-            )}
+            aria-label={app.translator.trans('ramon-chat.admin.layout.search_placeholder', {}, true)}
             value={query}
-            placeholder={app.translator.trans(
-              "ramon-chat.admin.layout.search_placeholder",
-              {},
-              true,
-            )}
+            placeholder={app.translator.trans('ramon-chat.admin.layout.search_placeholder', {}, true)}
             oninput={(e: Event) => {
               query = (e.target as HTMLInputElement).value;
             }}
             onkeydown={(e: KeyboardEvent) => {
-              if (e.key === "Escape") query = "";
+              if (e.key === 'Escape') query = '';
             }}
           />
           {query ? (
             <button
               type="button"
               className="ChatAdmin-searchClear"
-              aria-label={app.translator.trans(
-                "ramon-chat.admin.layout.search_clear",
-                {},
-                true,
-              )}
+              aria-label={app.translator.trans('ramon-chat.admin.layout.search_clear', {}, true)}
               onclick={() => {
-                query = "";
+                query = '';
               }}
             >
               <i className="fas fa-xmark" aria-hidden="true" />
@@ -451,7 +385,7 @@ export default class ChatSettingsPage extends ExtensionPage {
 
   protected selectGroup(key: GroupKey): void {
     activeGroup = key;
-    query = "";
+    query = '';
 
     try {
       localStorage.setItem(TAB_STORAGE_KEY, key);
@@ -465,11 +399,10 @@ export default class ChatSettingsPage extends ExtensionPage {
     const index = GROUPS.findIndex((group) => group.key === activeGroup);
     let next = index;
 
-    if (e.key === "ArrowRight") next = (index + 1) % GROUPS.length;
-    else if (e.key === "ArrowLeft")
-      next = (index - 1 + GROUPS.length) % GROUPS.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = GROUPS.length - 1;
+    if (e.key === 'ArrowRight') next = (index + 1) % GROUPS.length;
+    else if (e.key === 'ArrowLeft') next = (index - 1 + GROUPS.length) % GROUPS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = GROUPS.length - 1;
     else return;
 
     e.preventDefault();
@@ -479,36 +412,28 @@ export default class ChatSettingsPage extends ExtensionPage {
     document.getElementById(`ChatAdmin-tab-${GROUPS[next].key}`)?.focus();
   }
 
-  protected sectionBody(
-    section: Section,
-    fields: SettingEntry[],
-  ): Mithril.Children {
+  protected sectionBody(section: Section, fields: SettingEntry[]): Mithril.Children {
     return (
       <>
-        <div
-          className={
-            "ChatAdmin-fields" +
-            (section.columns === 2 ? " ChatAdmin-fields--two" : "")
-          }
-        >
+        <div className={'ChatAdmin-fields' + (section.columns === 2 ? ' ChatAdmin-fields--two' : '')}>
           {fields.map((entry) => this.buildSettingComponent(entry))}
         </div>
 
-        {section.key === "appearance" ? (
+        {section.key === 'appearance' ? (
           <BrandingPreview
-            title={String(this.setting("ramon-chat.title")() ?? "")}
-            icon={String(this.setting("ramon-chat.icon")() ?? "")}
-            showIcon={this.isOn(this.setting("ramon-chat.show_icon")(), true)}
+            title={String(this.setting('ramon-chat.title')() ?? '')}
+            icon={String(this.setting('ramon-chat.icon')() ?? '')}
+            showIcon={this.isOn(this.setting('ramon-chat.show_icon')(), true)}
           />
         ) : null}
 
-        {section.key === "realtime" && queueKind() !== "other" ? (
+        {section.key === 'realtime' && queueKind() !== 'other' ? (
           <p className="ChatAdmin-note">
             <i className="fas fa-bolt" aria-hidden="true" />
             {app.translator.trans(
-              queueKind() === "database"
-                ? "ramon-chat.admin.settings.queue_realtime_inline_database"
-                : "ramon-chat.admin.settings.queue_realtime_inline",
+              queueKind() === 'database'
+                ? 'ramon-chat.admin.settings.queue_realtime_inline_database'
+                : 'ramon-chat.admin.settings.queue_realtime_inline'
             )}
           </p>
         ) : null}
@@ -520,12 +445,10 @@ export default class ChatSettingsPage extends ExtensionPage {
           </p>
         ) : null}
 
-        {section.key === "uploads" && this.storesOnFofLocal() ? (
+        {section.key === 'uploads' && this.storesOnFofLocal() ? (
           <p className="ChatAdmin-warning">
             <i className="fas fa-triangle-exclamation" aria-hidden="true" />
-            {app.translator.trans(
-              "ramon-chat.admin.settings.fof_upload_local_warning",
-            )}
+            {app.translator.trans('ramon-chat.admin.settings.fof_upload_local_warning')}
           </p>
         ) : null}
       </>
@@ -537,9 +460,9 @@ export default class ChatSettingsPage extends ExtensionPage {
    * boolean once toggled, nothing at all before it was ever saved.
    */
   protected isOn(raw: unknown, fallback: boolean): boolean {
-    if (raw === undefined || raw === null || raw === "") return fallback;
+    if (raw === undefined || raw === null || raw === '') return fallback;
 
-    return raw === "1" || raw === "true" || raw === true;
+    return raw === '1' || raw === 'true' || raw === true;
   }
 
   /**
@@ -549,11 +472,11 @@ export default class ChatSettingsPage extends ExtensionPage {
    * so it appears the moment the storage is switched rather than after saving.
    */
   protected fieldShown(key: string): boolean {
-    if (key === QUEUE_SETTING) return queueKind() === "other";
+    if (key === QUEUE_SETTING) return queueKind() === 'other';
 
     if (key !== ADAPTER_SETTING) return true;
 
-    return this.setting(STORAGE_SETTING)() === "fof-upload";
+    return this.setting(STORAGE_SETTING)() === 'fof-upload';
   }
 
   /**
@@ -564,12 +487,9 @@ export default class ChatSettingsPage extends ExtensionPage {
    * because nothing else would tell.
    */
   protected storesOnFofLocal(): boolean {
-    const adapter = this.setting(ADAPTER_SETTING)() ?? "";
+    const adapter = this.setting(ADAPTER_SETTING)() ?? '';
 
-    return (
-      this.setting(STORAGE_SETTING)() === "fof-upload" &&
-      (adapter === "local" || adapter === "")
-    );
+    return this.setting(STORAGE_SETTING)() === 'fof-upload' && (adapter === 'local' || adapter === '');
   }
 
   /**
@@ -585,18 +505,14 @@ export default class ChatSettingsPage extends ExtensionPage {
 
     return (
       <>
-        {entry ? (
-          <div className="ChatAdmin-fields ChatAdmin-switch">
-            {this.buildSettingComponent(entry)}
-          </div>
-        ) : null}
+        {entry ? <div className="ChatAdmin-fields ChatAdmin-switch">{this.buildSettingComponent(entry)}</div> : null}
 
         {enabled ? (
           <WebhooksPanel />
         ) : (
           <p className="ChatAdmin-muted">
             <i className="fas fa-plug-circle-xmark" aria-hidden="true" />
-            {app.translator.trans("ramon-chat.admin.webhooks.disabled")}
+            {app.translator.trans('ramon-chat.admin.webhooks.disabled')}
           </p>
         )}
       </>
@@ -612,37 +528,21 @@ export default class ChatSettingsPage extends ExtensionPage {
     const titleId = `ChatAdmin-title-${card.key}`;
 
     return (
-      <section
-        key={card.key}
-        className={"ChatAdmin-section ChatAdmin-section--" + card.key}
-        aria-labelledby={titleId}
-      >
+      <section key={card.key} className={'ChatAdmin-section ChatAdmin-section--' + card.key} aria-labelledby={titleId}>
         <header className="ChatAdmin-sectionHeader">
           <span className="ChatAdmin-sectionIcon" aria-hidden="true">
             <i className={card.icon} />
           </span>
           <div className="ChatAdmin-sectionHeading">
             <h3 className="ChatAdmin-sectionTitle" id={titleId}>
-              {app.translator.trans(
-                `ramon-chat.admin.sections.${card.key}_title`,
-              )}
+              {app.translator.trans(`ramon-chat.admin.sections.${card.key}_title`)}
               {group ? (
-                <button
-                  type="button"
-                  className="ChatAdmin-sectionGroup"
-                  onclick={() => this.selectGroup(group)}
-                >
-                  {app.translator.trans(
-                    `ramon-chat.admin.layout.group_${group}`,
-                  )}
+                <button type="button" className="ChatAdmin-sectionGroup" onclick={() => this.selectGroup(group)}>
+                  {app.translator.trans(`ramon-chat.admin.layout.group_${group}`)}
                 </button>
               ) : null}
             </h3>
-            <p className="ChatAdmin-sectionHelp">
-              {app.translator.trans(
-                `ramon-chat.admin.sections.${card.key}_help`,
-              )}
-            </p>
+            <p className="ChatAdmin-sectionHelp">{app.translator.trans(`ramon-chat.admin.sections.${card.key}_help`)}</p>
           </div>
         </header>
 

@@ -1,17 +1,10 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import type Channel from "../../common/models/Channel";
-import type Message from "../../common/models/Message";
-import type Thread from "../../common/models/Thread";
-import type Upload from "../../common/models/Upload";
-import {
-  purgeSnapshots,
-  readSnapshot,
-  serialize,
-  writeSnapshot,
-  type Document,
-  signedOutSince,
-} from "../utils/snapshot";
+import type Channel from '../../common/models/Channel';
+import type Message from '../../common/models/Message';
+import type Thread from '../../common/models/Thread';
+import type Upload from '../../common/models/Upload';
+import { purgeSnapshots, readSnapshot, serialize, writeSnapshot, type Document, signedOutSince } from '../utils/snapshot';
 
 /**
  * One channel's loaded message window plus its paging state.
@@ -80,11 +73,9 @@ const BOOTED_AT = Date.now();
  * one it was already making.
  */
 function readTotal(results: unknown): number | null {
-  const total = (
-    results as { payload?: { meta?: { page?: { total?: unknown } } } } | null
-  )?.payload?.meta?.page?.total;
+  const total = (results as { payload?: { meta?: { page?: { total?: unknown } } } } | null)?.payload?.meta?.page?.total;
 
-  return typeof total === "number" ? total : null;
+  return typeof total === 'number' ? total : null;
 }
 
 /**
@@ -258,8 +249,7 @@ export default class ChatState {
    * Optimistic rows awaiting their server response, keyed by a client-generated
    * token. They are rendered greyed out and replaced in place on success.
    */
-  private pending: Map<string, { channelId: number; token: string }> =
-    new Map();
+  private pending: Map<string, { channelId: number; token: string }> = new Map();
   private pendingSeq = 0;
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -332,7 +322,7 @@ export default class ChatState {
           collapsed: this.drawerCollapsed,
           suspended: this.drawerSuspended,
           channelId: this.activeChannelId,
-        }),
+        })
       );
     } catch {
       // Non-fatal, as above.
@@ -353,7 +343,7 @@ export default class ChatState {
    */
   private persistDrawerCookie(): void {
     try {
-      const secure = location.protocol === "https:" ? "; Secure" : "";
+      const secure = location.protocol === 'https:' ? '; Secure' : '';
 
       if (this.drawerOpen && !this.drawerSuspended) {
         document.cookie = `ramon_chat_drawer=${this.activeChannelId ?? 0}; path=/; max-age=31536000; SameSite=Lax${secure}`;
@@ -436,10 +426,7 @@ export default class ChatState {
     this.activeChannelId = channelId;
 
     if (channelId !== null) {
-      this.recentChannelIds = [
-        channelId,
-        ...this.recentChannelIds.filter((id) => id !== channelId),
-      ].slice(0, SNAPSHOT_CHANNELS);
+      this.recentChannelIds = [channelId, ...this.recentChannelIds.filter((id) => id !== channelId)].slice(0, SNAPSHOT_CHANNELS);
     }
 
     this.persistDrawer();
@@ -475,8 +462,7 @@ export default class ChatState {
 
     this.bootHydrated = true;
 
-    const boot = (app as unknown as { data?: Record<string, any> }).data
-      ?.ramonChat;
+    const boot = (app as unknown as { data?: Record<string, any> }).data?.ramonChat;
 
     if (!boot) return;
 
@@ -569,10 +555,9 @@ export default class ChatState {
   }
 
   private snapshotUserId(): string | null {
-    const id = (app as unknown as { data?: { session?: { userId?: unknown } } })
-      .data?.session?.userId;
+    const id = (app as unknown as { data?: { session?: { userId?: unknown } } }).data?.session?.userId;
 
-    return typeof id === "number" && id > 0 ? String(id) : null;
+    return typeof id === 'number' && id > 0 ? String(id) : null;
   }
 
   /**
@@ -624,10 +609,7 @@ export default class ChatState {
           streams[channelId] = serialize(stream.messages.slice(-PAGE_SIZE));
         }
 
-        if (
-          channelId in this.pinnedPreviews &&
-          !this.pinnedStale.has(channelId)
-        ) {
+        if (channelId in this.pinnedPreviews && !this.pinnedStale.has(channelId)) {
           const preview = this.pinnedPreviews[channelId];
           const document = preview ? serialize([preview]) : { data: [] };
 
@@ -664,7 +646,7 @@ export default class ChatState {
    * nothing pinned — and must be honoured rather than refetched.
    */
   private pushDocument<T>(document: unknown): T[] | null {
-    if (!document || typeof document !== "object") return null;
+    if (!document || typeof document !== 'object') return null;
 
     const data = (document as { data?: unknown }).data;
 
@@ -697,9 +679,7 @@ export default class ChatState {
       const { channelId, threadId, content } = row?.attributes ?? {};
 
       if (channelId && content) {
-        this.drafts[
-          this.draftKey(Number(channelId), threadId ? Number(threadId) : null)
-        ] = content;
+        this.drafts[this.draftKey(Number(channelId), threadId ? Number(threadId) : null)] = content;
       }
     }
 
@@ -716,11 +696,7 @@ export default class ChatState {
    * `channelId` is passed only for a channel stream: it is what the unread
    * divider is read from, and threads carry no read marker of their own.
    */
-  private hydrateStream(
-    stream: ChannelStream,
-    document: unknown,
-    channelId?: number,
-  ): void {
+  private hydrateStream(stream: ChannelStream, document: unknown, channelId?: number): void {
     if (stream.loadedInitial || stream.loading) return;
 
     const page = this.pushDocument<Message>(document);
@@ -734,8 +710,7 @@ export default class ChatState {
       const channel = this.channel(channelId);
       const lastRead = channel?.lastReadMessageId() ?? 0;
 
-      stream.dividerAfterId =
-        lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
+      stream.dividerAfterId = lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
     }
 
     if (page.length < PAGE_SIZE) stream.hasMore = false;
@@ -758,10 +733,9 @@ export default class ChatState {
     // The preloaded document is the same one the request would have returned, so
     // it carries the same count. Read straight off it rather than through
     // `readTotal`, which expects what the store hands back.
-    const total = (document as { meta?: { page?: { total?: unknown } } })?.meta
-      ?.page?.total;
+    const total = (document as { meta?: { page?: { total?: unknown } } })?.meta?.page?.total;
 
-    this.pinnedTotals[channelId] = typeof total === "number" ? total : 0;
+    this.pinnedTotals[channelId] = typeof total === 'number' ? total : 0;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -789,10 +763,7 @@ export default class ChatState {
    * `errorHandler` is for the poller, which refetches on nobody's request and
    * must not raise core's alert when the answer is that the session has ended.
    */
-  async loadChannels(
-    force = false,
-    errorHandler?: (error: { status?: number }) => false | void,
-  ): Promise<Channel[]> {
+  async loadChannels(force = false, errorHandler?: (error: { status?: number }) => false | void): Promise<Channel[]> {
     // Join a request already in flight rather than issuing a second one.
     if (this.channelsRequest) return this.channelsRequest;
 
@@ -812,14 +783,14 @@ export default class ChatState {
     this.channelsRequest = (async () => {
       try {
         const results = (await app.store.find(
-          "chat-channels",
+          'chat-channels',
           {
             filter: { following: true },
-            sort: "-lastMessageAt",
+            sort: '-lastMessageAt',
             page: { limit: 50 },
           },
           undefined,
-          errorHandler ? { errorHandler } : {},
+          errorHandler ? { errorHandler } : {}
         )) as unknown as Channel[];
 
         this.channels = Array.isArray(results) ? results : [];
@@ -880,8 +851,7 @@ export default class ChatState {
    * server would put it on the next fetch anyway.
    */
   rememberChannel(channel: Channel): void {
-    if (this.channels.some((existing) => existing.id() === channel.id()))
-      return;
+    if (this.channels.some((existing) => existing.id() === channel.id())) return;
 
     this.channels.unshift(channel);
   }
@@ -901,21 +871,16 @@ export default class ChatState {
    * request now answers 404.
    */
   channelGone(channelId: number): void {
-    const wasOpen =
-      this.activeChannelId === channelId &&
-      (m.route.get() ?? "").includes(`/chat/c/${channelId}`);
+    const wasOpen = this.activeChannelId === channelId && (m.route.get() ?? '').includes(`/chat/c/${channelId}`);
     this.forgetChannel(channelId);
 
-    if (wasOpen) m.route.set(app.route("chat.index"));
+    if (wasOpen) m.route.set(app.route('chat.index'));
 
     // Only for whoever was looking at it. A row that merely leaves the list
     // needs no explanation, and announcing every deletion would flood anyone
     // who belongs to many channels — an administrator above all.
     if (wasOpen) {
-      app.alerts.show(
-        { type: "warning" },
-        app.translator.trans("ramon-chat.forum.channel.gone"),
-      );
+      app.alerts.show({ type: 'warning' }, app.translator.trans('ramon-chat.forum.channel.gone'));
     }
 
     m.redraw();
@@ -939,18 +904,14 @@ export default class ChatState {
   }
 
   forgetChannel(channelId: number): void {
-    this.channels = this.channels.filter(
-      (channel) => Number(channel.id()) !== channelId,
-    );
+    this.channels = this.channels.filter((channel) => Number(channel.id()) !== channelId);
 
     // A conversa sai também do snapshot local: quem foi removido de um canal
     // privado não deve achar o fim dele no disco.
     delete this.streams[channelId];
     delete this.pinnedPreviews[channelId];
     delete this.pinnedTotals[channelId];
-    this.recentChannelIds = this.recentChannelIds.filter(
-      (id) => id !== channelId,
-    );
+    this.recentChannelIds = this.recentChannelIds.filter((id) => id !== channelId);
     this.scheduleSnapshot();
 
     if (this.activeChannelId === channelId) {
@@ -1011,10 +972,7 @@ export default class ChatState {
   channel(id: number | null): Channel | null {
     if (id === null) return null;
 
-    return (
-      (app.store.getById("chat-channels", String(id)) as Channel | undefined) ??
-      null
-    );
+    return (app.store.getById('chat-channels', String(id)) as Channel | undefined) ?? null;
   }
 
   /** Category channels, for the sidebar's "Channels" section. */
@@ -1056,8 +1014,7 @@ export default class ChatState {
           messages += channel.unreadCount() ?? 0;
         }
 
-        if (channel.hasUnreadMentions())
-          mentions += channel.unreadMentionsCount() ?? 0;
+        if (channel.hasUnreadMentions()) mentions += channel.unreadMentionsCount() ?? 0;
       }
 
       return { channels, messages, mentions };
@@ -1069,9 +1026,9 @@ export default class ChatState {
     const user = app.session.user;
 
     return {
-      channels: Number(user?.attribute<number>("chatUnreadChannelsCount") ?? 0),
-      messages: Number(user?.attribute<number>("chatUnreadMessagesCount") ?? 0),
-      mentions: Number(user?.attribute<number>("chatUnreadMentionsCount") ?? 0),
+      channels: Number(user?.attribute<number>('chatUnreadChannelsCount') ?? 0),
+      messages: Number(user?.attribute<number>('chatUnreadMessagesCount') ?? 0),
+      mentions: Number(user?.attribute<number>('chatUnreadMentionsCount') ?? 0),
     };
   }
 
@@ -1083,11 +1040,7 @@ export default class ChatState {
    * which is exactly the situation the badge exists for. Without this the dot only
    * ever appeared after a reload.
    */
-  bumpUnreadCounters(
-    messages: number,
-    mentions: number,
-    newChannel: boolean,
-  ): void {
+  bumpUnreadCounters(messages: number, mentions: number, newChannel: boolean): void {
     const user = app.session.user;
 
     if (!user) return;
@@ -1095,18 +1048,9 @@ export default class ChatState {
     const at = (key: string) => Number(user.attribute<number>(key) ?? 0);
 
     user.pushAttributes({
-      chatUnreadMessagesCount: Math.max(
-        0,
-        at("chatUnreadMessagesCount") + messages,
-      ),
-      chatUnreadMentionsCount: Math.max(
-        0,
-        at("chatUnreadMentionsCount") + mentions,
-      ),
-      chatUnreadChannelsCount: Math.max(
-        0,
-        at("chatUnreadChannelsCount") + (newChannel ? 1 : 0),
-      ),
+      chatUnreadMessagesCount: Math.max(0, at('chatUnreadMessagesCount') + messages),
+      chatUnreadMentionsCount: Math.max(0, at('chatUnreadMentionsCount') + mentions),
+      chatUnreadChannelsCount: Math.max(0, at('chatUnreadChannelsCount') + (newChannel ? 1 : 0)),
     });
   }
 
@@ -1151,8 +1095,7 @@ export default class ChatState {
     const lastRead = channel?.lastReadMessageId() ?? 0;
 
     // Only show a divider when there is actually something unread below it.
-    stream.dividerAfterId =
-      lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
+    stream.dividerAfterId = lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
 
     await this.fetchPage(channelId);
 
@@ -1164,11 +1107,7 @@ export default class ChatState {
    * page is reversed before being prepended.
    */
   async fetchPage(channelId: number): Promise<void> {
-    await this.fetchInto(
-      this.stream(channelId),
-      { channel: channelId },
-      this.goneHandler(channelId),
-    );
+    await this.fetchInto(this.stream(channelId), { channel: channelId }, this.goneHandler(channelId));
   }
 
   /**
@@ -1181,7 +1120,7 @@ export default class ChatState {
   private async fetchInto(
     stream: ChannelStream,
     filter: Record<string, unknown>,
-    errorHandler?: (error: { status?: number }) => false | void,
+    errorHandler?: (error: { status?: number }) => false | void
   ): Promise<void> {
     if (stream.loading || !stream.hasMore) return;
 
@@ -1191,17 +1130,17 @@ export default class ChatState {
       const oldest = stream.messages[0];
 
       const results = (await app.store.find(
-        "chat-messages",
+        'chat-messages',
         {
           filter: {
             ...filter,
             ...(oldest ? { lessThan: Number(oldest.id()) } : {}),
           },
-          sort: "-id",
+          sort: '-id',
           page: { limit: PAGE_SIZE },
         },
         undefined,
-        errorHandler ? { errorHandler } : undefined,
+        errorHandler ? { errorHandler } : undefined
       )) as unknown as Message[];
 
       const page = (Array.isArray(results) ? results : []).slice().reverse();
@@ -1235,8 +1174,7 @@ export default class ChatState {
    */
   async revealMessage(channelId: number, messageId: number): Promise<boolean> {
     const stream = this.stream(channelId);
-    const has = () =>
-      stream.messages.some((message) => Number(message.id()) === messageId);
+    const has = () => stream.messages.some((message) => Number(message.id()) === messageId);
 
     if (has()) return true;
 
@@ -1257,23 +1195,20 @@ export default class ChatState {
 
         if (oldest && Number(oldest.id()) < messageId) break;
 
-        const results = (await app.store.find("chat-messages", {
+        const results = (await app.store.find('chat-messages', {
           filter: {
             channel: channelId,
             greaterThan: messageId - 1,
             ...(oldest ? { lessThan: Number(oldest.id()) } : {}),
           },
-          sort: "-id",
+          sort: '-id',
           page: { limit: GAP_PAGE_SIZE },
         })) as unknown as Message[];
 
         const page = (Array.isArray(results) ? results : []).slice().reverse();
         const known = new Set(stream.messages.map((msg) => msg.id()));
 
-        stream.messages = [
-          ...page.filter((msg) => !known.has(msg.id())),
-          ...stream.messages,
-        ];
+        stream.messages = [...page.filter((msg) => !known.has(msg.id())), ...stream.messages];
         this.sortStream(stream);
 
         if (page.length < GAP_PAGE_SIZE) break;
@@ -1312,23 +1247,21 @@ export default class ChatState {
 
     try {
       const results = (await app.store.find(
-        "chat-messages",
+        'chat-messages',
         {
           filter: { channel: channelId },
-          sort: "-id",
+          sort: '-id',
           page: { limit: PAGE_SIZE },
         },
         undefined,
-        { errorHandler: this.goneHandler(channelId) },
+        { errorHandler: this.goneHandler(channelId) }
       )) as unknown as Message[];
 
       const fresh = (Array.isArray(results) ? results : []).slice().reverse();
       const complete = fresh.length < PAGE_SIZE;
       const oldest = fresh[0] ? Number(fresh[0].id()) : 0;
 
-      const kept = complete
-        ? []
-        : stream.messages.filter((msg) => Number(msg.id()) < oldest);
+      const kept = complete ? [] : stream.messages.filter((msg) => Number(msg.id()) < oldest);
 
       stream.messages = [...kept, ...fresh];
       this.sortStream(stream);
@@ -1387,17 +1320,12 @@ export default class ChatState {
    * Loads the thread record itself, for the panel's title and reply count.
    */
   async findThread(threadId: number): Promise<Thread | null> {
-    const known = app.store.getById<Thread>("chat-threads", String(threadId));
+    const known = app.store.getById<Thread>('chat-threads', String(threadId));
 
     if (known) return known;
 
     try {
-      return (
-        ((await app.store.find(
-          "chat-threads",
-          String(threadId),
-        )) as unknown as Thread) ?? null
-      );
+      return ((await app.store.find('chat-threads', String(threadId))) as unknown as Thread) ?? null;
     } catch {
       return null;
     }
@@ -1457,9 +1385,7 @@ export default class ChatState {
 
     if (inFlight) return inFlight;
 
-    const request = this.fetchPinnedPreview(channelId).finally(() =>
-      this.pinnedInFlight.delete(channelId),
-    );
+    const request = this.fetchPinnedPreview(channelId).finally(() => this.pinnedInFlight.delete(channelId));
 
     this.pinnedInFlight.set(channelId, request);
 
@@ -1468,18 +1394,17 @@ export default class ChatState {
 
   private async fetchPinnedPreview(channelId: number): Promise<void> {
     try {
-      const results = (await app.store.find("chat-messages", {
+      const results = (await app.store.find('chat-messages', {
         filter: {
           channel: channelId,
           pinned: true,
           includeThreadReplies: true,
         },
-        sort: "-pinnedAt",
+        sort: '-pinnedAt',
         page: { limit: 1 },
       })) as unknown as Message[];
 
-      this.pinnedPreviews[channelId] =
-        (Array.isArray(results) ? results[0] : null) ?? null;
+      this.pinnedPreviews[channelId] = (Array.isArray(results) ? results[0] : null) ?? null;
 
       // How many there are in total, which is what decides whether the bar
       // offers a way into the full list. It comes back in this same response —
@@ -1557,11 +1482,7 @@ export default class ChatState {
 
     if (candidates.length === 0) return null;
 
-    return candidates.reduce((newest, message) =>
-      (message.pinnedAt()?.getTime() ?? 0) > (newest.pinnedAt()?.getTime() ?? 0)
-        ? message
-        : newest,
-    );
+    return candidates.reduce((newest, message) => ((message.pinnedAt()?.getTime() ?? 0) > (newest.pinnedAt()?.getTime() ?? 0) ? message : newest));
   }
 
   /** The pinned panel, the search pane and the thread panel share one slot. */
@@ -1633,11 +1554,7 @@ export default class ChatState {
     //
     // Nothing is created for a channel that was never opened; its badge is enough
     // until the user looks at it.
-    this.insertInto(
-      this.streams[channelId],
-      message,
-      !threadId || this.isThreadRoot(message),
-    );
+    this.insertInto(this.streams[channelId], message, !threadId || this.isThreadRoot(message));
 
     this.scheduleSnapshot();
   }
@@ -1654,11 +1571,7 @@ export default class ChatState {
     return thread.originalMessageId() === Number(message.id());
   }
 
-  private insertInto(
-    stream: ChannelStream | undefined,
-    message: Message,
-    appendIfNew: boolean,
-  ): void {
+  private insertInto(stream: ChannelStream | undefined, message: Message, appendIfNew: boolean): void {
     if (!stream) return;
 
     const index = stream.messages.findIndex((msg) => msg.id() === message.id());
@@ -1680,9 +1593,7 @@ export default class ChatState {
 
     if (!stream) return;
 
-    stream.messages = stream.messages.filter(
-      (msg) => Number(msg.id()) !== messageId,
-    );
+    stream.messages = stream.messages.filter((msg) => Number(msg.id()) !== messageId);
 
     this.scheduleSnapshot();
   }
@@ -1699,9 +1610,7 @@ export default class ChatState {
 
     if (!stream) return;
 
-    stream.messages = stream.messages.filter(
-      (msg) => Number(msg.id()) !== messageId,
-    );
+    stream.messages = stream.messages.filter((msg) => Number(msg.id()) !== messageId);
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -1721,14 +1630,11 @@ export default class ChatState {
       threadId?: number | null;
       replyToId?: number | null;
       createThread?: boolean;
-    } = {},
+    } = {}
   ): Promise<Message | null> {
     const trimmed = content.trim();
     const uploadKey = this.draftKey(channelId, options.threadId ?? null);
-    const uploadIds = this.pendingUploadsFor(
-      channelId,
-      options.threadId ?? null,
-    ).map((u) => Number(u.id()));
+    const uploadIds = this.pendingUploadsFor(channelId, options.threadId ?? null).map((u) => Number(u.id()));
 
     if (!trimmed && uploadIds.length === 0) return null;
 
@@ -1737,11 +1643,11 @@ export default class ChatState {
 
     try {
       const payload = await app.request<{ data: any; included?: any[] }>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages`,
         body: {
           data: {
-            type: "chat-messages",
+            type: 'chat-messages',
             attributes: {
               channelId,
               content: trimmed,
@@ -1832,8 +1738,8 @@ export default class ChatState {
 
     app
       .request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-channels/${channelId}/read`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-channels/${channelId}/read`,
         body: { data: { attributes: { lastReadMessageId: upTo } } },
         errorHandler: this.goneHandler(channelId),
       })
@@ -1850,46 +1756,27 @@ export default class ChatState {
     return threadId ? `${channelId}:${threadId}` : String(channelId);
   }
 
-  pendingUploadsFor(
-    channelId: number,
-    threadId: number | null = null,
-  ): Upload[] {
+  pendingUploadsFor(channelId: number, threadId: number | null = null): Upload[] {
     return this.pendingUploadsByKey[this.draftKey(channelId, threadId)] ?? [];
   }
 
-  addPendingUpload(
-    channelId: number,
-    threadId: number | null,
-    upload: Upload,
-  ): void {
+  addPendingUpload(channelId: number, threadId: number | null, upload: Upload): void {
     const key = this.draftKey(channelId, threadId);
 
-    this.pendingUploadsByKey[key] = [
-      ...(this.pendingUploadsByKey[key] ?? []),
-      upload,
-    ];
+    this.pendingUploadsByKey[key] = [...(this.pendingUploadsByKey[key] ?? []), upload];
   }
 
-  removePendingUpload(
-    channelId: number,
-    threadId: number | null,
-    id: number,
-  ): void {
+  removePendingUpload(channelId: number, threadId: number | null, id: number): void {
     const key = this.draftKey(channelId, threadId);
 
-    this.pendingUploadsByKey[key] = (
-      this.pendingUploadsByKey[key] ?? []
-    ).filter((u) => Number(u.id()) !== id);
+    this.pendingUploadsByKey[key] = (this.pendingUploadsByKey[key] ?? []).filter((u) => Number(u.id()) !== id);
   }
 
   // ───────────────────────────────────────────────────────────────────────────
   // Composer context (reply / edit), per scope
   // ───────────────────────────────────────────────────────────────────────────
 
-  replyingTo(
-    channelId: number,
-    threadId: number | null = null,
-  ): Message | null {
+  replyingTo(channelId: number, threadId: number | null = null): Message | null {
     return this.replyTargets[this.draftKey(channelId, threadId)] ?? null;
   }
 
@@ -1909,12 +1796,7 @@ export default class ChatState {
    * "reply". Only the composer reads it, and only to decide whether the send
    * should open a thread — see ChatComposer.submit().
    */
-  setReplyingTo(
-    channelId: number,
-    message: Message | null,
-    threadId: number | null = null,
-    branch = false,
-  ): void {
+  setReplyingTo(channelId: number, message: Message | null, threadId: number | null = null, branch = false): void {
     const key = this.draftKey(channelId, threadId);
 
     delete this.editTargets[key];
@@ -1929,11 +1811,7 @@ export default class ChatState {
     }
   }
 
-  setEditing(
-    channelId: number,
-    message: Message | null,
-    threadId: number | null = null,
-  ): void {
+  setEditing(channelId: number, message: Message | null, threadId: number | null = null): void {
     const key = this.draftKey(channelId, threadId);
 
     delete this.replyTargets[key];
@@ -1955,17 +1833,13 @@ export default class ChatState {
   }
 
   draft(channelId: number, threadId: number | null = null): string {
-    return this.drafts[this.draftKey(channelId, threadId)] ?? "";
+    return this.drafts[this.draftKey(channelId, threadId)] ?? '';
   }
 
-  setDraft(
-    channelId: number,
-    content: string,
-    threadId: number | null = null,
-  ): void {
+  setDraft(channelId: number, content: string, threadId: number | null = null): void {
     const key = this.draftKey(channelId, threadId);
 
-    if (content.trim() === "") {
+    if (content.trim() === '') {
       delete this.drafts[key];
     } else {
       this.drafts[key] = content;
@@ -1976,7 +1850,7 @@ export default class ChatState {
 
   clearDraft(channelId: number, threadId: number | null = null): void {
     delete this.drafts[this.draftKey(channelId, threadId)];
-    this.persistDraft(channelId, threadId, "");
+    this.persistDraft(channelId, threadId, '');
   }
 
   private draftTimer: number | null = null;
@@ -1986,18 +1860,14 @@ export default class ChatState {
    * they follow the user across devices, but they are not worth a write per
    * character.
    */
-  private persistDraft(
-    channelId: number,
-    threadId: number | null,
-    content: string,
-  ): void {
+  private persistDraft(channelId: number, threadId: number | null, content: string): void {
     if (this.draftTimer !== null) window.clearTimeout(this.draftTimer);
 
     this.draftTimer = window.setTimeout(() => {
       app
         .request({
-          method: "POST",
-          url: `${app.forum.attribute("apiUrl")}/chat/drafts`,
+          method: 'POST',
+          url: `${app.forum.attribute('apiUrl')}/chat/drafts`,
           body: { data: { attributes: { channelId, threadId, content } } },
         })
         .catch(() => {});
@@ -2032,17 +1902,15 @@ export default class ChatState {
   private async fetchDrafts(): Promise<void> {
     try {
       const payload = await app.request<{ data: any[] }>({
-        method: "GET",
-        url: `${app.forum.attribute("apiUrl")}/chat/drafts`,
+        method: 'GET',
+        url: `${app.forum.attribute('apiUrl')}/chat/drafts`,
       });
 
       for (const row of payload.data ?? []) {
         const { channelId, threadId, content } = row.attributes ?? {};
 
         if (channelId && content) {
-          this.drafts[
-            this.draftKey(Number(channelId), threadId ? Number(threadId) : null)
-          ] = content;
+          this.drafts[this.draftKey(Number(channelId), threadId ? Number(threadId) : null)] = content;
         }
       }
 
@@ -2079,13 +1947,7 @@ export default class ChatState {
     return names;
   }
 
-  noteTyping(
-    channelId: number,
-    userId: number,
-    username: string,
-    typing: boolean,
-    expiresIn = 6,
-  ): void {
+  noteTyping(channelId: number, userId: number, username: string, typing: boolean, expiresIn = 6): void {
     if (!this.typing[channelId]) this.typing[channelId] = {};
 
     // Whatever happens next replaces this entry, so its pending redraw is stale.
@@ -2120,7 +1982,7 @@ export default class ChatState {
    * arrived.
    */
   clearTyping(channelId: number, userId: number): void {
-    this.noteTyping(channelId, userId, "", false);
+    this.noteTyping(channelId, userId, '', false);
   }
 
   private typingSentAt = 0;
@@ -2138,8 +2000,8 @@ export default class ChatState {
 
     app
       .request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat/typing`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat/typing`,
         body: { data: { attributes: { channelId, typing: true } } },
         // Fire-and-forget: a refused signal (the channel was just closed, or the
         // reader removed) is not worth an alert on every keystroke. The channel
@@ -2171,19 +2033,19 @@ export default class ChatState {
    * Renders the current selection as a transcript. Server-side so quoting rules
    * match archiving exactly.
    */
-  async transcript(format: "markup" | "plain" = "markup"): Promise<string> {
-    if (this.selected.size === 0) return "";
+  async transcript(format: 'markup' | 'plain' = 'markup'): Promise<string> {
+    if (this.selected.size === 0) return '';
 
     const payload = await app.request<{
       data: { attributes: { content: string } };
     }>({
-      method: "POST",
-      url: `${app.forum.attribute("apiUrl")}/chat/transcript`,
+      method: 'POST',
+      url: `${app.forum.attribute('apiUrl')}/chat/transcript`,
       body: {
         data: { attributes: { messageIds: Array.from(this.selected), format } },
       },
     });
 
-    return payload.data?.attributes?.content ?? "";
+    return payload.data?.attributes?.content ?? '';
   }
 }

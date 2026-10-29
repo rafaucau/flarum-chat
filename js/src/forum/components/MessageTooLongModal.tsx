@@ -1,8 +1,8 @@
-import app from "flarum/forum/app";
-import Modal from "flarum/common/components/Modal";
-import type { IInternalModalAttrs } from "flarum/common/components/Modal";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Modal from 'flarum/common/components/Modal';
+import type { IInternalModalAttrs } from 'flarum/common/components/Modal';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
 export interface MessageTooLongModalAttrs extends IInternalModalAttrs {
   /** Length of what the sender tried to post. */
@@ -24,11 +24,11 @@ export interface MessageTooLongModalAttrs extends IInternalModalAttrs {
  */
 export default class MessageTooLongModal extends Modal<MessageTooLongModalAttrs> {
   className(): string {
-    return "ChatModal ChatTooLongModal Modal--small";
+    return 'ChatModal ChatTooLongModal Modal--small';
   }
 
   title(): Mithril.Children {
-    return app.translator.trans("ramon-chat.forum.composer.too_long_title");
+    return app.translator.trans('ramon-chat.forum.composer.too_long_title');
   }
 
   content(): Mithril.Children {
@@ -37,17 +37,14 @@ export default class MessageTooLongModal extends Modal<MessageTooLongModalAttrs>
     return (
       <div className="Modal-body ChatTooLongModal-body">
         <p className="ChatTooLongModal-text">
-          {app.translator.trans("ramon-chat.forum.composer.too_long_body", {
+          {app.translator.trans('ramon-chat.forum.composer.too_long_body', {
             over: length - max,
             max,
           })}
         </p>
 
-        <Button
-          className="Button Button--primary Button--block"
-          onclick={() => this.hide()}
-        >
-          {app.translator.trans("ramon-chat.forum.composer.too_long_dismiss")}
+        <Button className="Button Button--primary Button--block" onclick={() => this.hide()}>
+          {app.translator.trans('ramon-chat.forum.composer.too_long_dismiss')}
         </Button>
       </div>
     );

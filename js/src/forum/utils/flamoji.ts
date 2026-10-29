@@ -1,5 +1,5 @@
-import app from "flarum/forum/app";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import type Mithril from 'mithril';
 
 /**
  * Optional integration with pianotell/flarum-ext-flamoji.
@@ -31,10 +31,10 @@ import type Mithril from "mithril";
  */
 
 /** The namespace Flamoji registers its modules under (the extension id). */
-const EXTENSION = "pianotell-flamoji";
+const EXTENSION = 'pianotell-flamoji';
 
 /** Where Flamoji's own picker reads the full set from. Unauthenticated. */
-const ALL_ENDPOINT = "/flamojis/all";
+const ALL_ENDPOINT = '/flamojis/all';
 
 export interface CustomEmoji {
   /** Bare shortcode, no colons — `kappa`. The key everything matches on. */
@@ -60,9 +60,7 @@ function registryModule(path: string): any {
   if (!registry) return null;
 
   try {
-    return typeof registry.checkModule === "function"
-      ? registry.checkModule(EXTENSION, path)
-      : registry.get?.(EXTENSION, path);
+    return typeof registry.checkModule === 'function' ? registry.checkModule(EXTENSION, path) : registry.get?.(EXTENSION, path);
   } catch {
     return null;
   }
@@ -81,7 +79,7 @@ function registryModule(path: string): any {
  * only after somebody has opened it once.
  */
 export function flamojiAvailable(): boolean {
-  return Boolean(registryModule("forum/components/FlamojiPickerButton"));
+  return Boolean(registryModule('forum/components/FlamojiPickerButton'));
 }
 
 /**
@@ -94,14 +92,14 @@ export function flamojiAvailable(): boolean {
 function absolutise(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
 
-  const base = String(app.forum.attribute("baseUrl") ?? "").replace(/\/+$/, "");
+  const base = String(app.forum.attribute('baseUrl') ?? '').replace(/\/+$/, '');
 
-  return base + (path.startsWith("/") ? path : "/" + path);
+  return base + (path.startsWith('/') ? path : '/' + path);
 }
 
 /** Strips the delimiters from `:name:`, matching `emoji.ts`'s `normalise`. */
 function bareName(trigger: string): string {
-  return trigger.trim().replace(/^:+|:+$/g, "");
+  return trigger.trim().replace(/^:+|:+$/g, '');
 }
 
 let all: CustomEmoji[] = [];
@@ -126,7 +124,7 @@ let loading = false;
  * going empty.
  */
 function extractRecords(response: any): Array<Record<string, unknown>> {
-  if (!response || typeof response !== "object") return [];
+  if (!response || typeof response !== 'object') return [];
 
   if (Array.isArray(response.data)) {
     return response.data.map((entry: any) => ({
@@ -136,9 +134,9 @@ function extractRecords(response: any): Array<Record<string, unknown>> {
   }
 
   return Object.keys(response)
-    .filter((key) => key !== "" && !isNaN(Number(key)))
+    .filter((key) => key !== '' && !isNaN(Number(key)))
     .map((key) => response[key])
-    .filter((entry) => entry && typeof entry === "object");
+    .filter((entry) => entry && typeof entry === 'object');
 }
 
 /**
@@ -160,8 +158,8 @@ export function loadCustomEmoji(): void {
 
   app
     .request<any>({
-      method: "GET",
-      url: app.forum.attribute("apiUrl") + ALL_ENDPOINT,
+      method: 'GET',
+      url: app.forum.attribute('apiUrl') + ALL_ENDPOINT,
     })
     .then((response) => {
       const records = extractRecords(response);
@@ -169,23 +167,23 @@ export function loadCustomEmoji(): void {
       const index = new Map<string, CustomEmoji>();
 
       for (const record of records) {
-        const trigger = String(record.text_to_replace ?? "").trim();
-        const path = String(record.path ?? "").trim();
+        const trigger = String(record.text_to_replace ?? '').trim();
+        const path = String(record.path ?? '').trim();
 
         // The server skips rows missing either half when configuring the
         // formatter, so a picker that offered them would insert a trigger that
         // renders as nothing.
-        if (trigger === "" || path === "") continue;
+        if (trigger === '' || path === '') continue;
 
         const name = bareName(trigger);
 
-        if (name === "") continue;
+        if (name === '') continue;
 
         const emoji: CustomEmoji = {
           name,
           insert: trigger,
           url: absolutise(path),
-          title: String(record.title ?? "").trim() || name,
+          title: String(record.title ?? '').trim() || name,
         };
 
         next.push(emoji);
@@ -218,9 +216,7 @@ export function loadCustomEmoji(): void {
 }
 
 /** The custom emoji for a bare shortcode, or null. */
-export function customEmoji(
-  shortcode: string | null | undefined,
-): CustomEmoji | null {
+export function customEmoji(shortcode: string | null | undefined): CustomEmoji | null {
   if (!shortcode) return null;
 
   loadCustomEmoji();
@@ -240,7 +236,7 @@ export function searchCustomEmoji(query: string, limit = 8): CustomEmoji[] {
 
   const term = bareName(query).toLowerCase();
 
-  if (term === "") return all.slice(0, limit);
+  if (term === '') return all.slice(0, limit);
 
   const prefix: CustomEmoji[] = [];
   const contains: CustomEmoji[] = [];
@@ -258,16 +254,13 @@ export function searchCustomEmoji(query: string, limit = 8): CustomEmoji[] {
 }
 
 /** The `<img>` a custom emoji renders as, sized by our own LESS. */
-export function customEmojiImage(
-  emoji: CustomEmoji,
-  className = "ChatFlamoji",
-): Mithril.Children {
-  return m("img", {
+export function customEmojiImage(emoji: CustomEmoji, className = 'ChatFlamoji'): Mithril.Children {
+  return m('img', {
     className,
     src: emoji.url,
     alt: emoji.title,
     title: `:${emoji.name}:`,
-    loading: "lazy",
+    loading: 'lazy',
   });
 }
 
@@ -278,7 +271,7 @@ export function customEmojiImage(
  * viewport — the drawer is a floating panel a few hundred pixels wide sitting
  * over the forum, so "on screen" and "on the panel" are very different places.
  */
-const PANEL_SELECTOR = ".ChatDrawer, .ChatPage, .ChatThreadPanel";
+const PANEL_SELECTOR = '.ChatDrawer, .ChatPage, .ChatThreadPanel';
 
 /**
  * Places the picker for a chat composer.
@@ -318,10 +311,7 @@ function positionInChat(el: HTMLElement, button: HTMLElement): void {
     // overflow fall on the other.
     left =
       box.width <= bounds.width - pad * 2
-        ? Math.min(
-            Math.max(left, bounds.left + pad),
-            bounds.right - box.width - pad,
-          )
+        ? Math.min(Math.max(left, bounds.left + pad), bounds.right - box.width - pad)
         : bounds.left + (bounds.width - box.width) / 2;
   }
 
@@ -354,7 +344,7 @@ let buttonComponent: any = null;
 function pickerButton(): any {
   if (buttonComponent) return buttonComponent;
 
-  const Base = registryModule("forum/components/FlamojiPickerButton");
+  const Base = registryModule('forum/components/FlamojiPickerButton');
 
   if (!Base) return null;
 
@@ -383,7 +373,7 @@ function pickerButton(): any {
       // positioning rather than throwing.
       const controller = (this as any).controller;
 
-      if (typeof controller?.position !== "function") return;
+      if (typeof controller?.position !== 'function') return;
 
       controller.position = (el: HTMLElement | null) => {
         const anchor = this.getButtonElement();
@@ -408,10 +398,7 @@ function pickerButton(): any {
  *   literal glyph for a standard one, per the admin's `picker_set`.
  * @param disabled Mirrors the other tools while a send is in flight.
  */
-export function flamojiPickerButton(
-  onInsert: (text: string) => void,
-  disabled = false,
-): Mithril.Children {
+export function flamojiPickerButton(onInsert: (text: string) => void, disabled = false): Mithril.Children {
   const Button = pickerButton();
 
   if (!Button) return null;
@@ -422,6 +409,6 @@ export function flamojiPickerButton(
     composer: null,
     onInsert,
     disabled,
-    title: app.translator.trans("ramon-chat.forum.composer.emoji", {}, true),
+    title: app.translator.trans('ramon-chat.forum.composer.emoji', {}, true),
   });
 }

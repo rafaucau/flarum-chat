@@ -1,8 +1,8 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
 export interface ErrorBoundaryAttrs extends ComponentAttrs {
   /** Named in the console so a report says which part failed. */
@@ -34,7 +34,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryAttrs> {
       return (
         <div className="ChatErrorBoundary">
           <i className="fas fa-triangle-exclamation" aria-hidden="true" />
-          <span>{app.translator.trans("ramon-chat.forum.error.render")}</span>
+          <span>{app.translator.trans('ramon-chat.forum.error.render')}</span>
 
           <Button
             className="Button Button--flat"
@@ -44,7 +44,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryAttrs> {
               m.redraw();
             }}
           >
-            {app.translator.trans("ramon-chat.forum.error.retry")}
+            {app.translator.trans('ramon-chat.forum.error.retry')}
           </Button>
         </div>
       );
@@ -57,10 +57,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryAttrs> {
 
       // Logged rather than swallowed. A boundary that hides the cause turns a
       // reproducible bug into "the chat sometimes shows an error".
-      console.error(
-        `[ramon-chat] render failed in ${this.attrs.area ?? "chat"}:`,
-        e,
-      );
+      console.error(`[ramon-chat] render failed in ${this.attrs.area ?? 'chat'}:`, e);
 
       return null;
     }

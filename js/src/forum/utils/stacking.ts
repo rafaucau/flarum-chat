@@ -9,10 +9,9 @@
  * anywhere else. Press as well as focus, because dragging a resize handle or
  * clicking a toolbar gap moves no focus at all.
  */
-const COMPOSER =
-  "#composer, #avocado-reply-dock, .AvocadoComposerDock, .AvocadoReplyDock";
+const COMPOSER = '#composer, #avocado-reply-dock, .AvocadoComposerDock, .AvocadoReplyDock';
 
-const FRONT_CLASS = "ChatComposerFront";
+const FRONT_CLASS = 'ChatComposerFront';
 
 let installed = false;
 
@@ -22,12 +21,11 @@ export function installComposerStacking(): void {
   installed = true;
 
   const update = (target: EventTarget | null) => {
-    const inComposer =
-      target instanceof Element && target.closest(COMPOSER) !== null;
+    const inComposer = target instanceof Element && target.closest(COMPOSER) !== null;
 
     document.documentElement.classList.toggle(FRONT_CLASS, inComposer);
   };
 
-  document.addEventListener("pointerdown", (e) => update(e.target), true);
-  document.addEventListener("focusin", (e) => update(e.target), true);
+  document.addEventListener('pointerdown', (e) => update(e.target), true);
+  document.addEventListener('focusin', (e) => update(e.target), true);
 }

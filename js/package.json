@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "webpack --mode development --watch",
     "build": "webpack --mode production",
-    "analyze": "cross-env ANALYZER=true yarn run build",
+    "analyze": "cross-env ANALYZER=true npm run build",
     "format": "prettier --write src",
     "format-check": "prettier --check src",
     "clean-typings": "node -e \"require('fs').rmSync('dist-typings',{recursive:true,force:true})\"",
@@ -20,7 +20,10 @@
     "check-typings": "tsc --noEmit --emitDeclarationOnly false -p ."
   },
   "devDependencies": {
+    "@flarum/prettier-config": "^1.0.0",
+    "cross-env": "^10.1.0",
     "emojibase-data": "^17.0.0",
     "simple-emoji-map": "^1.0.0"
-  }
+  },
+  "prettier": "@flarum/prettier-config"
 }

@@ -1,5 +1,5 @@
-import app from "flarum/forum/app";
-import type Model from "flarum/common/Model";
+import app from 'flarum/forum/app';
+import type Model from 'flarum/common/Model';
 
 /**
  * A JSON:API document, in the shape `Store.pushPayload` accepts.
@@ -30,7 +30,7 @@ export interface Snapshot {
 
 const VERSION = 1;
 
-const KEY_PREFIX = "ramon-chat.snapshot.";
+const KEY_PREFIX = 'ramon-chat.snapshot.';
 
 /**
  * Past this the snapshot is skipped rather than trimmed. localStorage is shared
@@ -64,7 +64,7 @@ export function serialize(models: Model[], depth = 3): Document {
     seen.add(`${model.data.type}:${model.id()}`);
   }
 
-  const visit = (resource: Model["data"], level: number): void => {
+  const visit = (resource: Model['data'], level: number): void => {
     const relationships = resource?.relationships;
 
     if (!relationships || level <= 0) return;
@@ -78,8 +78,7 @@ export function serialize(models: Model[], depth = 3): Document {
         const type = (ref as { type?: unknown })?.type;
         const id = (ref as { id?: unknown })?.id;
 
-        if (typeof type !== "string" || id === undefined || id === null)
-          continue;
+        if (typeof type !== 'string' || id === undefined || id === null) continue;
 
         const key = `${type}:${id}`;
 
@@ -112,10 +111,9 @@ export function readSnapshot(userId: string): Snapshot | null {
     const snapshot = JSON.parse(raw) as Partial<Snapshot> | null;
 
     if (!snapshot || snapshot.version !== VERSION) return null;
-    if (typeof snapshot.savedAt !== "number") return null;
+    if (typeof snapshot.savedAt !== 'number') return null;
     if (Date.now() - snapshot.savedAt > MAX_AGE_MS) return null;
-    if (!snapshot.channels || typeof snapshot.channels !== "object")
-      return null;
+    if (!snapshot.channels || typeof snapshot.channels !== 'object') return null;
 
     return {
       version: VERSION,
@@ -166,7 +164,7 @@ export function purgeSnapshots(): void {
 }
 
 /** Quando uma aba sem sessão apagou os snapshots pela última vez. */
-const SIGNED_OUT_KEY = "ramon-chat.signedOutAt";
+const SIGNED_OUT_KEY = 'ramon-chat.signedOutAt';
 
 /**
  * Se alguma aba saiu da conta depois de `since` (ms). Uma aba aberta antes da

@@ -1,27 +1,27 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import chatState from "./state/chat";
-import { playNotificationSound } from "./utils/sound";
-import type Message from "../common/models/Message";
-import type Channel from "../common/models/Channel";
-import { NotificationLevel } from "../common/models/Channel";
-import type { RankBook, RankEntry } from "../common/models/Channel";
+import chatState from './state/chat';
+import { playNotificationSound } from './utils/sound';
+import type Message from '../common/models/Message';
+import type Channel from '../common/models/Channel';
+import { NotificationLevel } from '../common/models/Channel';
+import type { RankBook, RankEntry } from '../common/models/Channel';
 
 /**
  * Wire event names. Must match Ramon\Chat\Realtime\BroadcastListener.
  */
-const EVENT_MESSAGE = "ramonChat.message";
-const EVENT_MESSAGE_CHANGED = "ramonChat.messageChanged";
-const EVENT_MESSAGE_PURGED = "ramonChat.messagePurged";
-const EVENT_REACTION = "ramonChat.reaction";
-const EVENT_THREAD = "ramonChat.thread";
-const EVENT_CHANNEL = "ramonChat.channel";
-const EVENT_MEMBERSHIP = "ramonChat.membership";
-const EVENT_MESSAGES_MOVED = "ramonChat.messagesMoved";
-const EVENT_FLAGS = "ramonChat.flags";
-const EVENT_RANKS = "ramonChat.ranks";
-const EVENT_TYPING = "ramonChat.typing";
-const EVENT_PONG = "ramonChat.pong";
+const EVENT_MESSAGE = 'ramonChat.message';
+const EVENT_MESSAGE_CHANGED = 'ramonChat.messageChanged';
+const EVENT_MESSAGE_PURGED = 'ramonChat.messagePurged';
+const EVENT_REACTION = 'ramonChat.reaction';
+const EVENT_THREAD = 'ramonChat.thread';
+const EVENT_CHANNEL = 'ramonChat.channel';
+const EVENT_MEMBERSHIP = 'ramonChat.membership';
+const EVENT_MESSAGES_MOVED = 'ramonChat.messagesMoved';
+const EVENT_FLAGS = 'ramonChat.flags';
+const EVENT_RANKS = 'ramonChat.ranks';
+const EVENT_TYPING = 'ramonChat.typing';
+const EVENT_PONG = 'ramonChat.pong';
 
 interface UploadPayload {
   id: number;
@@ -133,7 +133,7 @@ function bindTo(channel: any): void {
   // A private channel is only usable once its auth round-trip has succeeded, and
   // a pong triggered before that would be dropped by the daemon. Pusher fires
   // this again after every resubscription, which covers reconnects too.
-  channel.bind("pusher:subscription_succeeded", () => requestProof());
+  channel.bind('pusher:subscription_succeeded', () => requestProof());
 
   if (channel.subscribed) requestProof();
 
@@ -153,8 +153,8 @@ function requestProof(): void {
 
   app
     .request({
-      method: "POST",
-      url: app.forum.attribute("apiUrl") + "/chat/realtime/ping",
+      method: 'POST',
+      url: app.forum.attribute('apiUrl') + '/chat/realtime/ping',
       errorHandler: () => {},
     })
     .catch(() => {});
@@ -170,10 +170,7 @@ let onReconnect: () => void = () => {};
 /** Set by index.tsx; runs whenever the connection state flips. */
 let onConnectionChange: () => void = () => {};
 
-export function setConnectionHandlers(handlers: {
-  reconnect: () => void;
-  change: () => void;
-}): void {
+export function setConnectionHandlers(handlers: { reconnect: () => void; change: () => void }): void {
   onReconnect = handlers.reconnect;
   onConnectionChange = handlers.change;
 }
@@ -190,26 +187,23 @@ function watchConnection(): void {
   if (!connection?.bind) return;
 
   watching = true;
-  connected = connection.state === "connected";
+  connected = connection.state === 'connected';
   everConnected = connected;
 
-  connection.bind(
-    "state_change",
-    (states: { previous: string; current: string }) => {
-      const now = states.current === "connected";
+  connection.bind('state_change', (states: { previous: string; current: string }) => {
+    const now = states.current === 'connected';
 
-      if (now === connected) return;
+    if (now === connected) return;
 
-      connected = now;
-      onConnectionChange();
+    connected = now;
+    onConnectionChange();
 
-      if (!now) return;
+    if (!now) return;
 
-      if (everConnected) onReconnect();
+    if (everConnected) onReconnect();
 
-      everConnected = true;
-    },
-  );
+    everConnected = true;
+  });
 }
 
 /**
@@ -245,7 +239,7 @@ function userChannel(): any | null {
 
   if (!ws?.subscribe || !id) return null;
 
-  const channel = ws.subscribe("private-user=" + id);
+  const channel = ws.subscribe('private-user=' + id);
 
   if (channels) channels.user = channel;
 
@@ -264,7 +258,7 @@ function userChannel(): any | null {
  * permanently downgrade the client to polling.
  */
 export function bindRealtime(): boolean {
-  if (!("flarum-realtime" in (flarum.extensions ?? {}))) return false;
+  if (!('flarum-realtime' in (flarum.extensions ?? {}))) return false;
 
   // The sanctioned hand-off, and the fast one.
   //
@@ -303,9 +297,7 @@ export function bindRealtime(): boolean {
       window.clearInterval(timer);
 
       if (!bound) {
-        console.warn(
-          "[ramon-chat] websocket unavailable; falling back to polling",
-        );
+        console.warn('[ramon-chat] websocket unavailable; falling back to polling');
         startPollingFallback();
       }
     }
@@ -331,10 +323,10 @@ export function bindRealtime(): boolean {
  */
 function bindViaRealtimeState(): boolean {
   try {
-    const state = flarum.reg.get("flarum-realtime", "forum/RealtimeState") as
+    const state = flarum.reg.get('flarum-realtime', 'forum/RealtimeState') as
       { onUserChannelReady?: (cb: (channel: any) => void) => void } | undefined;
 
-    if (typeof state?.onUserChannelReady !== "function") return false;
+    if (typeof state?.onUserChannelReady !== 'function') return false;
 
     state.onUserChannelReady((channel: any) => bindTo(channel));
 
@@ -453,17 +445,15 @@ function queueReconcile(channelId: number, messageId: number): void {
 
     for (const [channel, oldest] of pending) {
       app.store
-        .find<Message[]>("chat-messages", {
+        .find<Message[]>('chat-messages', {
           // `greaterThan` is exclusive, so step back one to include the oldest
           // message of the burst itself.
           filter: { channel, greaterThan: oldest - 1 },
-          sort: "id",
+          sort: 'id',
           page: { limit: 50 },
         })
         .then((results) => {
-          for (const message of (Array.isArray(results)
-            ? results
-            : []) as Message[]) {
+          for (const message of (Array.isArray(results) ? results : []) as Message[]) {
             chatState.upsertMessage(message);
           }
 
@@ -501,10 +491,7 @@ function announce(data: MessagePayload, message: Message): void {
   if (channel?.isMuted()) return;
 
   const watching =
-    chatState.activeChannelId === data.channelId &&
-    !chatState.drawerCollapsed &&
-    document.visibilityState === "visible" &&
-    document.hasFocus();
+    chatState.activeChannelId === data.channelId && !chatState.drawerCollapsed && document.visibilityState === 'visible' && document.hasFocus();
 
   if (watching) return;
 
@@ -535,28 +522,27 @@ function announce(data: MessagePayload, message: Message): void {
 function bumpThread(data: MessagePayload): void {
   if (!data.threadId) return;
 
-  const thread = app.store.getById("chat-threads", String(data.threadId));
+  const thread = app.store.getById('chat-threads', String(data.threadId));
 
   if (!thread) return;
 
   // Not counted for the root itself, which is the thread, not a reply to it.
-  if (thread.attribute<number | null>("originalMessageId") === data.id) return;
+  if (thread.attribute<number | null>('originalMessageId') === data.id) return;
 
   // Nor for anything the thread's own count already reaches. Creating a thread
   // produces two broadcasts describing one reply — the thread event, whose
   // `repliesCount` includes the message that opened it, and the message event
   // itself — and counting both made every new thread arrive claiming two.
-  if (data.id <= Number(thread.attribute<number>("lastMessageId") ?? 0)) return;
+  if (data.id <= Number(thread.attribute<number>('lastMessageId') ?? 0)) return;
 
   thread.pushAttributes({
-    repliesCount: Number(thread.attribute<number>("repliesCount") ?? 0) + 1,
+    repliesCount: Number(thread.attribute<number>('repliesCount') ?? 0) + 1,
     lastMessageId: data.id,
   });
 }
 
 function onMessageChanged(data: MessagePayload): void {
-  const existing = app.store.getById("chat-messages", String(data.id)) as
-    Message | undefined;
+  const existing = app.store.getById('chat-messages', String(data.id)) as Message | undefined;
 
   // Only reconcile messages already on this client. A change to something never
   // loaded is not worth materialising.
@@ -594,7 +580,7 @@ function onMessageChanged(data: MessagePayload): void {
   // tombstone falls back to the unnamed wording when it does not, so this is an
   // upgrade rather than a requirement — and it costs no request.
   if (data.isModeratorDeleted && data.deletedById) {
-    const moderator = app.store.getById("users", String(data.deletedById));
+    const moderator = app.store.getById('users', String(data.deletedById));
 
     if (moderator) {
       existing.pushData({ relationships: { deletedBy: moderator } } as any);
@@ -632,7 +618,7 @@ function onMessageChanged(data: MessagePayload): void {
  * moderator without the controls the refetch exists to deliver.
  */
 function mayStillRead(data: MessagePayload): boolean {
-  if (app.forum.attribute<boolean>("canModerateChat")) return true;
+  if (app.forum.attribute<boolean>('canModerateChat')) return true;
 
   const actorId = app.session.user?.id();
 
@@ -687,12 +673,12 @@ export function refreshMessageCapabilities(id: number): void {
 
   app.store
     .find(
-      "chat-messages",
+      'chat-messages',
       String(id),
       {},
       {
         errorHandler: ignoreNoLongerVisible,
-      },
+      }
     )
     // Reaching here means the row is gone or no longer ours to see — a purge
     // racing the refetch, or the ordinary case of a deleted message that only
@@ -714,11 +700,7 @@ export function refreshMessageCapabilities(id: number): void {
  * this, "delete for everyone" cleared it for the moderator alone and everyone
  * else kept the tombstone until they reloaded.
  */
-function onMessagePurged(data: {
-  id: number;
-  channelId: number;
-  threadId: number | null;
-}): void {
+function onMessagePurged(data: { id: number; channelId: number; threadId: number | null }): void {
   chatState.removeMessage(data.channelId, data.id);
 
   // The thread's own panel renders from a separate stream keyed by thread id, so
@@ -728,14 +710,11 @@ function onMessagePurged(data: {
 
     // The count under the root now overstates the thread by one. Never below
     // zero: the reply may have arrived before this client ever counted it.
-    const thread = app.store.getById("chat-threads", String(data.threadId));
+    const thread = app.store.getById('chat-threads', String(data.threadId));
 
     if (thread) {
       thread.pushAttributes({
-        repliesCount: Math.max(
-          0,
-          Number(thread.attribute<number>("repliesCount") ?? 0) - 1,
-        ),
+        repliesCount: Math.max(0, Number(thread.attribute<number>('repliesCount') ?? 0) - 1),
       });
     }
   }
@@ -743,14 +722,8 @@ function onMessagePurged(data: {
   m.redraw();
 }
 
-function onReaction(data: {
-  messageId: number;
-  emoji: string;
-  userId: number;
-  added: boolean;
-}): void {
-  const message = app.store.getById("chat-messages", String(data.messageId)) as
-    Message | undefined;
+function onReaction(data: { messageId: number; emoji: string; userId: number; added: boolean }): void {
+  const message = app.store.getById('chat-messages', String(data.messageId)) as Message | undefined;
 
   if (!message) return;
 
@@ -795,7 +768,7 @@ function onThread(data: {
 }): void {
   const thread = app.store.pushPayload({
     data: {
-      type: "chat-threads",
+      type: 'chat-threads',
       id: String(data.threadId),
       attributes: {
         channelId: data.channelId,
@@ -813,10 +786,7 @@ function onThread(data: {
   // message would mint a stub record carrying nothing but a thread id, and
   // `getById` elsewhere would then hand that stub out as though it were the
   // message. A root nobody has scrolled to has no strip to draw anyway.
-  const root =
-    data.originalMessageId !== null
-      ? app.store.getById("chat-messages", String(data.originalMessageId))
-      : null;
+  const root = data.originalMessageId !== null ? app.store.getById('chat-messages', String(data.originalMessageId)) : null;
 
   if (root && thread) {
     // Attributes merge, so this leaves the rest of the row alone.
@@ -870,10 +840,7 @@ function onChannel(data: ChannelPayload): void {
     // auto-join channel tells every account at once, and they should not all
     // ask in the same instant.
     if (!channel) {
-      window.setTimeout(
-        () => adoptChannel(data.channelId),
-        Math.floor(Math.random() * 1500),
-      );
+      window.setTimeout(() => adoptChannel(data.channelId), Math.floor(Math.random() * 1500));
     }
 
     return;
@@ -887,26 +854,16 @@ function onChannel(data: ChannelPayload): void {
 
   channel.pushAttributes({
     status: data.status,
-    ...(data.postPermission !== undefined
-      ? { postPermission: data.postPermission }
-      : {}),
+    ...(data.postPermission !== undefined ? { postPermission: data.postPermission } : {}),
     ...(data.isPrivate !== undefined ? { isPrivate: data.isPrivate } : {}),
-    ...(data.threadingEnabled !== undefined
-      ? { threadingEnabled: data.threadingEnabled }
-      : {}),
-    ...(data.slowModeSeconds !== undefined
-      ? { slowModeSeconds: data.slowModeSeconds }
-      : {}),
+    ...(data.threadingEnabled !== undefined ? { threadingEnabled: data.threadingEnabled } : {}),
+    ...(data.slowModeSeconds !== undefined ? { slowModeSeconds: data.slowModeSeconds } : {}),
     ...(data.name !== undefined ? { name: data.name } : {}),
     ...(data.emoji !== undefined ? { emoji: data.emoji } : {}),
-    ...(data.description !== undefined
-      ? { description: data.description }
-      : {}),
+    ...(data.description !== undefined ? { description: data.description } : {}),
     ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
     ...(data.archivedAt !== undefined ? { archivedAt: data.archivedAt } : {}),
-    ...(data.archivedDiscussionId !== undefined
-      ? { archivedDiscussionId: data.archivedDiscussionId }
-      : {}),
+    ...(data.archivedDiscussionId !== undefined ? { archivedDiscussionId: data.archivedDiscussionId } : {}),
   });
 
   // Some of what these settings decide is answered per user, so it cannot ride
@@ -918,12 +875,9 @@ function onChannel(data: ChannelPayload): void {
   //
   // Only when a rule actually moved, so an ordinary rename does not cost every
   // member in the channel a request.
-  const permissionMoved =
-    data.postPermission !== undefined && data.postPermission !== before;
+  const permissionMoved = data.postPermission !== undefined && data.postPermission !== before;
 
-  const slowModeMoved =
-    data.slowModeSeconds !== undefined &&
-    data.slowModeSeconds !== slowModeBefore;
+  const slowModeMoved = data.slowModeSeconds !== undefined && data.slowModeSeconds !== slowModeBefore;
 
   // Closing is the one change every reader's answer follows the same way:
   // nobody posts into a closed channel, administrators included (see
@@ -933,7 +887,7 @@ function onChannel(data: ChannelPayload): void {
   // that direction asks the server.
   const statusMoved = data.status !== undefined && data.status !== statusBefore;
 
-  if (statusMoved && data.status !== "open") {
+  if (statusMoved && data.status !== 'open') {
     channel.pushAttributes({ canPostMessage: false });
   }
 
@@ -942,14 +896,9 @@ function onChannel(data: ChannelPayload): void {
   // possible, and none of those flags rides on the broadcast either. Asked of
   // the flags this reader already holds, so an ordinary member — who had none
   // of them before and has none after — costs the server nothing.
-  const runsRoom =
-    channel.canClose() || channel.canArchive() || channel.canUnarchive();
+  const runsRoom = channel.canClose() || channel.canArchive() || channel.canUnarchive();
 
-  if (
-    permissionMoved ||
-    slowModeMoved ||
-    (statusMoved && (data.status === "open" || runsRoom))
-  ) {
+  if (permissionMoved || slowModeMoved || (statusMoved && (data.status === 'open' || runsRoom))) {
     refreshCapabilities(data.channelId);
   }
 
@@ -963,16 +912,16 @@ interface MembershipPayload {
   userId: number;
   username: string;
   action:
-    | "invited"
-    | "joined"
-    | "left"
-    | "invite_declined"
-    | "invite_cancelled"
-    | "promoted"
-    | "demoted"
-    | "owner_changed"
-    | "transfer_requested"
-    | "transfer_ended";
+    | 'invited'
+    | 'joined'
+    | 'left'
+    | 'invite_declined'
+    | 'invite_cancelled'
+    | 'promoted'
+    | 'demoted'
+    | 'owner_changed'
+    | 'transfer_requested'
+    | 'transfer_ended';
   actorId: number | null;
   actorName: string | null;
   userCount: number;
@@ -997,7 +946,7 @@ function onMembership(data: MembershipPayload): void {
   const mine = me !== undefined && String(data.userId) === String(me);
   const channel = chatState.channel(data.channelId);
 
-  if (data.action === "joined") {
+  if (data.action === 'joined') {
     if (mine) {
       if (channel?.isFollowing()) {
         refreshCapabilities(data.channelId);
@@ -1007,7 +956,7 @@ function onMembership(data: MembershipPayload): void {
     } else if (channel) {
       channel.pushAttributes({ userCount: data.userCount });
     }
-  } else if (data.action === "left") {
+  } else if (data.action === 'left') {
     if (mine) {
       if (channel) {
         channel.pushAttributes({
@@ -1025,38 +974,29 @@ function onMembership(data: MembershipPayload): void {
       // Standing in a channel one has just been removed from: step out of it
       // rather than leave a conversation on screen that will refuse every
       // further read.
-      if (
-        wasOpen &&
-        (m.route.get() ?? "").includes(`/chat/c/${data.channelId}`)
-      ) {
-        m.route.set(app.route("chat.index"));
+      if (wasOpen && (m.route.get() ?? '').includes(`/chat/c/${data.channelId}`)) {
+        m.route.set(app.route('chat.index'));
       }
     } else if (channel) {
       channel.pushAttributes({ userCount: data.userCount });
     }
-  } else if (data.action === "promoted" || data.action === "demoted") {
+  } else if (data.action === 'promoted' || data.action === 'demoted') {
     // The role moves what this member may do in the room — close it, manage
     // its members — and those answers are the server's to give. Anyone else
     // only needs the member list re-read, which the notice below does.
     if (mine && channel) refreshCapabilities(data.channelId);
-  } else if (data.action === "owner_changed") {
+  } else if (data.action === 'owner_changed') {
     // The owner badge moves for everyone; what the two people involved may
     // now do there is the server's to say, so only they re-read the record.
-    const previous =
-      me !== undefined &&
-      data.previousOwnerId != null &&
-      String(data.previousOwnerId) === String(me);
+    const previous = me !== undefined && data.previousOwnerId != null && String(data.previousOwnerId) === String(me);
 
     if (channel) channel.pushAttributes({ creatorId: data.userId });
 
     if ((mine || previous) && channel) refreshCapabilities(data.channelId);
-  } else if (
-    data.action === "transfer_requested" ||
-    data.action === "transfer_ended"
-  ) {
+  } else if (data.action === 'transfer_requested' || data.action === 'transfer_ended') {
     // Only an open members tab cares, and the notice below re-reads it; the
     // offer itself reaches the member as a notification.
-  } else if (data.action === "invited") {
+  } else if (data.action === 'invited') {
     if (mine && channel) {
       channel.pushAttributes({
         isInvited: true,
@@ -1088,10 +1028,7 @@ function onMembership(data: MembershipPayload): void {
  * has never loaded has nothing to update; its messages carry their own ranks.
  */
 function onRanks(data: { channelId: number; rankBook: RankBook }): void {
-  const channel = app.store.getById<Channel>(
-    "chat-channels",
-    String(data.channelId),
-  );
+  const channel = app.store.getById<Channel>('chat-channels', String(data.channelId));
 
   if (!channel || !data.rankBook) return;
 
@@ -1147,7 +1084,7 @@ function onMessagesMoved(data: MessagesMovedPayload): void {
     }
 
     for (const thread of data.threads ?? []) {
-      const record = app.store.getById("chat-threads", String(thread.threadId));
+      const record = app.store.getById('chat-threads', String(thread.threadId));
 
       record?.pushAttributes({
         repliesCount: thread.repliesCount,
@@ -1166,7 +1103,7 @@ function onMessagesMoved(data: MessagesMovedPayload): void {
 
     app.store
       .find<Message[]>(
-        "chat-messages",
+        'chat-messages',
         {
           filter: {
             channel: data.channelId,
@@ -1174,18 +1111,15 @@ function onMessagesMoved(data: MessagesMovedPayload): void {
             lessThan: highest + 1,
             ...(data.movedAt ? { updatedSince: data.movedAt } : {}),
           },
-          sort: "id",
+          sort: 'id',
           page: { limit: 100 },
         },
         undefined,
-        { errorHandler: ignoreNoLongerVisible },
+        { errorHandler: ignoreNoLongerVisible }
       )
       .then((results) => {
-        for (const message of (Array.isArray(results)
-          ? results
-          : []) as Message[]) {
-          if (wanted.has(String(message.id())))
-            chatState.upsertMessage(message);
+        for (const message of (Array.isArray(results) ? results : []) as Message[]) {
+          if (wanted.has(String(message.id()))) chatState.upsertMessage(message);
         }
 
         m.redraw();
@@ -1217,12 +1151,12 @@ interface FlagsPayload {
  * page already holds: the mark on a row appears or clears without a refetch.
  */
 function onFlags(data?: FlagsPayload): void {
-  if (!app.forum.attribute<boolean>("canModerateChat")) return;
+  if (!app.forum.attribute<boolean>('canModerateChat')) return;
 
   let marked = false;
 
   for (const row of data?.messages ?? []) {
-    const message = app.store.getById<Message>("chat-messages", String(row.id));
+    const message = app.store.getById<Message>('chat-messages', String(row.id));
 
     if (!message) continue;
 
@@ -1239,14 +1173,14 @@ function onFlags(data?: FlagsPayload): void {
 
     app
       .request<any>({
-        method: "GET",
-        url: app.forum.attribute("apiUrl"),
+        method: 'GET',
+        url: app.forum.attribute('apiUrl'),
         errorHandler: ignoreNoLongerVisible,
       } as any)
       .then((payload) => {
         const count = payload?.data?.attributes?.chatOpenFlagsCount;
 
-        if (typeof count === "number") {
+        if (typeof count === 'number') {
           app.forum.pushAttributes({ chatOpenFlagsCount: count });
         }
 
@@ -1269,12 +1203,12 @@ function adoptChannel(channelId: number): void {
 
   app.store
     .find<Channel>(
-      "chat-channels",
+      'chat-channels',
       String(channelId),
       {},
       {
         errorHandler: ignoreNoLongerVisible,
-      },
+      }
     )
     .then((channel) => {
       if (channel && !Array.isArray(channel)) {
@@ -1303,12 +1237,12 @@ function refreshCapabilities(channelId: number): void {
 
   app.store
     .find(
-      "chat-channels",
+      'chat-channels',
       String(channelId),
       {},
       {
         errorHandler: ignoreNoLongerVisible,
-      },
+      }
     )
     .catch(() => {
       // The channel may have become invisible to us — a private channel we were
@@ -1321,20 +1255,8 @@ function refreshCapabilities(channelId: number): void {
     });
 }
 
-function onTyping(data: {
-  channelId: number;
-  userId: number;
-  username: string;
-  typing: boolean;
-  expiresIn: number;
-}): void {
-  chatState.noteTyping(
-    data.channelId,
-    data.userId,
-    data.username,
-    data.typing,
-    data.expiresIn,
-  );
+function onTyping(data: { channelId: number; userId: number; username: string; typing: boolean; expiresIn: number }): void {
+  chatState.noteTyping(data.channelId, data.userId, data.username, data.typing, data.expiresIn);
   m.redraw();
 }
 
@@ -1361,7 +1283,7 @@ function pushMessage(data: MessagePayload): Message | null {
   // unresolved reference and renders nothing.
   const groups = data.user?.groups ?? [];
   const groupRecords = groups.map((group) => ({
-    type: "groups",
+    type: 'groups',
     id: String(group.id),
     attributes: {
       nameSingular: group.nameSingular,
@@ -1378,7 +1300,7 @@ function pushMessage(data: MessagePayload): Message | null {
   const author = data.user
     ? [
         {
-          type: "users",
+          type: 'users',
           id: String(data.user.id),
           attributes: {
             username: data.user.username,
@@ -1408,7 +1330,7 @@ function pushMessage(data: MessagePayload): Message | null {
         ...author,
         ...groupRecords,
         ...uploads.map((upload) => ({
-          type: "chat-uploads",
+          type: 'chat-uploads',
           id: String(upload.id),
           attributes: {
             fileName: upload.fileName,
@@ -1424,13 +1346,11 @@ function pushMessage(data: MessagePayload): Message | null {
             // draft chip instead of a sent image.
             messageId: data.id,
           },
-          relationships: data.userId
-            ? { user: { data: { type: "users", id: String(data.userId) } } }
-            : {},
+          relationships: data.userId ? { user: { data: { type: 'users', id: String(data.userId) } } } : {},
         })),
       ],
       data: {
-        type: "chat-messages",
+        type: 'chat-messages',
         id: String(data.id),
         attributes: {
           channelId: data.channelId,
@@ -1453,9 +1373,7 @@ function pushMessage(data: MessagePayload): Message | null {
           // message arriving live was never recognised as a mention: it drew
           // without the highlight, and the sound had no way to tell an @you from
           // ordinary chatter.
-          mentionedUsers: Array.isArray(data.mentionedUsers)
-            ? data.mentionedUsers
-            : [],
+          mentionedUsers: Array.isArray(data.mentionedUsers) ? data.mentionedUsers : [],
           mentionsChannelWide: Boolean(data.mentionsChannelWide),
           authorRank: data.authorRank ?? null,
           isBookmarked: false,
@@ -1471,9 +1389,7 @@ function pushMessage(data: MessagePayload): Message | null {
           canPin: false,
         },
         relationships: {
-          ...(data.userId
-            ? { user: { data: { type: "users", id: String(data.userId) } } }
-            : {}),
+          ...(data.userId ? { user: { data: { type: 'users', id: String(data.userId) } } } : {}),
           // The quoted line above a reply is drawn from this relationship, not
           // from `replyToId` — and only the attribute was being set, so a reply
           // arriving live rendered as an ordinary message and only grew its
@@ -1489,7 +1405,7 @@ function pushMessage(data: MessagePayload): Message | null {
             ? {
                 replyTo: {
                   data: {
-                    type: "chat-messages",
+                    type: 'chat-messages',
                     id: String(data.replyToId),
                   },
                 },
@@ -1500,7 +1416,7 @@ function pushMessage(data: MessagePayload): Message | null {
           // attachments" from "not loaded yet" without it.
           uploads: {
             data: uploads.map((upload) => ({
-              type: "chat-uploads",
+              type: 'chat-uploads',
               id: String(upload.id),
             })),
           },
@@ -1545,8 +1461,7 @@ function bumpChannel(data: MessagePayload): void {
     lastMessageAt: data.createdAt,
   };
 
-  const isActive =
-    chatState.activeChannelId === data.channelId && !chatState.drawerCollapsed;
+  const isActive = chatState.activeChannelId === data.channelId && !chatState.drawerCollapsed;
 
   if (isActive) {
     // Reading it now — tell the server, do not badge.

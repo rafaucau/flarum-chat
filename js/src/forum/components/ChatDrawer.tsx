@@ -1,15 +1,15 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import chatState from "../state/chat";
-import { loadChatUi } from "../utils/lazy";
-import { isNarrowViewport } from "../utils/surface";
-import { morphIn } from "../utils/morph";
+import chatState from '../state/chat';
+import { loadChatUi } from '../utils/lazy';
+import { isNarrowViewport } from '../utils/surface';
+import { morphIn } from '../utils/morph';
 
-type Panel = Awaited<ReturnType<typeof loadChatUi>>["ChatDrawerPanel"];
+type Panel = Awaited<ReturnType<typeof loadChatUi>>['ChatDrawerPanel'];
 
 let panel: Panel | null = null;
 let pending: Promise<void> | null = null;
@@ -28,7 +28,7 @@ export function loadDrawerPanel(): Promise<void> {
     (error) => {
       pending = null;
       throw error;
-    },
+    }
   );
 
   return pending;
@@ -65,13 +65,9 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
    * repeating the animation.
    */
   protected morphPlaceholder(dom: Element | null): void {
-    const box =
-      dom instanceof HTMLElement &&
-      dom.classList.contains("ChatDrawer--loading")
-        ? dom
-        : null;
+    const box = dom instanceof HTMLElement && dom.classList.contains('ChatDrawer--loading') ? dom : null;
 
-    if (box && !this.placeholderShown) morphIn(box, "drawer");
+    if (box && !this.placeholderShown) morphIn(box, 'drawer');
 
     this.placeholderShown = box !== null;
   }
@@ -91,8 +87,8 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
 
     return (
       <div
-        className={classList("ChatDrawer ChatDrawer--loading", {
-          "ChatDrawer--collapsed": chatState.drawerCollapsed,
+        className={classList('ChatDrawer ChatDrawer--loading', {
+          'ChatDrawer--collapsed': chatState.drawerCollapsed,
         })}
         role="complementary"
         aria-busy="true"
@@ -119,8 +115,6 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
 
     if (chatState.channelsLoaded) return;
 
-    await Promise.all([chatState.loadChannels(), chatState.loadDrafts()]).catch(
-      () => {},
-    );
+    await Promise.all([chatState.loadChannels(), chatState.loadDrafts()]).catch(() => {});
   }
 }

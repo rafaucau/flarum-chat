@@ -1,17 +1,17 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import classList from "flarum/common/utils/classList";
-import { realtimeLive } from "../realtime";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import classList from 'flarum/common/utils/classList';
+import { realtimeLive } from '../realtime';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import type ChatState from "../state/ChatState";
-import { SidebarSkeleton } from "./Skeletons";
-import { channelIcon } from "../utils/channelIcon";
-import { loadChannelFormModal } from "../utils/lazy";
-import { isOnline } from "../utils/presence";
+import type Channel from '../../common/models/Channel';
+import type ChatState from '../state/ChatState';
+import { SidebarSkeleton } from './Skeletons';
+import { channelIcon } from '../utils/channelIcon';
+import { loadChannelFormModal } from '../utils/lazy';
+import { isOnline } from '../utils/presence';
 
 export interface ChatSidebarAttrs extends ComponentAttrs {
   state: ChatState;
@@ -83,16 +83,8 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
     if (!state.channelsLoaded || !realtimeLive()) return;
 
     const candidates = [...state.categoryChannels(), ...state.directChannels()]
-      .filter(
-        (channel) =>
-          channel.hasUnread() &&
-          Number(channel.id()) !== state.activeChannelId &&
-          !warmed.has(Number(channel.id())),
-      )
-      .sort(
-        (a, b) =>
-          (b.unreadMentionsCount() ?? 0) - (a.unreadMentionsCount() ?? 0),
-      )
+      .filter((channel) => channel.hasUnread() && Number(channel.id()) !== state.activeChannelId && !warmed.has(Number(channel.id())))
+      .sort((a, b) => (b.unreadMentionsCount() ?? 0) - (a.unreadMentionsCount() ?? 0))
       .slice(0, Math.max(0, WARM_LIMIT - warmed.size));
 
     candidates.forEach((channel, index) => {
@@ -109,31 +101,19 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
     return (
       <div className="ChatSidebar">
         <div className="ChatSidebar-top">
-          {this.quickLink(
-            "chat.threads",
-            "fas fa-comments",
-            "ramon-chat.forum.sidebar.my_threads",
-          )}
-          {this.quickLink(
-            "chat.bookmarks",
-            "fas fa-bookmark",
-            "ramon-chat.forum.sidebar.bookmarks",
-          )}
-          {this.quickLink(
-            "chat.search",
-            "fas fa-magnifying-glass",
-            "ramon-chat.forum.sidebar.search",
-          )}
+          {this.quickLink('chat.threads', 'fas fa-comments', 'ramon-chat.forum.sidebar.my_threads')}
+          {this.quickLink('chat.bookmarks', 'fas fa-bookmark', 'ramon-chat.forum.sidebar.bookmarks')}
+          {this.quickLink('chat.search', 'fas fa-magnifying-glass', 'ramon-chat.forum.sidebar.search')}
 
           {/* Moderators only, and the count comes from the server rather than
               from the list — the link has to be able to say there is work waiting
               before anyone opens the queue. */}
-          {app.forum.attribute<boolean>("canModerateChat")
+          {app.forum.attribute<boolean>('canModerateChat')
             ? this.quickLink(
-                "chat.flags",
-                "fas fa-flag",
-                "ramon-chat.forum.sidebar.flags",
-                Number(app.forum.attribute<number>("chatOpenFlagsCount") ?? 0),
+                'chat.flags',
+                'fas fa-flag',
+                'ramon-chat.forum.sidebar.flags',
+                Number(app.forum.attribute<number>('chatOpenFlagsCount') ?? 0)
               )
             : null}
         </div>
@@ -143,45 +123,29 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
             SidebarSkeleton()
           ) : (
             <>
-              {this.section(
-                "ramon-chat.forum.sidebar.channels",
-                state.categoryChannels(),
-                [
-                  {
-                    // A magnifying glass, not a pencil: the action is "browse
-                    // channels", and a pencil promises editing.
-                    icon: "fas fa-magnifying-glass",
-                    title: app.translator.trans(
-                      "ramon-chat.forum.sidebar.browse_channels",
-                      {},
-                      true,
-                    ),
-                    action: () => m.route.set(app.route("chat.browse")),
-                  },
+              {this.section('ramon-chat.forum.sidebar.channels', state.categoryChannels(), [
+                {
+                  // A magnifying glass, not a pencil: the action is "browse
+                  // channels", and a pencil promises editing.
+                  icon: 'fas fa-magnifying-glass',
+                  title: app.translator.trans('ramon-chat.forum.sidebar.browse_channels', {}, true),
+                  action: () => m.route.set(app.route('chat.browse')),
+                },
 
-                  // Same permission the browse page draws its own button from,
-                  // so the two agree about who may create a channel.
-                  ...(app.forum.attribute<boolean>("canCreateChatChannel")
-                    ? [
-                        {
-                          icon: "fas fa-plus",
-                          title: app.translator.trans(
-                            "ramon-chat.forum.sidebar.new_channel",
-                            {},
-                            true,
-                          ),
-                          action: () => this.createChannel(),
-                        },
-                      ]
-                    : []),
-                ],
-              )}
+                // Same permission the browse page draws its own button from,
+                // so the two agree about who may create a channel.
+                ...(app.forum.attribute<boolean>('canCreateChatChannel')
+                  ? [
+                      {
+                        icon: 'fas fa-plus',
+                        title: app.translator.trans('ramon-chat.forum.sidebar.new_channel', {}, true),
+                        action: () => this.createChannel(),
+                      },
+                    ]
+                  : []),
+              ])}
 
-              {this.section(
-                "ramon-chat.forum.sidebar.direct_messages",
-                state.directChannels(),
-                [],
-              )}
+              {this.section('ramon-chat.forum.sidebar.direct_messages', state.directChannels(), [])}
 
               {/* An empty sidebar has to offer a way out, or a fresh install is a
                   dead end: no channels to open and no visible way to make one. */}
@@ -191,11 +155,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
                     <i className="fas fa-comments" />
                   </div>
 
-                  <p>
-                    {app.translator.trans(
-                      "ramon-chat.forum.sidebar.no_channels",
-                    )}
-                  </p>
+                  <p>{app.translator.trans('ramon-chat.forum.sidebar.no_channels')}</p>
 
                   {/* The actions are their own element rather than loose
                       children of the empty state: `Button--block` only sets a
@@ -208,22 +168,14 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
                     <Button
                       className="Button Button--primary Button--block"
                       icon="fas fa-compass"
-                      onclick={() => m.route.set(app.route("chat.browse"))}
+                      onclick={() => m.route.set(app.route('chat.browse'))}
                     >
-                      {app.translator.trans(
-                        "ramon-chat.forum.sidebar.browse_channels",
-                      )}
+                      {app.translator.trans('ramon-chat.forum.sidebar.browse_channels')}
                     </Button>
 
-                    {app.forum.attribute<boolean>("canCreateChatChannel") ? (
-                      <Button
-                        className="Button Button--block"
-                        icon="fas fa-plus"
-                        onclick={() => this.createChannel()}
-                      >
-                        {app.translator.trans(
-                          "ramon-chat.forum.sidebar.new_channel",
-                        )}
+                    {app.forum.attribute<boolean>('canCreateChatChannel') ? (
+                      <Button className="Button Button--block" icon="fas fa-plus" onclick={() => this.createChannel()}>
+                        {app.translator.trans('ramon-chat.forum.sidebar.new_channel')}
                       </Button>
                     ) : null}
                   </div>
@@ -244,12 +196,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
    * so the sidebar looked identical whether you were reading a channel, your
    * threads or your bookmarks.
    */
-  protected quickLink(
-    routeName: string,
-    icon: string,
-    key: string,
-    badge?: number,
-  ): Mithril.Children {
+  protected quickLink(routeName: string, icon: string, key: string, badge?: number): Mithril.Children {
     // Read from the router rather than from a stored value: the route can also
     // change from browser back/forward, which no click handler observes.
     //
@@ -258,31 +205,24 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
     // which mounts on its own root over whatever page is open, so it can render
     // before that — and an exception here takes down the entire Mithril tree,
     // not just this button.
-    const current = m.route.get() ?? "";
-    const active = current.split("?")[0] === app.route(routeName);
+    const current = m.route.get() ?? '';
+    const active = current.split('?')[0] === app.route(routeName);
 
     return (
       <button
         type="button"
-        className={classList("ChatSidebar-quickLink", {
-          "ChatSidebar-quickLink--active": active,
+        className={classList('ChatSidebar-quickLink', {
+          'ChatSidebar-quickLink--active': active,
         })}
-        aria-current={active ? "page" : undefined}
+        aria-current={active ? 'page' : undefined}
         onclick={() => m.route.set(app.route(routeName))}
       >
-        <i
-          className={`ChatSidebar-quickLink-icon ${icon}`}
-          aria-hidden="true"
-        />
+        <i className={`ChatSidebar-quickLink-icon ${icon}`} aria-hidden="true" />
         <span>{app.translator.trans(key)}</span>
 
         {/* Only when there is something to report. A badge reading zero is noise
             that trains people to stop looking at it. */}
-        {badge ? (
-          <span className="ChatSidebar-quickLink-badge">
-            {badge > 99 ? "99+" : badge}
-          </span>
-        ) : null}
+        {badge ? <span className="ChatSidebar-quickLink-badge">{badge > 99 ? '99+' : badge}</span> : null}
       </button>
     );
   }
@@ -296,11 +236,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
    * moment you joined your first channel and the only remaining route to it was
    * through Browse.
    */
-  protected section(
-    labelKey: string,
-    channels: Channel[],
-    actions: SectionAction[],
-  ): Mithril.Children {
+  protected section(labelKey: string, channels: Channel[], actions: SectionAction[]): Mithril.Children {
     // An empty section with no affordance is pure noise; hide it.
     if (channels.length === 0 && actions.length === 0) return null;
 
@@ -338,11 +274,10 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
       <button
         type="button"
         key={channel.id()}
-        className={classList("ChatChannelRow", {
-          "ChatChannelRow--active": active,
-          "ChatChannelRow--muted": channel.isMuted(),
-          "ChatChannelRow--online":
-            channel.isDirect() && isOnline(channel.others()[0]),
+        className={classList('ChatChannelRow', {
+          'ChatChannelRow--active': active,
+          'ChatChannelRow--muted': channel.isMuted(),
+          'ChatChannelRow--online': channel.isDirect() && isOnline(channel.others()[0]),
         })}
         onclick={() => onSelect?.(channel)}
         // Hover intent, not hover: sweeping the pointer down the list to reach
@@ -352,14 +287,12 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
         onpointerleave={() => this.cancelPrefetch()}
         // The press itself, a hundred-odd milliseconds before `click` fires —
         // and the only head start a touchscreen gets, having no hover.
-        onpointerdown={() =>
-          this.attrs.state.prefetchChannel(Number(channel.id()))
-        }
+        onpointerdown={() => this.attrs.state.prefetchChannel(Number(channel.id()))}
         // Keyboard arrives without a pointer, and a channel reached by tabbing
         // deserves the same head start.
         onfocus={() => this.attrs.state.prefetchChannel(Number(channel.id()))}
       >
-        {channelIcon(channel, "ChatChannelRow-icon")}
+        {channelIcon(channel, 'ChatChannelRow-icon')}
 
         <span className="ChatChannelRow-name">{channel.displayName()}</span>
 
@@ -369,11 +302,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
         {channel.isPrivate() ? (
           <i
             className="ChatChannelRow-lock fas fa-lock"
-            title={app.translator.trans(
-              "ramon-chat.forum.new_channel.private",
-              {},
-              true,
-            )}
+            title={app.translator.trans('ramon-chat.forum.new_channel.private', {}, true)}
             aria-hidden="true"
           />
         ) : null}
@@ -383,11 +312,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
         {channel.isHiddenMember() ? (
           <i
             className="ChatChannelRow-lock fas fa-user-secret"
-            title={app.translator.trans(
-              "ramon-chat.forum.browse.inspecting",
-              {},
-              true,
-            )}
+            title={app.translator.trans('ramon-chat.forum.browse.inspecting', {}, true)}
             aria-hidden="true"
           />
         ) : null}
@@ -400,20 +325,14 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
         {channel.isMuted() ? (
           <i
             className="ChatChannelRow-mute fas fa-bell-slash"
-            title={app.translator.trans(
-              "ramon-chat.forum.channel.muted",
-              {},
-              true,
-            )}
+            title={app.translator.trans('ramon-chat.forum.channel.muted', {}, true)}
             aria-hidden="true"
           />
         ) : null}
 
         {/* A count only for mentions; ambient unreads get a plain dot-less badge. */}
         {mentions > 0 ? (
-          <span className="ChatChannelRow-badge ChatChannelRow-badge--mention">
-            {mentions > 99 ? "99+" : mentions}
-          </span>
+          <span className="ChatChannelRow-badge ChatChannelRow-badge--mention">{mentions > 99 ? '99+' : mentions}</span>
         ) : unread ? (
           <span className="ChatChannelRow-badge">{channel.unreadCount()}</span>
         ) : null}
@@ -447,7 +366,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
     app.modal.show(loadChannelFormModal, {
       onSaved: (channel: Channel) => {
         this.attrs.state.setActiveChannel(Number(channel.id()));
-        m.route.set(app.route("chat.channel", { id: channel.id() }));
+        m.route.set(app.route('chat.channel', { id: channel.id() }));
       },
     });
   }

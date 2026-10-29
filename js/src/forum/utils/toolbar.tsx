@@ -1,6 +1,6 @@
-import app from "flarum/forum/app";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
 /**
  * The page's name in Flarum's phone toolbar.
@@ -28,11 +28,7 @@ export function mobileTitleControl(title: string): Mithril.Children {
   // second one naming the same page would be a competing document outline for no
   // gain: assistive technology reads the page's name from `document.title`, which
   // every chat page sets through `app.setTitle`. This is chrome.
-  return (
-    <span className="App-titleControl App-titleControl--text ChatToolbarTitle">
-      {title}
-    </span>
-  );
+  return <span className="App-titleControl App-titleControl--text ChatToolbarTitle">{title}</span>;
 }
 
 /**
@@ -54,24 +50,14 @@ export function mobileTitleControl(title: string): Mithril.Children {
  * this section", which is exactly what it does — the channel list is underneath.
  */
 export function mobileBackControl(onclick: () => void): Mithril.Children {
-  const label = app.translator.trans(
-    "ramon-chat.forum.sidebar.back_to_channels",
-    {},
-    true,
-  );
+  const label = app.translator.trans('ramon-chat.forum.sidebar.back_to_channels', {}, true);
 
   // A wrapper element, because core styles `.App-primaryControl > .Button` — the
   // class has to be on the parent for the button inside it to be sized and
   // coloured like the drawer toggle opposite.
   return (
     <div className="App-primaryControl ChatToolbarBack">
-      <Button
-        className="Button Button--icon"
-        icon="fas fa-xmark"
-        title={label}
-        aria-label={label}
-        onclick={onclick}
-      />
+      <Button className="Button Button--icon" icon="fas fa-xmark" title={label} aria-label={label} onclick={onclick} />
     </div>
   );
 }

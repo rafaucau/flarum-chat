@@ -1,15 +1,15 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Icon from "flarum/common/components/Icon";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Icon from 'flarum/common/components/Icon';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import ChatDrawer, { loadDrawerPanel } from "./ChatDrawer";
-import { rememberOrigin } from "../utils/morph";
-import chatState from "../state/chat";
-import { chatTitle, chatIcon } from "../utils/branding";
-import { shouldUseChatDrawer } from "../utils/surface";
+import ChatDrawer, { loadDrawerPanel } from './ChatDrawer';
+import { rememberOrigin } from '../utils/morph';
+import chatState from '../state/chat';
+import { chatTitle, chatIcon } from '../utils/branding';
+import { shouldUseChatDrawer } from '../utils/surface';
 
 /**
  * The chat entry point in the header — Discourse's speech bubble next to search.
@@ -24,9 +24,7 @@ import { shouldUseChatDrawer } from "../utils/surface";
  * no menu: the chat opens its own drawer or its page. Subclassing would drag in
  * `Dropdown-menu` markup and a toggle state that nothing here uses.
  */
-export default class ChatNavButton<
-  CustomAttrs extends ComponentAttrs = ComponentAttrs,
-> extends Component<CustomAttrs> {
+export default class ChatNavButton<CustomAttrs extends ComponentAttrs = ComponentAttrs> extends Component<CustomAttrs> {
   view(): Mithril.Children {
     const mentions = this.unreadMentions();
     const unread = this.unreadChannels();
@@ -42,12 +40,12 @@ export default class ChatNavButton<
     // with the header colour under `.new`. That is the same signal the bell uses
     // for an unread notification, so the two read alike.
     const count = mentions > 0 ? mentions : unread;
-    const digits = count > 99 ? "99+" : String(count);
+    const digits = count > 99 ? '99+' : String(count);
 
     return (
       <button
         type="button"
-        className={classList("Button Button--flat ChatNavButton", {
+        className={classList('Button Button--flat ChatNavButton', {
           // Core styles `.new` on a header button to signal fresh activity.
           new: mentions > 0,
           hasIcon: icon !== null,
@@ -75,11 +73,7 @@ export default class ChatNavButton<
             to fill the distance between them. On a 36px header button that is
             invisible; on a full-width drawer row it is the whole row. */}
         {count > 0 ? (
-          <span
-            className="Bubble HeaderDropdownBubble"
-            data-digits={digits.length}
-            aria-hidden="true"
-          >
+          <span className="Bubble HeaderDropdownBubble" data-digits={digits.length} aria-hidden="true">
             {digits}
           </span>
         ) : null}
@@ -121,14 +115,14 @@ export default class ChatNavButton<
   open(from?: HTMLElement): void {
     if (shouldUseChatDrawer()) {
       // The drawer grows out of the button that opened it.
-      if (!chatState.drawerOpen) rememberOrigin(from, "drawer");
+      if (!chatState.drawerOpen) rememberOrigin(from, 'drawer');
 
       ChatDrawer.open();
 
       return;
     }
 
-    m.route.set(app.route("chat.index"));
+    m.route.set(app.route('chat.index'));
   }
 
   /**
@@ -153,25 +147,13 @@ export default class ChatNavButton<
    * and it has to say which kind of unread it is, because the two carry different
    * urgency and the colour that distinguishes them is not announced.
    */
-  protected ariaLabel(
-    mentions: number,
-    hasUnread: boolean,
-    label: string,
-  ): string {
+  protected ariaLabel(mentions: number, hasUnread: boolean, label: string): string {
     if (mentions > 0) {
-      return app.translator.trans(
-        "ramon-chat.forum.nav.unread_mentions",
-        { count: mentions },
-        true,
-      );
+      return app.translator.trans('ramon-chat.forum.nav.unread_mentions', { count: mentions }, true);
     }
 
     if (hasUnread) {
-      return app.translator.trans(
-        "ramon-chat.forum.nav.unread_messages",
-        { count: this.unreadChannels() },
-        true,
-      );
+      return app.translator.trans('ramon-chat.forum.nav.unread_messages', { count: this.unreadChannels() }, true);
     }
 
     return label;

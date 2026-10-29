@@ -1,16 +1,12 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
-import chatState from "../state/chat";
-import ChatDrawer from "./ChatDrawer";
-import { shouldUseChatDrawer } from "../utils/surface";
-import {
-  acceptInvitation,
-  declineInvitation,
-  invitationErrorText,
-} from "../utils/invitations";
+import chatState from '../state/chat';
+import ChatDrawer from './ChatDrawer';
+import { shouldUseChatDrawer } from '../utils/surface';
+import { acceptInvitation, declineInvitation, invitationErrorText } from '../utils/invitations';
 
 interface InviteData {
   channelId?: number;
@@ -32,12 +28,12 @@ interface InviteData {
  */
 export default class ChannelInviteNotification extends Notification {
   /** What this row did, once it did something; the buttons give way to it. */
-  private answered: "accepted" | "declined" | null = null;
+  private answered: 'accepted' | 'declined' | null = null;
 
-  private busy: "accept" | "decline" | null = null;
+  private busy: 'accept' | 'decline' | null = null;
 
   icon(): string {
-    return "fas fa-envelope-open";
+    return 'fas fa-envelope-open';
   }
 
   /**
@@ -47,35 +43,24 @@ export default class ChannelInviteNotification extends Notification {
   href(): string {
     const channelId = this.channelId();
 
-    return channelId && (!this.data().isPrivate || this.answered === "accepted")
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId && (!this.data().isPrivate || this.answered === 'accepted')
+      ? app.route('chat.channel', { id: channelId })
+      : app.route('chat.index');
   }
 
   content(): Mithril.Children {
     const inviter = this.attrs.notification.fromUser();
 
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.channel_invite",
-      {
-        username: inviter
-          ? inviter.displayName()
-          : app.translator.trans(
-              "ramon-chat.forum.notifications.someone",
-              {},
-              true,
-            ),
-        channel: this.channelName(),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.channel_invite', {
+      username: inviter ? inviter.displayName() : app.translator.trans('ramon-chat.forum.notifications.someone', {}, true),
+      channel: this.channelName(),
+    });
   }
 
   excerpt(): Mithril.Children {
     if (this.answered) {
       return app.translator.trans(
-        this.answered === "accepted"
-          ? "ramon-chat.forum.channel.invite_accepted"
-          : "ramon-chat.forum.channel.invite_declined",
+        this.answered === 'accepted' ? 'ramon-chat.forum.channel.invite_accepted' : 'ramon-chat.forum.channel.invite_declined'
       );
     }
 
@@ -86,7 +71,7 @@ export default class ChannelInviteNotification extends Notification {
     const known = channelId ? chatState.channel(channelId) : null;
 
     if (known?.isFollowing()) {
-      return app.translator.trans("ramon-chat.forum.channel.invite_accepted");
+      return app.translator.trans('ramon-chat.forum.channel.invite_accepted');
     }
 
     return (
@@ -94,30 +79,28 @@ export default class ChannelInviteNotification extends Notification {
         {this.data().isPrivate ? (
           <span className="ChatInviteActions-hint">
             <i className="fas fa-lock" aria-hidden="true" />
-            {app.translator.trans("ramon-chat.forum.new_channel.private")}
+            {app.translator.trans('ramon-chat.forum.new_channel.private')}
           </span>
         ) : null}
 
         <Button
           className="Button Button--primary Button--compact"
           icon="fas fa-check"
-          loading={this.busy === "accept"}
+          loading={this.busy === 'accept'}
           disabled={this.busy !== null}
           onclick={(e: MouseEvent) => this.answer(e, true)}
         >
-          {app.translator.trans("ramon-chat.forum.notifications.invite_accept")}
+          {app.translator.trans('ramon-chat.forum.notifications.invite_accept')}
         </Button>
 
         <Button
           className="Button Button--compact"
           icon="fas fa-xmark"
-          loading={this.busy === "decline"}
+          loading={this.busy === 'decline'}
           disabled={this.busy !== null}
           onclick={(e: MouseEvent) => this.answer(e, false)}
         >
-          {app.translator.trans(
-            "ramon-chat.forum.notifications.invite_decline",
-          )}
+          {app.translator.trans('ramon-chat.forum.notifications.invite_decline')}
         </Button>
       </span>
     );
@@ -133,7 +116,7 @@ export default class ChannelInviteNotification extends Notification {
 
     if (!channelId) return;
 
-    if (this.data().isPrivate && this.answered !== "accepted") return;
+    if (this.data().isPrivate && this.answered !== 'accepted') return;
 
     // Falling through to the href is the right behaviour when the drawer is not
     // the surface — including inside Flarum's own drawer, where the notification
@@ -159,16 +142,16 @@ export default class ChannelInviteNotification extends Notification {
 
     if (!channelId || this.busy) return;
 
-    this.busy = accept ? "accept" : "decline";
+    this.busy = accept ? 'accept' : 'decline';
     m.redraw();
 
     try {
       if (accept) {
         await acceptInvitation(channelId);
-        this.answered = "accepted";
+        this.answered = 'accepted';
       } else {
         await declineInvitation(channelId);
-        this.answered = "declined";
+        this.answered = 'declined';
       }
 
       this.markAsRead();
@@ -176,19 +159,16 @@ export default class ChannelInviteNotification extends Notification {
       // A 404 is an invitation that is no longer open: answered on another
       // tab, or withdrawn. Either way there is nothing left to press.
       if (error?.status === 404) {
-        this.answered = "declined";
+        this.answered = 'declined';
       }
 
-      app.alerts.show(
-        { type: "error" },
-        invitationErrorText(error, "ramon-chat.forum.channel.invite_failed"),
-      );
+      app.alerts.show({ type: 'error' }, invitationErrorText(error, 'ramon-chat.forum.channel.invite_failed'));
     } finally {
       this.busy = null;
       m.redraw();
     }
 
-    if (this.answered === "accepted") this.open(channelId);
+    if (this.answered === 'accepted') this.open(channelId);
   }
 
   /** Lands the new member in the channel, where they prefer to chat. */
@@ -201,7 +181,7 @@ export default class ChannelInviteNotification extends Notification {
       return;
     }
 
-    m.route.set(app.route("chat.channel", { id: channelId }));
+    m.route.set(app.route('chat.channel', { id: channelId }));
   }
 
   protected channelId(): number | null {
@@ -216,10 +196,7 @@ export default class ChannelInviteNotification extends Notification {
    * when the notification was written for exactly that reason.
    */
   protected channelName(): string {
-    return (
-      this.data().channelName ??
-      (app.translator.trans("ramon-chat.forum.nav.chat", {}, true) as string)
-    );
+    return this.data().channelName ?? (app.translator.trans('ramon-chat.forum.nav.chat', {}, true) as string);
   }
 
   protected data(): InviteData {

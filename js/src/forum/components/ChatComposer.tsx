@@ -1,46 +1,29 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import Link from "flarum/common/components/Link";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import Link from 'flarum/common/components/Link';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Upload from "../../common/models/Upload";
-import type Channel from "../../common/models/Channel";
-import type User from "flarum/common/models/User";
-import type ChatState from "../state/ChatState";
-import ChatAutocomplete from "./ChatAutocomplete";
-import type { Suggestion } from "./ChatAutocomplete";
-import { searchEmoji } from "../utils/emoji";
-import { messagePreview } from "../../common/utils/preview";
-import { humanDuration } from "../utils/duration";
-import { resolveMaxMessageLength } from "../utils/messageLimit";
-import { sendsOnCtrlEnter } from "../utils/shortcuts";
-import { authorName } from "../utils/bot";
-import {
-  acceptInvitation,
-  adoptChannelPayload,
-  declineInvitation,
-  invitationErrorText,
-} from "../utils/invitations";
-import {
-  stickersAvailable,
-  stickerIcon,
-  stickerLabel,
-  openStickerPicker,
-  close as closeStickerPicker,
-  isStickerPickerOpen,
-} from "../utils/stickers";
-import {
-  flamojiPickerButton,
-  loadCustomEmoji,
-  searchCustomEmoji,
-  customEmojiImage,
-} from "../utils/flamoji";
-import iconLabel from "../utils/iconLabel";
-import { loadMessageTooLongModal } from "../utils/lazy";
+import type Upload from '../../common/models/Upload';
+import type Channel from '../../common/models/Channel';
+import type User from 'flarum/common/models/User';
+import type ChatState from '../state/ChatState';
+import ChatAutocomplete from './ChatAutocomplete';
+import type { Suggestion } from './ChatAutocomplete';
+import { searchEmoji } from '../utils/emoji';
+import { messagePreview } from '../../common/utils/preview';
+import { humanDuration } from '../utils/duration';
+import { resolveMaxMessageLength } from '../utils/messageLimit';
+import { sendsOnCtrlEnter } from '../utils/shortcuts';
+import { authorName } from '../utils/bot';
+import { acceptInvitation, adoptChannelPayload, declineInvitation, invitationErrorText } from '../utils/invitations';
+import { stickersAvailable, stickerIcon, stickerLabel, openStickerPicker, close as closeStickerPicker, isStickerPickerOpen } from '../utils/stickers';
+import { flamojiPickerButton, loadCustomEmoji, searchCustomEmoji, customEmojiImage } from '../utils/flamoji';
+import iconLabel from '../utils/iconLabel';
+import { loadMessageTooLongModal } from '../utils/lazy';
 
 export interface ChatComposerAttrs extends ComponentAttrs {
   channel: Channel;
@@ -88,7 +71,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   private activeSuggestion = 0;
   /** The `@foo` / `:smi` fragment being completed, as [start, end) in the value. */
   private trigger: {
-    type: "@" | ":";
+    type: '@' | ':';
     start: number;
     end: number;
     term: string;
@@ -143,10 +126,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const window = Number(channel.slowModeSeconds() ?? 0);
     const remaining = Number(channel.slowModeRemaining() ?? 0);
 
-    if (
-      window === this.lastSlowModeWindow &&
-      remaining === this.lastServerCooldown
-    ) {
+    if (window === this.lastSlowModeWindow && remaining === this.lastServerCooldown) {
       return;
     }
 
@@ -179,7 +159,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   oncreate(vnode: Mithril.VnodeDOM<ChatComposerAttrs>): void {
     super.oncreate(vnode);
 
-    this.textarea = vnode.dom.querySelector(".ChatComposer-input");
+    this.textarea = vnode.dom.querySelector('.ChatComposer-input');
     this.resize();
   }
 
@@ -249,9 +229,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         <ChatAutocomplete
           suggestions={this.suggestions}
           activeIndex={this.activeSuggestion}
-          onSelect={(suggestion: Suggestion) =>
-            this.applySuggestion(suggestion)
-          }
+          onSelect={(suggestion: Suggestion) => this.applySuggestion(suggestion)}
           onHover={(index: number) => {
             this.activeSuggestion = index;
           }}
@@ -286,10 +264,9 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
                 smaller. */}
             {remaining <= 200 ? (
               <div
-                className={classList("ChatComposer-counter", {
-                  "ChatComposer-counter--warning":
-                    remaining <= 20 && remaining >= 0,
-                  "ChatComposer-counter--over": remaining < 0,
+                className={classList('ChatComposer-counter', {
+                  'ChatComposer-counter--warning': remaining <= 20 && remaining >= 0,
+                  'ChatComposer-counter--over': remaining < 0,
                 })}
                 aria-live="polite"
               >
@@ -301,26 +278,19 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
               {/* Both have to hold: the forum-wide setting, and this actor's
                 permission. Checking only the setting drew a paperclip for people
                 the upload endpoint would refuse. */}
-              {app.forum.attribute("ramon-chat.allowUploads") &&
-              app.forum.attribute("canUploadChatFiles") ? (
+              {app.forum.attribute('ramon-chat.allowUploads') && app.forum.attribute('canUploadChatFiles') ? (
                 <>
                   <input
                     type="file"
                     className="ChatComposer-fileInput"
-                    style={{ display: "none" }}
+                    style={{ display: 'none' }}
                     multiple
                     onchange={(e: Event) => this.onFilesPicked(e)}
                   />
                   <Button
                     className="ChatComposer-tool"
                     icon="fas fa-paperclip"
-                    {...iconLabel(
-                      app.translator.trans(
-                        "ramon-chat.forum.composer.attach",
-                        {},
-                        true,
-                      ),
-                    )}
+                    {...iconLabel(app.translator.trans('ramon-chat.forum.composer.attach', {}, true))}
                     disabled={this.uploading || this.sending}
                     onclick={() => this.pickFiles()}
                   />
@@ -351,10 +321,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
                   rather than a dependency that must be met. Deliberately not
                   gated on a chat permission: it only types into the box, and
                   what may be sent is already decided by the send button. */}
-              {flamojiPickerButton(
-                (text: string) => this.insertAtCursor(text),
-                this.sending,
-              )}
+              {flamojiPickerButton((text: string) => this.insertAtCursor(text), this.sending)}
             </div>
 
             <button
@@ -363,17 +330,10 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
               // Names the keystroke, since which one sends is a forum setting and
               // the button is the only place a member would find out.
               title={this.sendHint()}
-              disabled={
-                this.sending ||
-                (!value.trim() && this.pendingUploads().length === 0)
-              }
+              disabled={this.sending || (!value.trim() && this.pendingUploads().length === 0)}
               onclick={() => this.submit()}
             >
-              {this.sending ? (
-                <LoadingIndicator display="inline" size="small" />
-              ) : (
-                <i className="fas fa-paper-plane" />
-              )}
+              {this.sending ? <LoadingIndicator display="inline" size="small" /> : <i className="fas fa-paper-plane" />}
             </button>
           </div>
         </div>
@@ -402,7 +362,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       <div className="ChatChannel-frozen ChatChannel-frozen--slow">
         <i className="fas fa-hourglass-half" aria-hidden="true" />
         <span>
-          {app.translator.trans("ramon-chat.forum.composer.slow_mode_wait", {
+          {app.translator.trans('ramon-chat.forum.composer.slow_mode_wait', {
             duration: humanDuration(this.cooldown),
           })}
         </span>
@@ -422,19 +382,15 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
           <i className="fas fa-envelope-open" aria-hidden="true" />
           <span>
             {inviter
-              ? app.translator.trans("ramon-chat.forum.channel.invited_by", {
+              ? app.translator.trans('ramon-chat.forum.channel.invited_by', {
                   username: inviter,
                 })
-              : app.translator.trans("ramon-chat.forum.channel.invited")}
+              : app.translator.trans('ramon-chat.forum.channel.invited')}
           </span>
 
           <span className="ChatChannel-frozen-actions">
-            <Button
-              className="Button"
-              disabled={this.joining}
-              onclick={() => this.answerInvitation(channel, false)}
-            >
-              {app.translator.trans("ramon-chat.forum.channel.decline_invite")}
+            <Button className="Button" disabled={this.joining} onclick={() => this.answerInvitation(channel, false)}>
+              {app.translator.trans('ramon-chat.forum.channel.decline_invite')}
             </Button>
             <Button
               className="Button Button--primary"
@@ -442,7 +398,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
               loading={this.joining}
               onclick={() => this.answerInvitation(channel, true)}
             >
-              {app.translator.trans("ramon-chat.forum.channel.accept_invite")}
+              {app.translator.trans('ramon-chat.forum.channel.accept_invite')}
             </Button>
           </span>
         </div>
@@ -452,26 +408,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     // Not a member. Checked before the read-only reasons because it is the only one
     // the reader can do something about, and telling them the channel is closed when
     // it is merely unjoined would be the same mistake as the announcement case.
-    if (
-      !channel.isArchived() &&
-      !channel.isClosed() &&
-      channel.postPermission() !== "moderators" &&
-      !channel.isFollowing() &&
-      channel.canJoin()
-    ) {
+    if (!channel.isArchived() && !channel.isClosed() && channel.postPermission() !== 'moderators' && !channel.isFollowing() && channel.canJoin()) {
       return (
         <div className="ChatChannel-frozen ChatChannel-frozen--join">
-          <span>
-            {app.translator.trans("ramon-chat.forum.channel.join_to_post")}
-          </span>
+          <span>{app.translator.trans('ramon-chat.forum.channel.join_to_post')}</span>
 
-          <Button
-            className="Button Button--primary"
-            icon="fas fa-right-to-bracket"
-            loading={this.joining}
-            onclick={() => this.join(channel)}
-          >
-            {app.translator.trans("ramon-chat.forum.channel.join")}
+          <Button className="Button Button--primary" icon="fas fa-right-to-bracket" loading={this.joining} onclick={() => this.join(channel)}>
+            {app.translator.trans('ramon-chat.forum.channel.join')}
           </Button>
         </div>
       );
@@ -480,16 +423,14 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     if (channel.isArchived()) return this.archivedNotice(channel);
 
     const key = channel.isClosed()
-      ? "ramon-chat.forum.channel.closed"
-      : channel.postPermission() === "moderators"
-        ? "ramon-chat.forum.channel.moderators_only"
-        : "ramon-chat.forum.composer.placeholder_closed";
+      ? 'ramon-chat.forum.channel.closed'
+      : channel.postPermission() === 'moderators'
+        ? 'ramon-chat.forum.channel.moderators_only'
+        : 'ramon-chat.forum.composer.placeholder_closed';
 
     // A megaphone, not a padlock: an announcement channel is not locked, it is
     // read-only by design, and the lock icon reads as something having gone wrong.
-    const icon = key.endsWith("moderators_only")
-      ? "fas fa-bullhorn"
-      : "fas fa-lock";
+    const icon = key.endsWith('moderators_only') ? 'fas fa-bullhorn' : 'fas fa-lock';
 
     return (
       <div className="ChatChannel-frozen">
@@ -510,23 +451,16 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       <div className="ChatChannel-frozen ChatChannel-frozen--archived">
         <i className="fas fa-box-archive" aria-hidden="true" />
         <span>
-          {app.translator.trans("ramon-chat.forum.channel.archived")}{" "}
+          {app.translator.trans('ramon-chat.forum.channel.archived')}{' '}
           {discussionId ? (
-            <Link href={app.route("discussion", { id: String(discussionId) })}>
-              {app.translator.trans("ramon-chat.forum.channel.archived_link")}
-            </Link>
+            <Link href={app.route('discussion', { id: String(discussionId) })}>{app.translator.trans('ramon-chat.forum.channel.archived_link')}</Link>
           ) : null}
         </span>
 
         {channel.canUnarchive() ? (
           <span className="ChatChannel-frozen-actions">
-            <Button
-              className="Button"
-              icon="fas fa-box-open"
-              loading={this.unarchiving}
-              onclick={() => this.unarchive(channel)}
-            >
-              {app.translator.trans("ramon-chat.forum.channel.unarchive")}
+            <Button className="Button" icon="fas fa-box-open" loading={this.unarchiving} onclick={() => this.unarchive(channel)}>
+              {app.translator.trans('ramon-chat.forum.channel.unarchive')}
             </Button>
           </span>
         ) : null}
@@ -547,18 +481,14 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     try {
       const payload = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-channels/${channel.id()}/unarchive`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-channels/${channel.id()}/unarchive`,
         body: { data: { attributes: {} } },
       });
 
       if (payload?.data) app.store.pushPayload(payload);
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        e?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.info.save_failed"),
-      );
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.info.save_failed'));
     } finally {
       this.unarchiving = false;
       m.redraw();
@@ -579,8 +509,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     try {
       const payload = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-channels/${channel.id()}/join`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-channels/${channel.id()}/join`,
         body: { data: { attributes: {} } },
       });
 
@@ -593,11 +523,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
       this.attrs.state.rememberChannel(channel);
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        e?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.channel.join_failed"),
-      );
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.channel.join_failed'));
     } finally {
       this.joining = false;
       m.redraw();
@@ -611,20 +537,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
    * way: the returned record carries `canPostMessage`, so the composer takes
    * the bar's place on the next draw.
    */
-  protected async answerInvitation(
-    channel: Channel,
-    accept: boolean,
-  ): Promise<void> {
-    if (
-      !accept &&
-      !confirm(
-        app.translator.trans(
-          "ramon-chat.forum.channel.decline_invite_confirm",
-          {},
-          true,
-        ),
-      )
-    ) {
+  protected async answerInvitation(channel: Channel, accept: boolean): Promise<void> {
+    if (!accept && !confirm(app.translator.trans('ramon-chat.forum.channel.decline_invite_confirm', {}, true))) {
       return;
     }
 
@@ -641,18 +555,11 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       }
 
       app.alerts.show(
-        { type: "success" },
-        app.translator.trans(
-          accept
-            ? "ramon-chat.forum.channel.invite_accepted"
-            : "ramon-chat.forum.channel.invite_declined",
-        ),
+        { type: 'success' },
+        app.translator.trans(accept ? 'ramon-chat.forum.channel.invite_accepted' : 'ramon-chat.forum.channel.invite_declined')
       );
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        invitationErrorText(e, "ramon-chat.forum.channel.invite_failed"),
-      );
+      app.alerts.show({ type: 'error' }, invitationErrorText(e, 'ramon-chat.forum.channel.invite_failed'));
     } finally {
       this.joining = false;
       m.redraw();
@@ -667,54 +574,35 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
    * composer into edit mode.
    */
   protected replyingTo() {
-    return this.attrs.state.replyingTo(
-      Number(this.attrs.channel.id()),
-      this.attrs.threadId ?? null,
-    );
+    return this.attrs.state.replyingTo(Number(this.attrs.channel.id()), this.attrs.threadId ?? null);
   }
 
   /** Whether the staged reply was started as "reply in thread". */
   protected branching(): boolean {
-    return this.attrs.state.branchingFrom(
-      Number(this.attrs.channel.id()),
-      this.attrs.threadId ?? null,
-    );
+    return this.attrs.state.branchingFrom(Number(this.attrs.channel.id()), this.attrs.threadId ?? null);
   }
 
   protected editing() {
-    return this.attrs.state.editing(
-      Number(this.attrs.channel.id()),
-      this.attrs.threadId ?? null,
-    );
+    return this.attrs.state.editing(Number(this.attrs.channel.id()), this.attrs.threadId ?? null);
   }
 
   protected placeholder(channel: Channel): string {
     if (this.attrs.threadId) {
-      return app.translator.trans(
-        "ramon-chat.forum.composer.placeholder_thread",
-        {},
-        true,
-      );
+      return app.translator.trans('ramon-chat.forum.composer.placeholder_thread', {}, true);
     }
 
     return app.translator.trans(
-      "ramon-chat.forum.composer.placeholder",
+      'ramon-chat.forum.composer.placeholder',
       {
         channel: channel.displayName(),
       },
-      true,
+      true
     );
   }
 
   /** The send button's tooltip, naming the keystroke that actually sends. */
   protected sendHint(): string {
-    return app.translator.trans(
-      sendsOnCtrlEnter()
-        ? "ramon-chat.forum.composer.send_ctrl_enter"
-        : "ramon-chat.forum.composer.send_enter",
-      {},
-      true,
-    );
+    return app.translator.trans(sendsOnCtrlEnter() ? 'ramon-chat.forum.composer.send_ctrl_enter' : 'ramon-chat.forum.composer.send_enter', {}, true);
   }
 
   /** Reply / edit context strip above the input. */
@@ -735,35 +623,24 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       <div className="ChatComposer-context">
         <i
           className={classList({
-            "fas fa-pencil": editing,
-            "fas fa-comments": branching,
-            "fas fa-reply": !editing && !branching,
+            'fas fa-pencil': editing,
+            'fas fa-comments': branching,
+            'fas fa-reply': !editing && !branching,
           })}
           aria-hidden="true"
         />
         <span className="ChatComposer-context-label">
           {editing
-            ? app.translator.trans("ramon-chat.forum.composer.editing")
-            : app.translator.trans(
-                branching
-                  ? "ramon-chat.forum.message.starting_thread"
-                  : "ramon-chat.forum.message.replying_to",
-                { username: authorName(target) },
-              )}
+            ? app.translator.trans('ramon-chat.forum.composer.editing')
+            : app.translator.trans(branching ? 'ramon-chat.forum.message.starting_thread' : 'ramon-chat.forum.message.replying_to', {
+                username: authorName(target),
+              })}
         </span>
-        <span className="ChatComposer-context-preview">
-          {messagePreview(target, 80)}
-        </span>
+        <span className="ChatComposer-context-preview">{messagePreview(target, 80)}</span>
         <Button
           className="ChatComposer-tool"
           icon="fas fa-times"
-          {...iconLabel(
-            app.translator.trans(
-              "ramon-chat.forum.composer.cancel_edit",
-              {},
-              true,
-            ),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.composer.cancel_edit', {}, true))}
           onclick={() => this.cancelContext()}
         />
       </div>
@@ -784,20 +661,12 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
             <Button
               className="ChatComposer-tool"
               icon="fas fa-times"
-              {...iconLabel(
-                app.translator.trans(
-                  "ramon-chat.forum.composer.remove_upload",
-                  {},
-                  true,
-                ),
-              )}
+              {...iconLabel(app.translator.trans('ramon-chat.forum.composer.remove_upload', {}, true))}
               onclick={() => this.removeUpload(Number(upload.id()))}
             />
           </div>
         ))}
-        {this.uploading ? (
-          <LoadingIndicator display="inline" size="small" />
-        ) : null}
+        {this.uploading ? <LoadingIndicator display="inline" size="small" /> : null}
       </div>
     );
   }
@@ -837,12 +706,12 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     }
 
     const [, , symbol, term] = match;
-    const type = symbol as "@" | ":";
+    const type = symbol as '@' | ':';
 
     // A bare `:` matches nearly the whole emoji map, and a bare `@` every user;
     // neither is a useful list, so wait for something to filter on. `@` opens at
     // once because @here/@all are worth offering immediately.
-    if (type === ":" && term.length < 2) {
+    if (type === ':' && term.length < 2) {
       this.closeAutocomplete();
 
       return;
@@ -855,23 +724,23 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       term,
     };
 
-    if (type === ":") {
+    if (type === ':') {
       // Custom emoji first, and on their own budget rather than competing for
       // the twelve slots. There are few of them, they are forum-specific, and a
       // member who typed `:kap` almost certainly means the one their forum
       // added — not `kappa`'s nearest Unicode neighbour.
       const custom: Suggestion[] = searchCustomEmoji(term, 4).map((entry) => ({
-        key: "flamoji-" + entry.name,
+        key: 'flamoji-' + entry.name,
         insert: entry.insert,
-        label: ":" + entry.name + ":",
-        emoji: customEmojiImage(entry, "ChatAutocomplete-flamoji"),
+        label: ':' + entry.name + ':',
+        emoji: customEmojiImage(entry, 'ChatAutocomplete-flamoji'),
         hint: entry.title !== entry.name ? entry.title : null,
       }));
 
       const unicode: Suggestion[] = searchEmoji(term, 12).map((entry) => ({
-        key: "emoji-" + entry.name,
-        insert: ":" + entry.name + ":",
-        label: ":" + entry.name + ":",
+        key: 'emoji-' + entry.name,
+        insert: ':' + entry.name + ':',
+        label: ':' + entry.name + ':',
         emoji: entry.unicode,
       }));
 
@@ -880,10 +749,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       // pick a glyph they will not get.
       const taken = new Set(custom.map((entry) => entry.label));
 
-      this.suggestions = [
-        ...custom,
-        ...unicode.filter((entry) => !taken.has(entry.label)),
-      ];
+      this.suggestions = [...custom, ...unicode.filter((entry) => !taken.has(entry.label))];
 
       this.activeSuggestion = 0;
 
@@ -898,19 +764,15 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   protected suggestUsers(term: string): void {
     const channelWide: Suggestion[] = [];
 
-    if (app.forum.attribute<boolean>("canMentionChatChannelWide")) {
-      for (const name of ["here", "all"]) {
+    if (app.forum.attribute<boolean>('canMentionChatChannelWide')) {
+      for (const name of ['here', 'all']) {
         if (name.startsWith(term.toLowerCase())) {
           channelWide.push({
-            key: "wide-" + name,
-            insert: "@" + name,
-            label: "@" + name,
-            icon: "fas fa-bullhorn",
-            hint: app.translator.trans(
-              `ramon-chat.forum.composer.mention_${name}`,
-              {},
-              true,
-            ),
+            key: 'wide-' + name,
+            insert: '@' + name,
+            label: '@' + name,
+            icon: 'fas fa-bullhorn',
+            hint: app.translator.trans(`ramon-chat.forum.composer.mention_${name}`, {}, true),
           });
         }
       }
@@ -927,7 +789,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     this.mentionTimer = window.setTimeout(() => {
       app.store
-        .find<User[]>("users", {
+        .find<User[]>('users', {
           // Scoped to the channel: mentioning someone who is not in it notifies
           // them about a conversation they cannot open, and in a private channel
           // the unscoped list named people who cannot see it exists.
@@ -937,16 +799,15 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         .then((results) => {
           // A stale response must not replace a newer one, and must not reopen a
           // list the user has already dismissed or typed past.
-          if (mine !== this.mentionSequence || this.trigger?.type !== "@")
-            return;
+          if (mine !== this.mentionSequence || this.trigger?.type !== '@') return;
 
           this.suggestions = [
             ...channelWide,
             ...(Array.isArray(results) ? results : []).map((user) => ({
-              key: "user-" + user.id(),
-              insert: "@" + (user.slug() ?? user.username()),
+              key: 'user-' + user.id(),
+              insert: '@' + (user.slug() ?? user.username()),
               label: user.displayName(),
-              hint: "@" + user.username(),
+              hint: '@' + user.username(),
               user,
             })),
           ];
@@ -968,8 +829,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     if (!el || !this.trigger) return;
 
     const { start, end } = this.trigger;
-    const value =
-      el.value.slice(0, start) + suggestion.insert + " " + el.value.slice(end);
+    const value = el.value.slice(0, start) + suggestion.insert + ' ' + el.value.slice(end);
     const caret = start + suggestion.insert.length + 1;
 
     state.setDraft(Number(channel.id()), value, threadId ?? null);
@@ -1002,10 +862,10 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     if (this.autocompleteOpen()) {
       const count = this.suggestions.length;
 
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
 
-        const step = e.key === "ArrowDown" ? 1 : -1;
+        const step = e.key === 'ArrowDown' ? 1 : -1;
         this.activeSuggestion = (this.activeSuggestion + step + count) % count;
 
         return;
@@ -1014,21 +874,21 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       // Ctrl/Cmd+Enter is "send", never "accept": in Ctrl+Enter mode a plain
       // Enter still belongs to the list, but the send shortcut has to reach the
       // send path or the list becomes a trap for anyone who used it.
-      if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         this.applySuggestion(this.suggestions[this.activeSuggestion]);
 
         return;
       }
 
-      if (e.key === "Tab") {
+      if (e.key === 'Tab') {
         e.preventDefault();
         this.applySuggestion(this.suggestions[this.activeSuggestion]);
 
         return;
       }
 
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.preventDefault();
         this.closeAutocomplete();
 
@@ -1043,7 +903,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     // stray Enter. Cmd is accepted alongside Ctrl because on macOS the modifier
     // for this shortcut is Cmd, and a mac user pressing Ctrl+Enter means the
     // same thing.
-    if (e.key === "Enter" && !e.altKey) {
+    if (e.key === 'Enter' && !e.altKey) {
       const withModifier = e.ctrlKey || e.metaKey;
 
       if (sendsOnCtrlEnter() ? withModifier : !e.shiftKey && !withModifier) {
@@ -1054,24 +914,19 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       }
     }
 
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       this.cancelContext();
     }
 
     // Arrow-up on an empty composer edits your last message — a chat convention.
-    if (e.key === "ArrowUp") {
+    if (e.key === 'ArrowUp') {
       const { channel, state } = this.attrs;
-      const draft = state.draft(
-        Number(channel.id()),
-        this.attrs.threadId ?? null,
-      );
+      const draft = state.draft(Number(channel.id()), this.attrs.threadId ?? null);
 
-      if (draft === "" && !this.editing()) {
+      if (draft === '' && !this.editing()) {
         // The thread panel's own window when this composer is scoped to a thread,
         // so arrow-up cannot reach back into the channel from inside a thread.
-        const window = this.attrs.threadId
-          ? state.threadStream(this.attrs.threadId).messages
-          : (state.streams[Number(channel.id())]?.messages ?? []);
+        const window = this.attrs.threadId ? state.threadStream(this.attrs.threadId).messages : (state.streams[Number(channel.id())]?.messages ?? []);
 
         const mine = [...window].reverse().find((msg) => msg.canEdit());
 
@@ -1089,7 +944,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     if (!el) return;
 
-    el.style.height = "auto";
+    el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }
 
@@ -1097,11 +952,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const { channel, state, threadId } = this.attrs;
 
     state.setEditing(Number(channel.id()), message, threadId ?? null);
-    state.setDraft(
-      Number(channel.id()),
-      message.content() ?? "",
-      threadId ?? null,
-    );
+    state.setDraft(Number(channel.id()), message.content() ?? '', threadId ?? null);
 
     this.textarea?.focus();
     m.redraw();
@@ -1137,12 +988,9 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       return;
     }
 
-    const trigger =
-      (e.currentTarget as HTMLElement)?.closest(".ChatComposer-tool") ?? null;
+    const trigger = (e.currentTarget as HTMLElement)?.closest('.ChatComposer-tool') ?? null;
 
-    openStickerPicker(trigger as HTMLElement | null, (text: string) =>
-      this.insertAtCursor(text),
-    ).catch(() => {});
+    openStickerPicker(trigger as HTMLElement | null, (text: string) => this.insertAtCursor(text)).catch(() => {});
   }
 
   /**
@@ -1244,9 +1092,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     // emoji picker, while the request was in flight should keep the cursor where
     // they put it. `contains` covers both ways in, the textarea for an Enter and
     // the send button for a click.
-    const hadFocus = Boolean(
-      this.element && this.element.contains(document.activeElement),
-    );
+    const hadFocus = Boolean(this.element && this.element.contains(document.activeElement));
 
     this.sending = true;
 
@@ -1260,8 +1106,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     try {
       if (editing) {
         const payload = await app.request<any>({
-          method: "PATCH",
-          url: `${app.forum.attribute("apiUrl")}/chat-messages/${editing.id()}`,
+          method: 'PATCH',
+          url: `${app.forum.attribute('apiUrl')}/chat-messages/${editing.id()}`,
           body: { data: { attributes: { content } } },
         });
 
@@ -1298,11 +1144,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       // window by the interface alone, while the server would have taken the next
       // message happily. The channel says the same for its owner and the
       // moderators they appointed, who are exempt here but not forum-wide.
-      if (
-        !editing &&
-        !app.forum.attribute("canBypassChatSlowMode") &&
-        !channel.bypassesSlowMode()
-      ) {
+      if (!editing && !app.forum.attribute('canBypassChatSlowMode') && !channel.bypassesSlowMode()) {
         this.startCooldown(Number(channel.slowModeSeconds() ?? 0));
       }
 
@@ -1313,15 +1155,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
       const detail = e?.response?.errors?.[0]?.detail;
 
-      app.alerts.show(
-        { type: "error" },
-        detail ??
-          app.translator.trans(
-            "ramon-chat.forum.composer.send_failed",
-            {},
-            true,
-          ),
-      );
+      app.alerts.show({ type: 'error' }, detail ?? app.translator.trans('ramon-chat.forum.composer.send_failed', {}, true));
     } finally {
       this.sending = false;
 
@@ -1342,11 +1176,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   protected pickFiles(): void {
-    (
-      this.element.querySelector(
-        ".ChatComposer-fileInput",
-      ) as HTMLInputElement | null
-    )?.click();
+    (this.element.querySelector('.ChatComposer-fileInput') as HTMLInputElement | null)?.click();
   }
 
   protected async onFilesPicked(e: Event): Promise<void> {
@@ -1354,7 +1184,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const files = Array.from(input.files ?? []);
 
     // Reset immediately so picking the same file twice still fires a change.
-    input.value = "";
+    input.value = '';
 
     if (files.length === 0) return;
 
@@ -1369,16 +1199,16 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     for (const file of files) {
       try {
         const body = new FormData();
-        body.append("file", file);
+        body.append('file', file);
         // Where this is going to be posted. The server uses it to put a file
         // meant for a private channel on the private disk from the start, rather
         // than on the public one and moving it on send. Sending still enforces
         // the rule — this is the hint, not the gate.
-        body.append("channelId", String(channelId));
+        body.append('channelId', String(channelId));
 
         const payload = await app.request<any>({
-          method: "POST",
-          url: `${app.forum.attribute("apiUrl")}/chat/uploads`,
+          method: 'POST',
+          url: `${app.forum.attribute('apiUrl')}/chat/uploads`,
           body,
           serialize: (raw: any) => raw,
         });
@@ -1388,15 +1218,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       } catch (err: any) {
         const detail = err?.response?.errors?.[0]?.detail;
 
-        app.alerts.show(
-          { type: "error" },
-          detail ??
-            app.translator.trans(
-              "ramon-chat.forum.composer.upload_failed",
-              {},
-              true,
-            ),
-        );
+        app.alerts.show({ type: 'error' }, detail ?? app.translator.trans('ramon-chat.forum.composer.upload_failed', {}, true));
       }
     }
 
@@ -1413,8 +1235,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     // retention sweep.
     app
       .request({
-        method: "DELETE",
-        url: `${app.forum.attribute("apiUrl")}/chat-uploads/${id}`,
+        method: 'DELETE',
+        url: `${app.forum.attribute('apiUrl')}/chat-uploads/${id}`,
       })
       .catch(() => {});
   }

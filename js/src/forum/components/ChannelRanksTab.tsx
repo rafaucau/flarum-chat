@@ -1,37 +1,33 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import Switch from "flarum/common/components/Switch";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import Switch from 'flarum/common/components/Switch';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import type { RankBook, RankEntry } from "../../common/models/Channel";
-import { adoptChannelPayload, invitationErrorText } from "../utils/invitations";
-import iconLabel from "../utils/iconLabel";
-import { rankName, rankNameAttrs, rankTag, validIcon } from "../utils/ranks";
-import { deriveRankColors, isHex } from "../utils/rankPalette";
+import type Channel from '../../common/models/Channel';
+import type { RankBook, RankEntry } from '../../common/models/Channel';
+import { adoptChannelPayload, invitationErrorText } from '../utils/invitations';
+import iconLabel from '../utils/iconLabel';
+import { rankName, rankNameAttrs, rankTag, validIcon } from '../utils/ranks';
+import { deriveRankColors, isHex } from '../utils/rankPalette';
 
 /** Mirrors ChannelRank::MAX_PER_CHANNEL and ChannelRank::NAME_MAX. */
 export const MAX_RANKS = 20;
 export const RANK_NAME_MAX = 32;
 
-type RankPath = "" | "/update" | "/delete" | "/order" | "/assign";
+type RankPath = '' | '/update' | '/delete' | '/order' | '/assign';
 
 /**
  * One rank write, answered with the channel; the new `rankBook` lands on the
  * store record every author line and the members tab read from.
  */
-export async function rankRequest(
-  channelId: number | string,
-  path: RankPath,
-  attributes: Record<string, unknown>,
-): Promise<Channel | null> {
+export async function rankRequest(channelId: number | string, path: RankPath, attributes: Record<string, unknown>): Promise<Channel | null> {
   const payload = await app.request<any>({
-    method: "POST",
-    url: `${app.forum.attribute("apiUrl")}/chat-channels/${channelId}/ranks${path}`,
+    method: 'POST',
+    url: `${app.forum.attribute('apiUrl')}/chat-channels/${channelId}/ranks${path}`,
     body: { data: { attributes } },
     errorHandler: () => undefined,
   });
@@ -41,8 +37,8 @@ export async function rankRequest(
 
 interface RankDraft {
   /** 'new', a built-in's name, or a custom rank's id. */
-  target: "new" | "owner" | "moderator" | number;
-  builtin: "owner" | "moderator" | null;
+  target: 'new' | 'owner' | 'moderator' | number;
+  builtin: 'owner' | 'moderator' | null;
   name: string;
   color: string;
   /** A built-in left at the theme's colour. */
@@ -90,37 +86,27 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
 
     return (
       <div className="ChatChannelInfo-section ChatRanks">
-        <p className="helpText ChatRanks-intro">
-          {app.translator.trans("ramon-chat.forum.ranks.intro")}
-        </p>
+        <p className="helpText ChatRanks-intro">{app.translator.trans('ramon-chat.forum.ranks.intro')}</p>
 
         {this.draft ? this.editor(this.draft) : null}
 
-        <ul className="ChatRanks-list">
-          {book.ranks.map((rank) => this.row(book, rank, custom))}
-        </ul>
+        <ul className="ChatRanks-list">{book.ranks.map((rank) => this.row(book, rank, custom))}</ul>
 
-        {custom.length === 0 ? (
-          <p className="ChatRanks-empty">
-            {app.translator.trans("ramon-chat.forum.ranks.empty")}
-          </p>
-        ) : null}
+        {custom.length === 0 ? <p className="ChatRanks-empty">{app.translator.trans('ramon-chat.forum.ranks.empty')}</p> : null}
 
         <div className="ChatRanks-footer">
           <Button
             className="Button Button--primary Button--compact"
             icon="fas fa-plus"
-            disabled={
-              this.working || this.draft !== null || custom.length >= MAX_RANKS
-            }
+            disabled={this.working || this.draft !== null || custom.length >= MAX_RANKS}
             onclick={() => this.edit(null)}
           >
-            {app.translator.trans("ramon-chat.forum.ranks.new")}
+            {app.translator.trans('ramon-chat.forum.ranks.new')}
           </Button>
 
           {custom.length >= MAX_RANKS ? (
             <span className="helpText">
-              {app.translator.trans("ramon-chat.forum.ranks.limit", {
+              {app.translator.trans('ramon-chat.forum.ranks.limit', {
                 max: MAX_RANKS,
               })}
             </span>
@@ -142,55 +128,36 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
     this.loading = true;
 
     try {
-      await app.store.find("chat-channels", String(this.attrs.channel.id()));
+      await app.store.find('chat-channels', String(this.attrs.channel.id()));
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.ranks.save_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.ranks.save_failed'));
     } finally {
       this.loading = false;
       m.redraw();
     }
   }
 
-  protected row(
-    book: RankBook,
-    rank: RankEntry,
-    custom: RankEntry[],
-  ): Mithril.Children {
+  protected row(book: RankBook, rank: RankEntry, custom: RankEntry[]): Mithril.Children {
     const index = custom.indexOf(rank);
     const name = rankName(rank);
     const holders = this.holders(book, rank);
 
     return (
       <li key={rank.key} className="ChatRanks-row">
-        <span className="ChatRanks-sample">
-          {rank.showBadge ? (
-            rankTag(rank)
-          ) : (
-            <span {...rankNameAttrs(rank)}>{name}</span>
-          )}
-        </span>
+        <span className="ChatRanks-sample">{rank.showBadge ? rankTag(rank) : <span {...rankNameAttrs(rank)}>{name}</span>}</span>
 
         <span className="ChatRanks-meta">
           {rank.builtin !== null ? (
-            <span className="ChatRanks-chip">
-              {app.translator.trans("ramon-chat.forum.ranks.builtin_tag")}
-            </span>
+            <span className="ChatRanks-chip">{app.translator.trans('ramon-chat.forum.ranks.builtin_tag')}</span>
           ) : (
             <span className="ChatRanks-holders">
-              {app.translator.trans("ramon-chat.forum.ranks.holders", {
+              {app.translator.trans('ramon-chat.forum.ranks.holders', {
                 count: holders,
               })}
             </span>
           )}
 
-          {!rank.showBadge ? (
-            <span className="ChatRanks-chip">
-              {app.translator.trans("ramon-chat.forum.ranks.name_color")}
-            </span>
-          ) : null}
+          {!rank.showBadge ? <span className="ChatRanks-chip">{app.translator.trans('ramon-chat.forum.ranks.name_color')}</span> : null}
         </span>
 
         <span className="ChatRanks-actions">
@@ -200,26 +167,14 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
                 className="Button Button--icon Button--flat"
                 icon="fas fa-arrow-up"
                 disabled={this.working || index <= 0}
-                {...iconLabel(
-                  app.translator.trans(
-                    "ramon-chat.forum.ranks.move_up",
-                    { name },
-                    true,
-                  ),
-                )}
+                {...iconLabel(app.translator.trans('ramon-chat.forum.ranks.move_up', { name }, true))}
                 onclick={() => this.move(custom, index, -1)}
               />
               <Button
                 className="Button Button--icon Button--flat"
                 icon="fas fa-arrow-down"
                 disabled={this.working || index >= custom.length - 1}
-                {...iconLabel(
-                  app.translator.trans(
-                    "ramon-chat.forum.ranks.move_down",
-                    { name },
-                    true,
-                  ),
-                )}
+                {...iconLabel(app.translator.trans('ramon-chat.forum.ranks.move_down', { name }, true))}
                 onclick={() => this.move(custom, index, 1)}
               />
             </>
@@ -229,31 +184,17 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
             className="Button Button--icon Button--flat"
             icon="fas fa-pen"
             disabled={this.working}
-            {...iconLabel(
-              app.translator.trans(
-                "ramon-chat.forum.ranks.edit",
-                { name },
-                true,
-              ),
-            )}
+            {...iconLabel(app.translator.trans('ramon-chat.forum.ranks.edit', { name }, true))}
             onclick={() => this.edit(rank)}
           />
 
           {rank.builtin === null || rank.id !== null ? (
             <Button
               className="Button Button--icon Button--flat ChatRanks-delete"
-              icon={
-                rank.builtin === null ? "fas fa-trash" : "fas fa-rotate-left"
-              }
+              icon={rank.builtin === null ? 'fas fa-trash' : 'fas fa-rotate-left'}
               disabled={this.working}
               {...iconLabel(
-                app.translator.trans(
-                  rank.builtin === null
-                    ? "ramon-chat.forum.ranks.delete"
-                    : "ramon-chat.forum.ranks.reset",
-                  { name },
-                  true,
-                ),
+                app.translator.trans(rank.builtin === null ? 'ramon-chat.forum.ranks.delete' : 'ramon-chat.forum.ranks.reset', { name }, true)
               )}
               onclick={() => this.remove(rank)}
             />
@@ -266,9 +207,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
   protected holders(book: RankBook, rank: RankEntry): number {
     if (rank.builtin !== null) return 0;
 
-    return Object.values(
-      (book.assignments as Record<string, number[]>) ?? {},
-    ).filter((ids) => ids.map(Number).includes(Number(rank.id))).length;
+    return Object.values((book.assignments as Record<string, number[]>) ?? {}).filter((ids) => ids.map(Number).includes(Number(rank.id))).length;
   }
 
   // ── Editor ─────────────────────────────────────────────────────────────────
@@ -278,29 +217,29 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
       ? {
           target: rank.builtin ?? Number(rank.id),
           builtin: rank.builtin,
-          name: rank.name ?? "",
-          color: rank.color ?? "#5865f2",
+          name: rank.name ?? '',
+          color: rank.color ?? '#5865f2',
           themeColor: rank.builtin !== null && !rank.color,
-          icon: rank.icon ?? "",
+          icon: rank.icon ?? '',
           showBadge: rank.showBadge,
         }
       : {
-          target: "new",
+          target: 'new',
           builtin: null,
-          name: "",
-          color: "#5865f2",
+          name: '',
+          color: '#5865f2',
           themeColor: false,
-          icon: "",
+          icon: '',
           showBadge: true,
         };
   }
 
   protected editor(draft: RankDraft): Mithril.Children {
     const nameKey =
-      draft.builtin === "owner"
-        ? "ramon-chat.forum.ranks.owner_default"
-        : draft.builtin === "moderator"
-          ? "ramon-chat.forum.ranks.moderator_default"
+      draft.builtin === 'owner'
+        ? 'ramon-chat.forum.ranks.owner_default'
+        : draft.builtin === 'moderator'
+          ? 'ramon-chat.forum.ranks.moderator_default'
           : null;
     const icon = validIcon(draft.icon.trim());
 
@@ -313,27 +252,17 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
         }}
       >
         <div className="ChatRanks-editorTitle">
-          {app.translator.trans(
-            draft.target === "new"
-              ? "ramon-chat.forum.ranks.new"
-              : "ramon-chat.forum.ranks.edit_title",
-          )}
+          {app.translator.trans(draft.target === 'new' ? 'ramon-chat.forum.ranks.new' : 'ramon-chat.forum.ranks.edit_title')}
         </div>
 
         <div className="ChatRanks-fields">
           <label className="ChatRanks-field">
-            <span className="ChatRanks-label">
-              {app.translator.trans("ramon-chat.forum.ranks.name")}
-            </span>
+            <span className="ChatRanks-label">{app.translator.trans('ramon-chat.forum.ranks.name')}</span>
             <input
               className="FormControl"
               maxlength={RANK_NAME_MAX}
               value={draft.name}
-              placeholder={
-                nameKey
-                  ? (app.translator.trans(nameKey, {}, true) as string)
-                  : ""
-              }
+              placeholder={nameKey ? (app.translator.trans(nameKey, {}, true) as string) : ''}
               oninput={(e: Event) => {
                 draft.name = (e.target as HTMLInputElement).value;
               }}
@@ -341,9 +270,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
           </label>
 
           <div className="ChatRanks-field">
-            <span className="ChatRanks-label">
-              {app.translator.trans("ramon-chat.forum.ranks.color")}
-            </span>
+            <span className="ChatRanks-label">{app.translator.trans('ramon-chat.forum.ranks.color')}</span>
 
             {draft.builtin !== null ? (
               <Switch
@@ -352,7 +279,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
                   draft.themeColor = value;
                 }}
               >
-                {app.translator.trans("ramon-chat.forum.ranks.color_theme")}
+                {app.translator.trans('ramon-chat.forum.ranks.color_theme')}
               </Switch>
             ) : null}
 
@@ -361,19 +288,15 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
                 <input
                   type="color"
                   className="ChatRanks-swatch"
-                  value={isHex(draft.color) ? draft.color : "#5865f2"}
-                  aria-label={app.translator.trans(
-                    "ramon-chat.forum.ranks.color",
-                    {},
-                    true,
-                  )}
+                  value={isHex(draft.color) ? draft.color : '#5865f2'}
+                  aria-label={app.translator.trans('ramon-chat.forum.ranks.color', {}, true)}
                   oninput={(e: Event) => {
                     draft.color = (e.target as HTMLInputElement).value;
                   }}
                 />
                 <input
-                  className={classList("FormControl", "ChatRanks-hex", {
-                    "ChatRanks-hex--invalid": !isHex(draft.color),
+                  className={classList('FormControl', 'ChatRanks-hex', {
+                    'ChatRanks-hex--invalid': !isHex(draft.color),
                   })}
                   maxlength={7}
                   value={draft.color}
@@ -387,9 +310,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
           </div>
 
           <label className="ChatRanks-field">
-            <span className="ChatRanks-label">
-              {app.translator.trans("ramon-chat.forum.ranks.icon")}
-            </span>
+            <span className="ChatRanks-label">{app.translator.trans('ramon-chat.forum.ranks.icon')}</span>
             <div className="ChatRanks-icon">
               <span className="ChatRanks-iconPreview" aria-hidden="true">
                 {icon ? <i className={icon} /> : null}
@@ -405,9 +326,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
                 }}
               />
             </div>
-            <span className="helpText">
-              {app.translator.trans("ramon-chat.forum.ranks.icon_help")}
-            </span>
+            <span className="helpText">{app.translator.trans('ramon-chat.forum.ranks.icon_help')}</span>
           </label>
 
           <div className="ChatRanks-field">
@@ -417,14 +336,10 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
                 draft.showBadge = value;
               }}
             >
-              {app.translator.trans("ramon-chat.forum.ranks.show_badge")}
+              {app.translator.trans('ramon-chat.forum.ranks.show_badge')}
             </Switch>
             <span className="helpText">
-              {app.translator.trans(
-                draft.showBadge
-                  ? "ramon-chat.forum.ranks.show_badge_help_on"
-                  : "ramon-chat.forum.ranks.show_badge_help_off",
-              )}
+              {app.translator.trans(draft.showBadge ? 'ramon-chat.forum.ranks.show_badge_help_on' : 'ramon-chat.forum.ranks.show_badge_help_off')}
             </span>
           </div>
         </div>
@@ -432,13 +347,8 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
         {this.preview(draft)}
 
         <div className="ChatRanks-editorActions">
-          <Button
-            type="submit"
-            className="Button Button--primary"
-            loading={this.working}
-            disabled={this.working}
-          >
-            {app.translator.trans("ramon-chat.forum.ranks.save")}
+          <Button type="submit" className="Button Button--primary" loading={this.working} disabled={this.working}>
+            {app.translator.trans('ramon-chat.forum.ranks.save')}
           </Button>
           <Button
             className="Button"
@@ -447,7 +357,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
               this.draft = null;
             }}
           >
-            {app.translator.trans("ramon-chat.forum.ranks.cancel")}
+            {app.translator.trans('ramon-chat.forum.ranks.cancel')}
           </Button>
         </div>
       </form>
@@ -461,7 +371,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
   protected preview(draft: RankDraft): Mithril.Children {
     const color = draft.themeColor || !isHex(draft.color) ? null : draft.color;
     const rank: RankEntry = {
-      key: "preview",
+      key: 'preview',
       id: null,
       builtin: draft.builtin,
       name: draft.name.trim() || null,
@@ -471,26 +381,14 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
       position: 0,
       ...deriveRankColors(color),
     };
-    const who =
-      app.session.user?.displayName() ??
-      (app.translator.trans("ramon-chat.forum.ranks.name", {}, true) as string);
+    const who = app.session.user?.displayName() ?? (app.translator.trans('ramon-chat.forum.ranks.name', {}, true) as string);
 
     const sample = (dark: boolean) => {
       const attrs = rankNameAttrs(rank);
-      const style =
-        attrs.style && dark
-          ? { color: rank.nameDark ?? undefined }
-          : attrs.style
-            ? { color: rank.nameLight ?? undefined }
-            : undefined;
+      const style = attrs.style && dark ? { color: rank.nameDark ?? undefined } : attrs.style ? { color: rank.nameLight ?? undefined } : undefined;
 
       return (
-        <div
-          className={classList(
-            "ChatRanks-sampleLine",
-            dark ? "ChatRanks-sampleLine--dark" : "ChatRanks-sampleLine--light",
-          )}
-        >
+        <div className={classList('ChatRanks-sampleLine', dark ? 'ChatRanks-sampleLine--dark' : 'ChatRanks-sampleLine--light')}>
           {rank.showBadge && (rank.name || rank.builtin) ? rankTag(rank) : null}
           <span className={attrs.className} style={style}>
             {who}
@@ -501,9 +399,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
 
     return (
       <div className="ChatRanks-preview">
-        <span className="ChatRanks-label">
-          {app.translator.trans("ramon-chat.forum.ranks.preview")}
-        </span>
+        <span className="ChatRanks-label">{app.translator.trans('ramon-chat.forum.ranks.preview')}</span>
         <div className="ChatRanks-previewPair">
           {sample(false)}
           {sample(true)}
@@ -517,20 +413,14 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
 
     const name = draft.name.trim();
 
-    if (draft.builtin === null && name === "") {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.ranks.name_required"),
-      );
+    if (draft.builtin === null && name === '') {
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.ranks.name_required'));
 
       return;
     }
 
     if (!draft.themeColor && !isHex(draft.color)) {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.ranks.color_invalid"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.ranks.color_invalid'));
 
       return;
     }
@@ -542,23 +432,14 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
       showBadge: draft.showBadge,
     };
 
-    if (draft.target !== "new") attributes.rankId = draft.target;
+    if (draft.target !== 'new') attributes.rankId = draft.target;
 
-    await this.run(
-      draft.target === "new" ? "" : "/update",
-      attributes,
-      "ramon-chat.forum.ranks.saved",
-      () => {
-        this.draft = null;
-      },
-    );
+    await this.run(draft.target === 'new' ? '' : '/update', attributes, 'ramon-chat.forum.ranks.saved', () => {
+      this.draft = null;
+    });
   }
 
-  protected async move(
-    custom: RankEntry[],
-    index: number,
-    by: number,
-  ): Promise<void> {
+  protected async move(custom: RankEntry[], index: number, by: number): Promise<void> {
     const ids = custom.map((rank) => Number(rank.id));
     const to = index + by;
 
@@ -566,7 +447,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
 
     [ids[index], ids[to]] = [ids[to], ids[index]];
 
-    await this.run("/order", { rankIds: ids }, null);
+    await this.run('/order', { rankIds: ids }, null);
   }
 
   protected async remove(rank: RankEntry): Promise<void> {
@@ -575,38 +456,25 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
 
     if (
       !confirm(
-        app.translator.trans(
-          builtin
-            ? "ramon-chat.forum.ranks.reset_confirm"
-            : "ramon-chat.forum.ranks.delete_confirm",
-          { name },
-          true,
-        ) as string,
+        app.translator.trans(builtin ? 'ramon-chat.forum.ranks.reset_confirm' : 'ramon-chat.forum.ranks.delete_confirm', { name }, true) as string
       )
     ) {
       return;
     }
 
     await this.run(
-      "/delete",
+      '/delete',
       { rankId: rank.builtin ?? rank.id },
-      builtin
-        ? "ramon-chat.forum.ranks.reset_done"
-        : "ramon-chat.forum.ranks.deleted",
+      builtin ? 'ramon-chat.forum.ranks.reset_done' : 'ramon-chat.forum.ranks.deleted',
       () => {
         if (this.draft && this.draft.target === (rank.builtin ?? rank.id)) {
           this.draft = null;
         }
-      },
+      }
     );
   }
 
-  protected async run(
-    path: RankPath,
-    attributes: Record<string, unknown>,
-    successKey: string | null,
-    after?: () => void,
-  ): Promise<void> {
+  protected async run(path: RankPath, attributes: Record<string, unknown>, successKey: string | null, after?: () => void): Promise<void> {
     this.working = true;
     m.redraw();
 
@@ -616,13 +484,10 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
       after?.();
 
       if (successKey) {
-        app.alerts.show({ type: "success" }, app.translator.trans(successKey));
+        app.alerts.show({ type: 'success' }, app.translator.trans(successKey));
       }
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        invitationErrorText(e, "ramon-chat.forum.ranks.save_failed"),
-      );
+      app.alerts.show({ type: 'error' }, invitationErrorText(e, 'ramon-chat.forum.ranks.save_failed'));
     } finally {
       this.working = false;
       m.redraw();

@@ -1,4 +1,4 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
 /**
  * The width below which the chat has no room for two panes side by side.
@@ -35,7 +35,7 @@ export function shouldUseChatDrawer(): boolean {
   // through `Drawer#resizeHandler`.
   if (app.drawer.isOpen()) return false;
 
-  if (app.session.user?.preferences()?.["ramon-chat.openInDrawer"] === false) {
+  if (app.session.user?.preferences()?.['ramon-chat.openInDrawer'] === false) {
     return false;
   }
 

@@ -1,7 +1,7 @@
-import app from "flarum/common/app";
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Message from "./Message";
+import app from 'flarum/common/app';
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Message from './Message';
 
 /**
  * Per-channel notification level. Mirrors Ramon\Chat\ChannelUser.
@@ -37,7 +37,7 @@ export interface OwnershipTransferState {
 export interface RankEntry {
   key: string;
   id: number | null;
-  builtin: "owner" | "moderator" | null;
+  builtin: 'owner' | 'moderator' | null;
   name: string | null;
   color: string | null;
   icon: string | null;
@@ -65,33 +65,33 @@ export interface RankBook {
 
 export default class Channel extends Model {
   // ── Identity ───────────────────────────────────────────────────────────────
-  type = Model.attribute<string>("type");
-  name = Model.attribute<string | null>("name");
-  slug = Model.attribute<string | null>("slug");
-  description = Model.attribute<string | null>("description");
-  emoji = Model.attribute<string | null>("emoji");
-  imageUrl = Model.attribute<string | null>("imageUrl");
-  status = Model.attribute<string>("status");
-  tagId = Model.attribute<number | null>("tagId");
+  type = Model.attribute<string>('type');
+  name = Model.attribute<string | null>('name');
+  slug = Model.attribute<string | null>('slug');
+  description = Model.attribute<string | null>('description');
+  emoji = Model.attribute<string | null>('emoji');
+  imageUrl = Model.attribute<string | null>('imageUrl');
+  status = Model.attribute<string>('status');
+  tagId = Model.attribute<number | null>('tagId');
 
   /**
    * Server-computed label. Direct channels have no stored name — they are named
    * after the other participants, from the reader's perspective — so this is the
    * only correct thing to render.
    */
-  displayName = Model.attribute<string>("displayName");
+  displayName = Model.attribute<string>('displayName');
 
   // ── Configuration ──────────────────────────────────────────────────────────
   /** Invitation-only: absent from Browse, and not joinable by a non-member. */
-  isPrivate = Model.attribute<boolean>("isPrivate");
+  isPrivate = Model.attribute<boolean>('isPrivate');
 
   /** 'all' or 'moderators' — who may post here. */
-  postPermission = Model.attribute<string>("postPermission");
+  postPermission = Model.attribute<string>('postPermission');
 
-  threadingEnabled = Model.attribute<boolean>("threadingEnabled");
+  threadingEnabled = Model.attribute<boolean>('threadingEnabled');
 
   /** Minimum gap between one person's messages, in seconds. 0 is off. */
-  slowModeSeconds = Model.attribute<number>("slowModeSeconds");
+  slowModeSeconds = Model.attribute<number>('slowModeSeconds');
 
   /**
    * Seconds this reader must still wait, as the server sees it.
@@ -100,8 +100,8 @@ export default class Channel extends Model {
    * when you last posted, and a composer that offers a send the server refuses
    * is worse than one that shows the wait.
    */
-  slowModeRemaining = Model.attribute<number>("slowModeRemaining");
-  bypassesSlowMode = Model.attribute<boolean>("bypassesSlowMode");
+  slowModeRemaining = Model.attribute<number>('slowModeRemaining');
+  bypassesSlowMode = Model.attribute<boolean>('bypassesSlowMode');
 
   /**
    * Longest message this channel accepts, or null to follow the forum setting.
@@ -110,92 +110,88 @@ export default class Channel extends Model {
    * the server, which is the authority. Resolve it with
    * `resolveMaxMessageLength()` rather than reading it raw.
    */
-  maxMessageLength = Model.attribute<number | null>("maxMessageLength");
+  maxMessageLength = Model.attribute<number | null>('maxMessageLength');
 
-  autoJoin = Model.attribute<boolean>("autoJoin");
+  autoJoin = Model.attribute<boolean>('autoJoin');
 
   /** Subscribe a user when they reply in the bound category. */
-  autoJoinOnReply = Model.attribute<boolean>("autoJoinOnReply");
+  autoJoinOnReply = Model.attribute<boolean>('autoJoinOnReply');
   /** Announce the bound category's new discussions in the channel. */
-  postDiscussions = Model.attribute<boolean>("postDiscussions");
-  allowChannelWideMentions = Model.attribute<boolean>(
-    "allowChannelWideMentions",
-  );
+  postDiscussions = Model.attribute<boolean>('postDiscussions');
+  allowChannelWideMentions = Model.attribute<boolean>('allowChannelWideMentions');
 
   // ── Counters ───────────────────────────────────────────────────────────────
-  messagesCount = Model.attribute<number>("messagesCount");
-  userCount = Model.attribute<number>("userCount");
-  lastMessageId = Model.attribute<number | null>("lastMessageId");
-  lastMessageAt = Model.attribute("lastMessageAt", Model.transformDate);
-  createdAt = Model.attribute("createdAt", Model.transformDate);
-  archivedAt = Model.attribute("archivedAt", Model.transformDate);
-  archivedDiscussionId = Model.attribute<number | null>("archivedDiscussionId");
+  messagesCount = Model.attribute<number>('messagesCount');
+  userCount = Model.attribute<number>('userCount');
+  lastMessageId = Model.attribute<number | null>('lastMessageId');
+  lastMessageAt = Model.attribute('lastMessageAt', Model.transformDate);
+  createdAt = Model.attribute('createdAt', Model.transformDate);
+  archivedAt = Model.attribute('archivedAt', Model.transformDate);
+  archivedDiscussionId = Model.attribute<number | null>('archivedDiscussionId');
 
   // ── Per-actor membership state ─────────────────────────────────────────────
-  isFollowing = Model.attribute<boolean>("isFollowing");
+  isFollowing = Model.attribute<boolean>('isFollowing');
 
   /** A pending invitation for the reader, and who sent it. */
-  isInvited = Model.attribute<boolean>("isInvited");
-  invitedById = Model.attribute<number | null>("invitedById");
-  invitedByName = Model.attribute<string | null>("invitedByName");
-  isMuted = Model.attribute<boolean>("isMuted");
-  notificationLevel = Model.attribute<NotificationLevel>("notificationLevel");
-  lastReadMessageId = Model.attribute<number>("lastReadMessageId");
-  unreadCount = Model.attribute<number>("unreadCount");
-  unreadMentionsCount = Model.attribute<number>("unreadMentionsCount");
+  isInvited = Model.attribute<boolean>('isInvited');
+  invitedById = Model.attribute<number | null>('invitedById');
+  invitedByName = Model.attribute<string | null>('invitedByName');
+  isMuted = Model.attribute<boolean>('isMuted');
+  notificationLevel = Model.attribute<NotificationLevel>('notificationLevel');
+  lastReadMessageId = Model.attribute<number>('lastReadMessageId');
+  unreadCount = Model.attribute<number>('unreadCount');
+  unreadMentionsCount = Model.attribute<number>('unreadMentionsCount');
 
   // ── Capability flags ───────────────────────────────────────────────────────
   // Rendered straight into `disabled`/visibility checks so the client never
   // offers a control the server would reject.
-  canPostMessage = Model.attribute<boolean>("canPostMessage");
-  canEdit = Model.attribute<boolean>("canEdit");
-  canJoin = Model.attribute<boolean>("canJoin");
+  canPostMessage = Model.attribute<boolean>('canPostMessage');
+  canEdit = Model.attribute<boolean>('canEdit');
+  canJoin = Model.attribute<boolean>('canJoin');
   /** May join without appearing in the member list — moderators only. */
-  canJoinHidden = Model.attribute<boolean>("canJoinHidden");
+  canJoinHidden = Model.attribute<boolean>('canJoinHidden');
   /** The actor is in this channel, but invisibly. */
-  isHiddenMember = Model.attribute<boolean>("isHiddenMember");
-  canClose = Model.attribute<boolean>("canClose");
-  canArchive = Model.attribute<boolean>("canArchive");
+  isHiddenMember = Model.attribute<boolean>('isHiddenMember');
+  canClose = Model.attribute<boolean>('canClose');
+  canArchive = Model.attribute<boolean>('canArchive');
   /** May take the channel back out of the archive. */
-  canUnarchive = Model.attribute<boolean>("canUnarchive");
-  canDelete = Model.attribute<boolean>("canDelete");
-  canManageMembers = Model.attribute<boolean>("canManageMembers");
+  canUnarchive = Model.attribute<boolean>('canUnarchive');
+  canDelete = Model.attribute<boolean>('canDelete');
+  canManageMembers = Model.attribute<boolean>('canManageMembers');
   /** May promote members to moderators of this channel — its owner, or chat moderators. */
-  canManageModerators = Model.attribute<boolean>("canManageModerators");
+  canManageModerators = Model.attribute<boolean>('canManageModerators');
   /** May hand the channel to another member: its owner, or an administrator. */
-  canTransferOwnership = Model.attribute<boolean>("canTransferOwnership");
+  canTransferOwnership = Model.attribute<boolean>('canTransferOwnership');
   /**
    * The pending handover, as this reader may see it, or null. Filled only when
    * participants are loaded, like `moderatorIds`.
    */
-  ownershipTransfer = Model.attribute<OwnershipTransferState | null>(
-    "ownershipTransfer",
-  );
-  creatorId = Model.attribute<number | null>("creatorId");
+  ownershipTransfer = Model.attribute<OwnershipTransferState | null>('ownershipTransfer');
+  creatorId = Model.attribute<number | null>('creatorId');
 
   /** May create, edit and hand out this channel's ranks. */
-  canManageRanks = Model.attribute<boolean>("canManageRanks");
+  canManageRanks = Model.attribute<boolean>('canManageRanks');
 
   /**
    * Every rank here and who holds which. Absent from the channel list, where
    * the server leaves it off; read it through `utils/ranks`, which falls back
    * to the rank each message carries.
    */
-  rankBook = Model.attribute<RankBook | null | undefined>("rankBook");
+  rankBook = Model.attribute<RankBook | null | undefined>('rankBook');
   /** Members holding the channel's own moderator role; filled when participants are loaded. */
-  moderatorIds = Model.attribute<number[]>("moderatorIds");
-  canMentionChannelWide = Model.attribute<boolean>("canMentionChannelWide");
+  moderatorIds = Model.attribute<number[]>('moderatorIds');
+  canMentionChannelWide = Model.attribute<boolean>('canMentionChannelWide');
 
   // ── Relationships ──────────────────────────────────────────────────────────
-  creator = Model.hasOne<User | null>("creator");
-  lastMessage = Model.hasOne<Message | null>("lastMessage");
-  participants = Model.hasMany<User>("participants");
+  creator = Model.hasOne<User | null>('creator');
+  lastMessage = Model.hasOne<Message | null>('lastMessage');
+  participants = Model.hasMany<User>('participants');
 
   /**
    * People asked in who have not answered. Served only to whoever manages the
    * member list, and only when the members tab includes it.
    */
-  invitedUsers = Model.hasMany<User>("invitedUsers");
+  invitedUsers = Model.hasMany<User>('invitedUsers');
 
   /**
    * The other side of a conversation, default-included on the channel list.
@@ -204,16 +200,16 @@ export default class Channel extends Model {
    * members tab — so the sidebar cannot read its avatars from there. Use
    * `others()` rather than either relation directly.
    */
-  directParticipants = Model.hasMany<User>("directParticipants");
+  directParticipants = Model.hasMany<User>('directParticipants');
 
   // ── Derived helpers ────────────────────────────────────────────────────────
 
   isDirect(): boolean {
-    return this.type() === "direct";
+    return this.type() === 'direct';
   }
 
   isCategory(): boolean {
-    return this.type() === "category";
+    return this.type() === 'category';
   }
 
   /**
@@ -226,15 +222,15 @@ export default class Channel extends Model {
   }
 
   isOpen(): boolean {
-    return this.status() === "open";
+    return this.status() === 'open';
   }
 
   isClosed(): boolean {
-    return this.status() === "closed";
+    return this.status() === 'closed';
   }
 
   isArchived(): boolean {
-    return this.status() === "archived";
+    return this.status() === 'archived';
   }
 
   /**
@@ -262,12 +258,10 @@ export default class Channel extends Model {
     const loaded = this.directParticipants() || this.participants() || [];
     const actorId = app.session.user?.id();
 
-    return (loaded as (User | null)[]).filter(
-      (user): user is User => Boolean(user) && user!.id() !== actorId,
-    );
+    return (loaded as (User | null)[]).filter((user): user is User => Boolean(user) && user!.id() !== actorId);
   }
 
   apiEndpoint(): string {
-    return "/chat-channels" + (this.exists ? "/" + this.id() : "");
+    return '/chat-channels' + (this.exists ? '/' + this.id() : '');
   }
 }

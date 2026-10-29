@@ -1,10 +1,10 @@
-import Avatar from "flarum/common/components/Avatar";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import Avatar from 'flarum/common/components/Avatar';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import { displayEmoji } from "./emoji";
-import { customEmoji, customEmojiImage } from "./flamoji";
+import type Channel from '../../common/models/Channel';
+import { displayEmoji } from './emoji';
+import { customEmoji, customEmojiImage } from './flamoji';
 
 /**
  * The mark that stands for a channel: its picture, the people in it, its emoji,
@@ -30,15 +30,12 @@ import { customEmoji, customEmojiImage } from "./flamoji";
  * is given, and the modifier that releases it can only be applied where the
  * branch is decided.
  */
-export function channelIcon(
-  channel: Channel,
-  className = "",
-): Mithril.Children {
+export function channelIcon(channel: Channel, className = ''): Mithril.Children {
   const image = channel.imageUrl();
 
   if (image) {
     return (
-      <span className={classList("ChatChannelIcon", className)}>
+      <span className={classList('ChatChannelIcon', className)}>
         <img
           className="ChatChannelIcon-image"
           src={image}
@@ -59,12 +56,7 @@ export function channelIcon(
 
     if (others.length > 0) {
       return (
-        <span
-          className={classList(
-            "ChatChannelIcon ChatChannelIcon--avatars",
-            className,
-          )}
-        >
+        <span className={classList('ChatChannelIcon ChatChannelIcon--avatars', className)}>
           {others.map((user) => (
             <Avatar key={user.id()} user={user} className="Avatar" />
           ))}
@@ -76,7 +68,7 @@ export function channelIcon(
     // in it. An envelope rather than a hash: it is still a conversation, and the
     // hash would say it is a channel anyone could join.
     return (
-      <span className={classList("ChatChannelIcon", className)}>
+      <span className={classList('ChatChannelIcon', className)}>
         <i className="fas fa-envelope" aria-hidden="true" />
       </span>
     );
@@ -92,9 +84,9 @@ export function channelIcon(
   const custom = customEmoji(emoji);
 
   return (
-    <span className={classList("ChatChannelIcon", className)}>
+    <span className={classList('ChatChannelIcon', className)}>
       {custom ? (
-        customEmojiImage(custom, "ChatChannelIcon-flamoji")
+        customEmojiImage(custom, 'ChatChannelIcon-flamoji')
       ) : emoji ? (
         displayEmoji(emoji)
       ) : (

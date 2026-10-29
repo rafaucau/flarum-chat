@@ -1,16 +1,16 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import humanTime from "flarum/common/helpers/humanTime";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import humanTime from 'flarum/common/helpers/humanTime';
+import type Mithril from 'mithril';
 
-import type Message from "../../common/models/Message";
-import type ChatState from "../state/ChatState";
-import { MessageStreamSkeleton } from "./Skeletons";
-import { messagePreview } from "../../common/utils/preview";
-import { authorAvatar, authorName } from "../utils/bot";
-import iconLabel from "../utils/iconLabel";
+import type Message from '../../common/models/Message';
+import type ChatState from '../state/ChatState';
+import { MessageStreamSkeleton } from './Skeletons';
+import { messagePreview } from '../../common/utils/preview';
+import { authorAvatar, authorName } from '../utils/bot';
+import iconLabel from '../utils/iconLabel';
 
 export interface BookmarksListAttrs extends ComponentAttrs {
   state: ChatState;
@@ -48,18 +48,12 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
     if (this.messages.length === 0) {
       return (
         <div className="ChatBookmarks">
-          <div className="ChatBrowse-empty">
-            {app.translator.trans("ramon-chat.forum.bookmarks.empty")}
-          </div>
+          <div className="ChatBrowse-empty">{app.translator.trans('ramon-chat.forum.bookmarks.empty')}</div>
         </div>
       );
     }
 
-    return (
-      <div className="ChatBookmarks">
-        {this.messages.map((message) => this.row(message))}
-      </div>
-    );
+    return <div className="ChatBookmarks">{this.messages.map((message) => this.row(message))}</div>;
   }
 
   protected row(message: Message): Mithril.Children {
@@ -71,18 +65,10 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
       <div className="ChatBookmarks-row" key={message.id()}>
         {authorAvatar(message)}
 
-        <button
-          type="button"
-          className="ChatBookmarks-body"
-          onclick={() => this.open(message)}
-        >
+        <button type="button" className="ChatBookmarks-body" onclick={() => this.open(message)}>
           <div className="ChatBookmarks-meta">
             <span className="ChatBookmarks-author">{authorName(message)}</span>
-            {channel ? (
-              <span className="ChatBookmarks-channel">
-                {channel.displayName()}
-              </span>
-            ) : null}
+            {channel ? <span className="ChatBookmarks-channel">{channel.displayName()}</span> : null}
             {at ? <span>{humanTime(at)}</span> : null}
           </div>
 
@@ -96,9 +82,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
           className="Button Button--icon Button--flat ChatBookmarks-remove"
           icon="fas fa-bookmark"
           loading={this.working === id}
-          {...iconLabel(
-            app.translator.trans("ramon-chat.forum.bookmarks.remove", {}, true),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.bookmarks.remove', {}, true))}
           onclick={() => this.remove(message)}
         />
       </div>
@@ -110,12 +94,8 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
     // announcement reads as its title rather than as `**[title](/d/1)**`.
     const text = messagePreview(message, 160);
 
-    if (text === "") {
-      return app.translator.trans(
-        "ramon-chat.forum.bookmarks.no_text",
-        {},
-        true,
-      );
+    if (text === '') {
+      return app.translator.trans('ramon-chat.forum.bookmarks.no_text', {}, true);
     }
 
     return text;
@@ -123,9 +103,9 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
 
   protected async load(): Promise<void> {
     try {
-      const results = (await app.store.find("chat-messages", {
+      const results = (await app.store.find('chat-messages', {
         filter: { bookmarked: true },
-        sort: "-createdAt",
+        sort: '-createdAt',
         page: { limit: 50 },
       })) as unknown as Message[];
 
@@ -153,11 +133,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
     this.attrs.state.setActiveChannel(channelId);
     this.attrs.state.activeThreadId = threadId ?? null;
 
-    m.route.set(
-      threadId
-        ? app.route("chat.thread", { id: channelId, threadId })
-        : app.route("chat.channel", { id: channelId }),
-    );
+    m.route.set(threadId ? app.route('chat.thread', { id: channelId, threadId }) : app.route('chat.channel', { id: channelId }));
   }
 
   protected async remove(message: Message): Promise<void> {
@@ -168,8 +144,8 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${id}/bookmark`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${id}/bookmark`,
         body: { data: { attributes: {} } },
       });
 
@@ -178,10 +154,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
       this.messages = this.messages.filter((m) => Number(m.id()) !== id);
       message.pushAttributes({ isBookmarked: false });
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.bookmarks.remove_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.bookmarks.remove_failed'));
     } finally {
       this.working = null;
       m.redraw();

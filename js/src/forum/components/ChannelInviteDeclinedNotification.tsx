@@ -1,6 +1,6 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 
 interface DeclinedData {
   channelId?: number;
@@ -18,35 +18,22 @@ interface DeclinedData {
  */
 export default class ChannelInviteDeclinedNotification extends Notification {
   icon(): string {
-    return "fas fa-user-xmark";
+    return 'fas fa-user-xmark';
   }
 
   href(): string {
     const channelId = this.data().channelId;
 
-    return channelId
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId ? app.route('chat.channel', { id: channelId }) : app.route('chat.index');
   }
 
   content(): Mithril.Children {
     const decliner = this.attrs.notification.fromUser();
 
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.channel_invite_declined",
-      {
-        username: decliner
-          ? decliner.displayName()
-          : app.translator.trans(
-              "ramon-chat.forum.notifications.someone",
-              {},
-              true,
-            ),
-        channel:
-          this.data().channelName ??
-          app.translator.trans("ramon-chat.forum.nav.chat", {}, true),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.channel_invite_declined', {
+      username: decliner ? decliner.displayName() : app.translator.trans('ramon-chat.forum.notifications.someone', {}, true),
+      channel: this.data().channelName ?? app.translator.trans('ramon-chat.forum.nav.chat', {}, true),
+    });
   }
 
   excerpt(): Mithril.Children {

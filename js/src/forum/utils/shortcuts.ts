@@ -1,7 +1,7 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import chatState from "../state/chat";
-import ChatDrawer from "../components/ChatDrawer";
+import chatState from '../state/chat';
+import ChatDrawer from '../components/ChatDrawer';
 
 /**
  * Global chat shortcuts.
@@ -20,21 +20,16 @@ import ChatDrawer from "../components/ChatDrawer";
  * their own navigation.
  */
 export function bindShortcuts(): void {
-  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener('keydown', onKeyDown);
 }
 
 function onKeyDown(e: KeyboardEvent): void {
   // Never steal a keystroke from an input. `isContentEditable` covers the rich
   // composer, which is a div rather than a textarea.
   const target = e.target as HTMLElement | null;
-  const typing =
-    !!target &&
-    (target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.tagName === "SELECT" ||
-      target.isContentEditable);
+  const typing = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
 
-  if (e.key === "Escape") {
+  if (e.key === 'Escape') {
     // Escape is allowed while typing only for chat modes the composer does not
     // already handle; ChatComposer stops propagation for its own use of it.
     if (handleEscape()) {
@@ -48,15 +43,11 @@ function onKeyDown(e: KeyboardEvent): void {
 
   const key = e.key.toLowerCase();
 
-  if (key === "c") {
+  if (key === 'c') {
     e.preventDefault();
 
     if (e.shiftKey) {
-      m.route.set(
-        chatState.activeChannelId
-          ? app.route("chat.channel", { id: chatState.activeChannelId })
-          : app.route("chat.index"),
-      );
+      m.route.set(chatState.activeChannelId ? app.route('chat.channel', { id: chatState.activeChannelId }) : app.route('chat.index'));
 
       return;
     }
@@ -72,14 +63,10 @@ function onKeyDown(e: KeyboardEvent): void {
     return;
   }
 
-  if (key === "k") {
+  if (key === 'k') {
     e.preventDefault();
 
-    m.route.set(
-      chatState.activeChannelId
-        ? app.route("chat.search", { channel: chatState.activeChannelId })
-        : app.route("chat.search"),
-    );
+    m.route.set(chatState.activeChannelId ? app.route('chat.search', { channel: chatState.activeChannelId }) : app.route('chat.search'));
   }
 }
 
@@ -114,7 +101,7 @@ function handleEscape(): boolean {
 }
 
 /** Which key sends. Enter unless the member asked for Ctrl+Enter. */
-export type SendKey = "enter" | "ctrl";
+export type SendKey = 'enter' | 'ctrl';
 
 /**
  * This member's own answer, defaulting to Enter.
@@ -124,10 +111,7 @@ export type SendKey = "enter" | "ctrl";
  * rows resolve to Enter without needing to be rewritten.
  */
 export function sendKeyPreference(): SendKey {
-  return app.session.user?.preferences()?.["ramon-chat.sendWithCtrlEnter"] ===
-    "ctrl"
-    ? "ctrl"
-    : "enter";
+  return app.session.user?.preferences()?.['ramon-chat.sendWithCtrlEnter'] === 'ctrl' ? 'ctrl' : 'enter';
 }
 
 /**
@@ -137,5 +121,5 @@ export function sendKeyPreference(): SendKey {
  * for the rest of the session after the member changed it.
  */
 export function sendsOnCtrlEnter(): boolean {
-  return sendKeyPreference() === "ctrl";
+  return sendKeyPreference() === 'ctrl';
 }

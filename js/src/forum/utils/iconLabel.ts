@@ -7,7 +7,7 @@
  */
 export default function iconLabel(text: string): {
   title: string;
-  "aria-label": string;
+  'aria-label': string;
 } {
-  return { title: text, "aria-label": text };
+  return { title: text, 'aria-label': text };
 }

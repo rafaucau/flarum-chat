@@ -1,6 +1,6 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import type Channel from "../../common/models/Channel";
+import type Channel from '../../common/models/Channel';
 
 /** Used when the forum has no setting of its own — mirrors the server default. */
 const FALLBACK = 3000;
@@ -25,9 +25,7 @@ export function resolveMaxMessageLength(channel?: Channel | null): number {
 
 /** The forum-wide setting, for channels that do not override it. */
 export function forumMaxMessageLength(): number {
-  const forum = Number(
-    app.forum.attribute<number>("ramon-chat.maxMessageLength") ?? FALLBACK,
-  );
+  const forum = Number(app.forum.attribute<number>('ramon-chat.maxMessageLength') ?? FALLBACK);
 
   return forum > 0 ? forum : FALLBACK;
 }

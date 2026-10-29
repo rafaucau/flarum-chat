@@ -1,4 +1,4 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
 /**
  * Runs a callback once no modal is on screen, and unsticks core's close latch if
@@ -26,10 +26,7 @@ import app from "flarum/forum/app";
  * @param maxFrames Bound on the wait. At ~60fps this is comfortably longer than
  *                  core's 200ms transition.
  */
-export default function afterModalClosed(
-  callback: () => void,
-  maxFrames = 40,
-): void {
+export default function afterModalClosed(callback: () => void, maxFrames = 40): void {
   let frames = 0;
 
   const tick = () => {
@@ -69,11 +66,9 @@ function modalStillOpen(): boolean {
  * imitating.
  */
 function unstickModalManager(): void {
-  const dialog = document.querySelector<HTMLElement>(
-    ".ModalManager .Modal.out",
-  );
+  const dialog = document.querySelector<HTMLElement>('.ModalManager .Modal.out');
 
   if (!dialog) return;
 
-  dialog.dispatchEvent(new Event("transitionend", { bubbles: false }));
+  dialog.dispatchEvent(new Event('transitionend', { bubbles: false }));
 }

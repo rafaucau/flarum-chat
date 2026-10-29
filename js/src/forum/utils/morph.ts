@@ -9,7 +9,7 @@
  * named target, so an unrelated navigation never inherits a stale animation.
  */
 
-export type MorphTarget = "page" | "drawer";
+export type MorphTarget = 'page' | 'drawer';
 
 interface Origin {
   target: MorphTarget;
@@ -24,22 +24,18 @@ const MORPH_MS = 520;
 const CONTENT_DELAY_MS = 260;
 const ORIGIN_TTL_MS = 1500;
 
-const EASE_LAND = "cubic-bezier(0.2, 1.12, 0.32, 1)";
-const EASE_OUT = "cubic-bezier(0.4, 0, 0.2, 1)";
+const EASE_LAND = 'cubic-bezier(0.2, 1.12, 0.32, 1)';
+const EASE_OUT = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
 let origin: Origin | null = null;
 
-export const reducedMotion = (): boolean =>
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+export const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /**
  * Records the element opening `target` as the starting point. An element with
  * no box (hidden, unmounted) records nothing.
  */
-export function rememberOrigin(
-  el: Element | null | undefined,
-  target: MorphTarget,
-): void {
+export function rememberOrigin(el: Element | null | undefined, target: MorphTarget): void {
   if (!(el instanceof HTMLElement)) return;
 
   const rect = el.getBoundingClientRect();
@@ -63,20 +59,15 @@ export function rememberOrigin(
  * animated; with no recent origin for this target, or with reduced motion, it
  * does nothing.
  */
-export function morphIn(
-  el: Element | null | undefined,
-  target: MorphTarget,
-  contentDelay = CONTENT_DELAY_MS,
-): boolean {
+export function morphIn(el: Element | null | undefined, target: MorphTarget, contentDelay = CONTENT_DELAY_MS): boolean {
   const from = origin;
 
   if (!from || from.target !== target) return false;
 
   origin = null;
 
-  if (!(el instanceof HTMLElement) || Date.now() - from.at > ORIGIN_TTL_MS)
-    return false;
-  if (reducedMotion() || typeof el.animate !== "function") return false;
+  if (!(el instanceof HTMLElement) || Date.now() - from.at > ORIGIN_TTL_MS) return false;
+  if (reducedMotion() || typeof el.animate !== 'function') return false;
 
   const home = el.getBoundingClientRect();
 
@@ -90,21 +81,21 @@ export function morphIn(
   el.animate(
     [
       {
-        transformOrigin: "top left",
+        transformOrigin: 'top left',
         transform: `translate(${from.rect.left - home.left}px, ${from.rect.top - home.top}px) scale(${sx}, ${sy})`,
         borderRadius: `${radius / sx}px / ${radius / sy}px`,
         backgroundColor: from.bg,
         boxShadow: from.shadow,
       },
       {
-        transformOrigin: "top left",
-        transform: "none",
+        transformOrigin: 'top left',
+        transform: 'none',
         borderRadius: own.borderTopLeftRadius,
         backgroundColor: own.backgroundColor,
         boxShadow: own.boxShadow,
       },
     ],
-    { duration: MORPH_MS, easing: EASE_LAND },
+    { duration: MORPH_MS, easing: EASE_LAND }
   );
 
   cascadeIn(el, contentDelay);
@@ -114,20 +105,20 @@ export function morphIn(
 
 /** The contents cascading in when the surface is almost landed. */
 export function cascadeIn(el: HTMLElement, delay = CONTENT_DELAY_MS): void {
-  if (reducedMotion() || typeof el.animate !== "function") return;
+  if (reducedMotion() || typeof el.animate !== 'function') return;
 
   Array.from(el.children).forEach((child, i) =>
     child.animate(
       [
-        { opacity: 0, transform: "translateY(6px)" },
-        { opacity: 1, transform: "none" },
+        { opacity: 0, transform: 'translateY(6px)' },
+        { opacity: 1, transform: 'none' },
       ],
       {
         duration: 240,
         delay: delay + i * 40,
         easing: EASE_OUT,
-        fill: "backwards",
-      },
-    ),
+        fill: 'backwards',
+      }
+    )
   );
 }

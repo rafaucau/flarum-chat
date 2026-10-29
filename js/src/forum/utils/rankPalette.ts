@@ -6,10 +6,10 @@
  * saving. Changed there, change here.
  */
 
-export const LIGHT_SURFACE = "#ffffff";
-export const DARK_SURFACE = "#222226";
-const LIGHT_TEXT = "#ffffff";
-const DARK_TEXT = "#16161a";
+export const LIGHT_SURFACE = '#ffffff';
+export const DARK_SURFACE = '#222226';
+const LIGHT_TEXT = '#ffffff';
+const DARK_TEXT = '#16161a';
 const MIN_CONTRAST = 4.5;
 
 export interface RankColors {
@@ -19,17 +19,13 @@ export interface RankColors {
 }
 
 export function isHex(value: unknown): value is string {
-  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
 }
 
 function channels(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
+  const h = hex.replace('#', '');
 
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
 export function luminance(hex: string): number {
@@ -55,21 +51,21 @@ function mix(from: string, to: string, amount: number): string {
   const b = channels(to);
 
   return (
-    "#" +
+    '#' +
     a
       .map((value, i) =>
         Math.round(value + (b[i] - value) * amount)
           .toString(16)
-          .padStart(2, "0"),
+          .padStart(2, '0')
       )
-      .join("")
+      .join('')
   );
 }
 
 function readableOn(hex: string, surface: string): string {
   if (contrast(hex, surface) >= MIN_CONTRAST) return hex;
 
-  const target = luminance(surface) > 0.5 ? "#000000" : "#ffffff";
+  const target = luminance(surface) > 0.5 ? '#000000' : '#ffffff';
 
   for (let step = 1; step <= 20; step++) {
     const candidate = mix(hex, target, step / 20);
@@ -86,10 +82,7 @@ export function deriveRankColors(hex: string | null): RankColors {
   const color = hex.toLowerCase();
 
   return {
-    textColor:
-      contrast(color, LIGHT_TEXT) >= contrast(color, DARK_TEXT)
-        ? LIGHT_TEXT
-        : DARK_TEXT,
+    textColor: contrast(color, LIGHT_TEXT) >= contrast(color, DARK_TEXT) ? LIGHT_TEXT : DARK_TEXT,
     nameLight: readableOn(color, LIGHT_SURFACE),
     nameDark: readableOn(color, DARK_SURFACE),
   };

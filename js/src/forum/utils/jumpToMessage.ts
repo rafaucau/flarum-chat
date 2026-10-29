@@ -1,4 +1,4 @@
-import type ChatState from "../state/ChatState";
+import type ChatState from '../state/ChatState';
 
 /**
  * How long the row stays highlighted after the jump. Mirrors
@@ -19,18 +19,11 @@ const HIGHLIGHT_MS = 3000;
  * Returns `false` when the row is not in the loaded window, so the caller can
  * warn instead of swallowing the click.
  */
-export function jumpToMessage(
-  id: number | string,
-  from?: HTMLElement | null,
-): boolean {
+export function jumpToMessage(id: number | string, from?: HTMLElement | null): boolean {
   const scroller =
-    from?.closest<HTMLElement>(
-      ".ChatChannel-stream, .ChatThreadPanel-stream",
-    ) ?? document.querySelector<HTMLElement>(".ChatChannel-stream");
+    from?.closest<HTMLElement>('.ChatChannel-stream, .ChatThreadPanel-stream') ?? document.querySelector<HTMLElement>('.ChatChannel-stream');
 
-  const node = scroller?.querySelector<HTMLElement>(
-    `.ChatMessage[data-id="${id}"]`,
-  );
+  const node = scroller?.querySelector<HTMLElement>(`.ChatMessage[data-id="${id}"]`);
 
   if (!scroller || !node) return false;
 
@@ -43,16 +36,13 @@ export function jumpToMessage(
   // accident of the current CSS.
   const nodeRect = node.getBoundingClientRect();
   const scrollerRect = scroller.getBoundingClientRect();
-  const centred =
-    nodeRect.top -
-    scrollerRect.top -
-    (scroller.clientHeight - nodeRect.height) / 2;
+  const centred = nodeRect.top - scrollerRect.top - (scroller.clientHeight - nodeRect.height) / 2;
 
   // Smooth only for short jumps. Animating across hundreds of rows took seconds
   // before the message showed up; a long jump goes straight there, like Discord.
   scroller.scrollTo({
     top: Math.max(0, scroller.scrollTop + centred),
-    behavior: Math.abs(centred) > scroller.clientHeight * 2 ? "auto" : "smooth",
+    behavior: Math.abs(centred) > scroller.clientHeight * 2 ? 'auto' : 'smooth',
   });
 
   highlight(node);
@@ -73,16 +63,16 @@ function highlight(node: HTMLElement): void {
   // Removing it, forcing a reflow by reading `offsetWidth` and putting it back is
   // what makes the second jump to the same row light up again instead of doing
   // nothing visible.
-  node.classList.remove("ChatMessage--flash");
+  node.classList.remove('ChatMessage--flash');
   void node.offsetWidth;
-  node.classList.add("ChatMessage--flash");
+  node.classList.add('ChatMessage--flash');
 
   timers.set(
     node,
     window.setTimeout(() => {
-      node.classList.remove("ChatMessage--flash");
+      node.classList.remove('ChatMessage--flash');
       timers.delete(node);
-    }, HIGHLIGHT_MS),
+    }, HIGHLIGHT_MS)
   );
 }
 
@@ -94,24 +84,14 @@ function highlight(node: HTMLElement): void {
  * it. Returns `false` only when the message cannot be in the channel stream:
  * a topic reply, a deleted one, or beyond the page limit.
  */
-export async function revealAndJump(
-  state: ChatState,
-  channelId: number,
-  id: number | string,
-  from?: HTMLElement | null,
-): Promise<boolean> {
+export async function revealAndJump(state: ChatState, channelId: number, id: number | string, from?: HTMLElement | null): Promise<boolean> {
   if (jumpToMessage(id, from)) return true;
 
-  const scrollerSelector = from?.closest(".ChatThreadPanel-stream")
-    ? ".ChatThreadPanel-stream"
-    : ".ChatChannel-stream";
+  const scrollerSelector = from?.closest('.ChatThreadPanel-stream') ? '.ChatThreadPanel-stream' : '.ChatChannel-stream';
 
   if (!(await state.revealMessage(channelId, Number(id)))) return false;
 
   m.redraw.sync();
 
-  return jumpToMessage(
-    id,
-    document.querySelector<HTMLElement>(scrollerSelector),
-  );
+  return jumpToMessage(id, document.querySelector<HTMLElement>(scrollerSelector));
 }

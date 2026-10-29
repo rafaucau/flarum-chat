@@ -1,4 +1,4 @@
-import DefaultResolver from "flarum/common/resolvers/DefaultResolver";
+import DefaultResolver from 'flarum/common/resolvers/DefaultResolver';
 
 /**
  * Keeps every chat route on one mounted page.
@@ -26,6 +26,6 @@ export default class ChatPageResolver<
   RouteArgs extends Record<string, unknown> = {},
 > extends DefaultResolver<Attrs, any, RouteArgs> {
   makeKey(): string {
-    return "ramon-chat";
+    return 'ramon-chat';
   }
 }

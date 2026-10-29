@@ -1,7 +1,7 @@
-import app from "flarum/admin/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type Mithril from "mithril";
+import app from 'flarum/admin/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type Mithril from 'mithril';
 
 export interface BrandingPreviewAttrs extends ComponentAttrs {
   title: string;
@@ -20,30 +20,20 @@ export interface BrandingPreviewAttrs extends ComponentAttrs {
  */
 export class BrandingPreview extends Component<BrandingPreviewAttrs> {
   view(): Mithril.Children {
-    const title = this.attrs.title.trim() || "Chat";
-    const icon = this.attrs.showIcon
-      ? this.attrs.icon.trim() || "fas fa-comments"
-      : null;
+    const title = this.attrs.title.trim() || 'Chat';
+    const icon = this.attrs.showIcon ? this.attrs.icon.trim() || 'fas fa-comments' : null;
 
     return (
       <figure className="ChatPreview ChatPreview--branding">
         <figcaption className="ChatPreview-caption">
           <i className="fas fa-eye" aria-hidden="true" />
-          {app.translator.trans("ramon-chat.admin.layout.preview_label")}
+          {app.translator.trans('ramon-chat.admin.layout.preview_label')}
         </figcaption>
 
         <div className="ChatPreview-stage">
           <div className="ChatPreview-item">
-            <span className="ChatPreview-itemLabel">
-              {app.translator.trans("ramon-chat.admin.layout.preview_header")}
-            </span>
-            <span
-              className={
-                "ChatPreview-headerButton" +
-                (icon ? "" : " ChatPreview-headerButton--text")
-              }
-              title={title}
-            >
+            <span className="ChatPreview-itemLabel">{app.translator.trans('ramon-chat.admin.layout.preview_header')}</span>
+            <span className={'ChatPreview-headerButton' + (icon ? '' : ' ChatPreview-headerButton--text')} title={title}>
               {icon ? <i className={icon} aria-hidden="true" /> : title}
               <span className="ChatPreview-badge" aria-hidden="true">
                 3
@@ -52,16 +42,11 @@ export class BrandingPreview extends Component<BrandingPreviewAttrs> {
           </div>
 
           <div className="ChatPreview-item ChatPreview-item--grow">
-            <span className="ChatPreview-itemLabel">
-              {app.translator.trans("ramon-chat.admin.layout.preview_drawer")}
-            </span>
+            <span className="ChatPreview-itemLabel">{app.translator.trans('ramon-chat.admin.layout.preview_drawer')}</span>
             <span className="ChatPreview-drawer">
               {icon ? <i className={icon} aria-hidden="true" /> : null}
               <span className="ChatPreview-drawerTitle">{title}</span>
-              <i
-                className="fas fa-chevron-down ChatPreview-drawerChevron"
-                aria-hidden="true"
-              />
+              <i className="fas fa-chevron-down ChatPreview-drawerChevron" aria-hidden="true" />
             </span>
           </div>
         </div>
@@ -84,42 +69,32 @@ export interface MessagePreviewAttrs extends ComponentAttrs {
  */
 export class MessagePreview extends Component<MessagePreviewAttrs> {
   view(): Mithril.Children {
-    const name = this.attrs.name.trim() || "Bot";
+    const name = this.attrs.name.trim() || 'Bot';
 
     return (
       <figure className="ChatPreview ChatPreview--message">
         <figcaption className="ChatPreview-caption">
           <i className="fas fa-eye" aria-hidden="true" />
-          {app.translator.trans("ramon-chat.admin.layout.preview_label")}
+          {app.translator.trans('ramon-chat.admin.layout.preview_label')}
         </figcaption>
 
         <div className="ChatPreview-stage">
           <div className="ChatPreview-message">
             <span className="ChatPreview-avatar" aria-hidden="true">
-              {this.attrs.avatarUrl ? (
-                <img src={this.attrs.avatarUrl} alt="" />
-              ) : (
-                name.charAt(0).toUpperCase()
-              )}
+              {this.attrs.avatarUrl ? <img src={this.attrs.avatarUrl} alt="" /> : name.charAt(0).toUpperCase()}
             </span>
 
             <div className="ChatPreview-messageBody">
               <div className="ChatPreview-messageMeta">
                 <strong>{name}</strong>
                 {this.attrs.isUser ? null : (
-                  <span className="ChatPreview-botTag">
-                    {app.translator.trans(
-                      "ramon-chat.admin.layout.preview_bot_tag",
-                    )}
-                  </span>
+                  <span className="ChatPreview-botTag">{app.translator.trans('ramon-chat.admin.layout.preview_bot_tag')}</span>
                 )}
                 <span className="ChatPreview-time">12:04</span>
               </div>
               <p className="ChatPreview-bubble">
                 <i className="fas fa-bullhorn" aria-hidden="true" />
-                {app.translator.trans(
-                  "ramon-chat.admin.layout.preview_message_sample",
-                )}
+                {app.translator.trans('ramon-chat.admin.layout.preview_message_sample')}
               </p>
             </div>
           </div>

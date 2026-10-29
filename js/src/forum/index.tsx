@@ -1,48 +1,41 @@
-import app from "flarum/forum/app";
-import { extend } from "flarum/common/extend";
-import HeaderSecondary from "flarum/forum/components/HeaderSecondary";
-import IndexSidebar from "flarum/forum/components/IndexSidebar";
-import UserControls from "flarum/forum/utils/UserControls";
-import Button from "flarum/common/components/Button";
-import LinkButton from "flarum/common/components/LinkButton";
-import type ItemList from "flarum/common/utils/ItemList";
-import type User from "flarum/common/models/User";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import { extend } from 'flarum/common/extend';
+import HeaderSecondary from 'flarum/forum/components/HeaderSecondary';
+import IndexSidebar from 'flarum/forum/components/IndexSidebar';
+import UserControls from 'flarum/forum/utils/UserControls';
+import Button from 'flarum/common/components/Button';
+import LinkButton from 'flarum/common/components/LinkButton';
+import type ItemList from 'flarum/common/utils/ItemList';
+import type User from 'flarum/common/models/User';
+import type Mithril from 'mithril';
 
-import Channel from "../common/models/Channel";
-import Message from "../common/models/Message";
-import Thread from "../common/models/Thread";
-import Upload from "../common/models/Upload";
-import MessageFlag from "../common/models/MessageFlag";
+import Channel from '../common/models/Channel';
+import Message from '../common/models/Message';
+import Thread from '../common/models/Thread';
+import Upload from '../common/models/Upload';
+import MessageFlag from '../common/models/MessageFlag';
 
-import chatState from "./state/chat";
-import ChatState from "./state/ChatState";
-import ChatNavButton from "./components/ChatNavButton";
-import ChatDrawer, { loadDrawerPanel } from "./components/ChatDrawer";
-import ChannelInviteNotification from "./components/ChannelInviteNotification";
-import ChannelInviteDeclinedNotification from "./components/ChannelInviteDeclinedNotification";
-import MessageFlaggedNotification from "./components/MessageFlaggedNotification";
-import ModeratorPromotedNotification from "./components/ModeratorPromotedNotification";
-import OwnershipTransferNotification from "./components/OwnershipTransferNotification";
-import OwnershipTransferDeclinedNotification from "./components/OwnershipTransferDeclinedNotification";
-import OwnershipInheritedNotification from "./components/OwnershipInheritedNotification";
-import {
-  bindRealtime,
-  setPollingFallback,
-  setConnectionHandlers,
-  realtimeBound,
-  realtimeDelivered,
-  realtimeLive,
-} from "./realtime";
-import { bindShortcuts } from "./utils/shortcuts";
-import { installComposerStacking } from "./utils/stacking";
-import { shouldUseChatDrawer } from "./utils/surface";
-import { chatTitle, chatIcon } from "./utils/branding";
-import ChatPageResolver from "./resolvers/ChatPageResolver";
-import bindFlagsIntegration from "./utils/flagsIntegration";
-import { loadChatUi } from "./utils/lazy";
+import chatState from './state/chat';
+import ChatState from './state/ChatState';
+import ChatNavButton from './components/ChatNavButton';
+import ChatDrawer, { loadDrawerPanel } from './components/ChatDrawer';
+import ChannelInviteNotification from './components/ChannelInviteNotification';
+import ChannelInviteDeclinedNotification from './components/ChannelInviteDeclinedNotification';
+import MessageFlaggedNotification from './components/MessageFlaggedNotification';
+import ModeratorPromotedNotification from './components/ModeratorPromotedNotification';
+import OwnershipTransferNotification from './components/OwnershipTransferNotification';
+import OwnershipTransferDeclinedNotification from './components/OwnershipTransferDeclinedNotification';
+import OwnershipInheritedNotification from './components/OwnershipInheritedNotification';
+import { bindRealtime, setPollingFallback, setConnectionHandlers, realtimeBound, realtimeDelivered, realtimeLive } from './realtime';
+import { bindShortcuts } from './utils/shortcuts';
+import { installComposerStacking } from './utils/stacking';
+import { shouldUseChatDrawer } from './utils/surface';
+import { chatTitle, chatIcon } from './utils/branding';
+import ChatPageResolver from './resolvers/ChatPageResolver';
+import bindFlagsIntegration from './utils/flagsIntegration';
+import { loadChatUi } from './utils/lazy';
 
-export { default as extend } from "./extend";
+export { default as extend } from './extend';
 
 export {
   Channel,
@@ -133,7 +126,7 @@ const CHANNEL_POLL_INTERVAL = 15000;
  */
 const CHANNEL_POLL_INTERVAL_PROVEN = 60000;
 
-app.initializers.add("ramon-chat", () => {
+app.initializers.add('ramon-chat', () => {
   // Before anything mounts (the models come from ./extend, applied before any
   // initializer): the channel list, the
   // open conversation, its pinned message and the drafts are already in the page
@@ -168,111 +161,88 @@ app.initializers.add("ramon-chat", () => {
     component: () => loadChatUi().then((ui) => ({ default: ui.ChatPage })),
     resolverClass: ChatPageResolver,
   };
-  const browsePage = () =>
-    loadChatUi().then((ui) => ({ default: ui.BrowseChannelsPage }));
+  const browsePage = () => loadChatUi().then((ui) => ({ default: ui.BrowseChannelsPage }));
 
-  app.routes["chat.index"] = { path: "/chat", ...chatPage };
-  app.routes["chat.channel"] = { path: "/chat/c/:id", ...chatPage };
-  app.routes["chat.thread"] = { path: "/chat/c/:id/t/:threadId", ...chatPage };
-  app.routes["chat.threads"] = { path: "/chat/threads", ...chatPage };
-  app.routes["chat.search"] = { path: "/chat/search", ...chatPage };
-  app.routes["chat.bookmarks"] = { path: "/chat/bookmarks", ...chatPage };
-  app.routes["chat.flags"] = { path: "/chat/flags", ...chatPage };
+  app.routes['chat.index'] = { path: '/chat', ...chatPage };
+  app.routes['chat.channel'] = { path: '/chat/c/:id', ...chatPage };
+  app.routes['chat.thread'] = { path: '/chat/c/:id/t/:threadId', ...chatPage };
+  app.routes['chat.threads'] = { path: '/chat/threads', ...chatPage };
+  app.routes['chat.search'] = { path: '/chat/search', ...chatPage };
+  app.routes['chat.bookmarks'] = { path: '/chat/bookmarks', ...chatPage };
+  app.routes['chat.flags'] = { path: '/chat/flags', ...chatPage };
 
   // A genuinely separate page, so it keeps the default resolver.
-  app.routes["chat.browse"] = {
-    path: "/chat/browse",
+  app.routes['chat.browse'] = {
+    path: '/chat/browse',
     component: browsePage,
   };
-  app.routes["chat.browse.filter"] = {
-    path: "/chat/browse/:filter",
+  app.routes['chat.browse.filter'] = {
+    path: '/chat/browse/:filter',
     component: browsePage,
   };
 
   // Warm the chat UI once the forum is idle, so the first open does not wait on
   // the chunk. Checked at drain time, which is after mount, when the session is
   // known: a guest or an opted-out member never downloads it.
-  app.prefetch?.add(
-    "ramon-chat-ui",
-    () => (canUseChat() ? loadChatUi() : Promise.resolve()),
-    -10,
-  );
+  app.prefetch?.add('ramon-chat-ui', () => (canUseChat() ? loadChatUi() : Promise.resolve()), -10);
 
   // ── Notifications ─────────────────────────────────────────────────────────
   // The components that render the alerts come from ./extend; this is the row
   // in the user's notification preferences that lets them turn each one off.
-  extend(
-    "flarum/forum/components/NotificationGrid",
-    "notificationTypes",
-    function (items: ItemList<unknown>) {
-      items.add("chatChannelInvite", {
-        name: "chatChannelInvite",
-        icon: "fas fa-envelope-open",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_channel_invite",
-        ),
-      });
+  extend('flarum/forum/components/NotificationGrid', 'notificationTypes', function (items: ItemList<unknown>) {
+    items.add('chatChannelInvite', {
+      name: 'chatChannelInvite',
+      icon: 'fas fa-envelope-open',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_channel_invite'),
+    });
 
-      items.add("chatChannelInviteDeclined", {
-        name: "chatChannelInviteDeclined",
-        icon: "fas fa-user-xmark",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_channel_invite_declined",
-        ),
-      });
+    items.add('chatChannelInviteDeclined', {
+      name: 'chatChannelInviteDeclined',
+      icon: 'fas fa-user-xmark',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_channel_invite_declined'),
+    });
 
-      items.add("chatModeratorPromoted", {
-        name: "chatModeratorPromoted",
-        icon: "fas fa-user-shield",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_moderator_promoted",
-        ),
-      });
+    items.add('chatModeratorPromoted', {
+      name: 'chatModeratorPromoted',
+      icon: 'fas fa-user-shield',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_moderator_promoted'),
+    });
 
-      items.add("chatOwnershipTransfer", {
-        name: "chatOwnershipTransfer",
-        icon: "fas fa-crown",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_ownership_transfer",
-        ),
-      });
+    items.add('chatOwnershipTransfer', {
+      name: 'chatOwnershipTransfer',
+      icon: 'fas fa-crown',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_ownership_transfer'),
+    });
 
-      items.add("chatOwnershipTransferDeclined", {
-        name: "chatOwnershipTransferDeclined",
-        icon: "fas fa-user-xmark",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_ownership_transfer_declined",
-        ),
-      });
+    items.add('chatOwnershipTransferDeclined', {
+      name: 'chatOwnershipTransferDeclined',
+      icon: 'fas fa-user-xmark',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_ownership_transfer_declined'),
+    });
 
-      items.add("chatOwnershipInherited", {
-        name: "chatOwnershipInherited",
-        icon: "fas fa-crown",
-        label: app.translator.trans(
-          "ramon-chat.forum.settings.notify_ownership_inherited",
-        ),
-      });
+    items.add('chatOwnershipInherited', {
+      name: 'chatOwnershipInherited',
+      icon: 'fas fa-crown',
+      label: app.translator.trans('ramon-chat.forum.settings.notify_ownership_inherited'),
+    });
 
-      // Administrators only, matching who the server actually notifies. Offering
-      // the row to anyone else advertises a notification they can never receive,
-      // and a preference that does nothing is worse than an absent one.
-      if (app.session.user?.isAdmin()) {
-        items.add("chatMessageFlagged", {
-          name: "chatMessageFlagged",
-          icon: "fas fa-flag",
-          label: app.translator.trans(
-            "ramon-chat.forum.settings.notify_message_flagged",
-          ),
-        });
-      }
-    },
-  );
+    // Administrators only, matching who the server actually notifies. Offering
+    // the row to anyone else advertises a notification they can never receive,
+    // and a preference that does nothing is worse than an absent one.
+    if (app.session.user?.isAdmin()) {
+      items.add('chatMessageFlagged', {
+        name: 'chatMessageFlagged',
+        icon: 'fas fa-flag',
+        label: app.translator.trans('ramon-chat.forum.settings.notify_message_flagged'),
+      });
+    }
+  });
 
   // ── Header trigger ────────────────────────────────────────────────────────
-  extend(HeaderSecondary.prototype, "items", function (items) {
+  extend(HeaderSecondary.prototype, 'items', function (items) {
     if (!canUseChat()) return;
 
-    items.add("chat", <ChatNavButton />, 15);
+    items.add('chat', <ChatNavButton />, 15);
   });
 
   // ── Forum navigation ──────────────────────────────────────────────────────
@@ -291,15 +261,15 @@ app.initializers.add("ramon-chat", () => {
   // Priority 90 puts it under core's "All Discussions" (100) and under
   // flarum/messages' "Messages" (95), which is the order those two already agree
   // on: core's own list first, then the conversational surfaces.
-  extend(IndexSidebar.prototype, "navItems", function (items) {
+  extend(IndexSidebar.prototype, 'navItems', function (items) {
     if (!canUseChat()) return;
 
     items.add(
-      "chat",
-      <LinkButton href={app.route("chat.index")} icon={chatIcon() ?? undefined}>
+      'chat',
+      <LinkButton href={app.route('chat.index')} icon={chatIcon() ?? undefined}>
         {chatTitle()}
       </LinkButton>,
-      90,
+      90
     );
   });
 
@@ -315,32 +285,29 @@ app.initializers.add("ramon-chat", () => {
   // The gap itself is the one flarum/messages works around: extend() infers the
   // callback signature from the target method, and UserControls' published typing
   // loses the `user` parameter, even though it is passed at runtime.
-  const addChatToUserControls = (
-    items: ItemList<Mithril.Children>,
-    user: User,
-  ) => {
+  const addChatToUserControls = (items: ItemList<Mithril.Children>, user: User) => {
     if (!canUseChat()) return;
-    if (!app.forum.attribute<boolean>("canStartChatDirect")) return;
+    if (!app.forum.attribute<boolean>('canStartChatDirect')) return;
 
     // No point offering a chat with yourself.
     if (app.session.user?.id() === user.id()) return;
 
     // With flarum/messages enabled, private messages already have their own
     // "Send a message" entry: a second one for chat DMs would be redundant.
-    if ("flarum-messages" in flarum.extensions) return;
+    if ('flarum-messages' in flarum.extensions) return;
 
     items.add(
-      "chatDirect",
+      'chatDirect',
       <Button icon="fas fa-envelope" onclick={() => startDirectMessage(user)}>
-        {app.translator.trans("ramon-chat.forum.user_controls.start_chat")}
+        {app.translator.trans('ramon-chat.forum.user_controls.start_chat')}
       </Button>,
       // Just below flarum/messages' own button, which sits at the default 0.
-      -5,
+      -5
     );
   };
 
   // @ts-ignore
-  extend(UserControls, "userControls", addChatToUserControls);
+  extend(UserControls, 'userControls', addChatToUserControls);
 
   // Anything that reads `app.forum`/`app.session`, or mounts its own Mithril
   // root, has to run after ForumApplication.mount():
@@ -361,7 +328,7 @@ app.initializers.add("ramon-chat", () => {
   // `undefined` — reading `.prototype` off that is a TypeError. Extending the
   // instance installs an own property that shadows the prototype method, and
   // boot() calls `this.mount()`, so the override is picked up.
-  extend(app, "mount", function () {
+  extend(app, 'mount', function () {
     // Belt and braces. Core does not guard this call site either, and a chat
     // extension must never be able to take the forum down with it — a broken
     // chat is an annoyance, an unmountable forum is an outage.
@@ -397,17 +364,17 @@ app.initializers.add("ramon-chat", () => {
       // once a minute, so without this a tab woken after an hour could sit up
       // to a minute behind; the cursors it uses make the request cheap. Going
       // hidden writes the snapshot, so the next boot starts from this moment.
-      document.addEventListener("visibilitychange", () => {
+      document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           chatState.flushSnapshot();
         } else if (!realtimeLive()) {
           poll();
         }
       });
-      window.addEventListener("online", () => {
+      window.addEventListener('online', () => {
         if (!realtimeLive()) poll();
       });
-      window.addEventListener("pagehide", () => chatState.flushSnapshot());
+      window.addEventListener('pagehide', () => chatState.flushSnapshot());
 
       // ── Drawer ────────────────────────────────────────────────────────────
       // Its own root outside the page tree, so navigating the forum never tears
@@ -430,7 +397,7 @@ app.initializers.add("ramon-chat", () => {
           .then(() => m.redraw());
       }
     } catch (e) {
-      console.error("[ramon-chat] failed to start:", e);
+      console.error('[ramon-chat] failed to start:', e);
     }
   });
 });
@@ -448,8 +415,8 @@ export async function startDirectMessage(user: User): Promise<void> {
       data?: { id?: string };
       meta?: { created?: boolean; serialized?: boolean };
     }>({
-      method: "POST",
-      url: `${app.forum.attribute("apiUrl")}/chat/direct`,
+      method: 'POST',
+      url: `${app.forum.attribute('apiUrl')}/chat/direct`,
       body: { data: { attributes: { userIds: [Number(user.id())] } } },
     });
 
@@ -472,10 +439,7 @@ export async function startDirectMessage(user: User): Promise<void> {
 
     if (!channel) {
       try {
-        channel = (await app.store.find(
-          "chat-channels",
-          String(channelId),
-        )) as unknown as Channel;
+        channel = (await app.store.find('chat-channels', String(channelId))) as unknown as Channel;
       } catch {
         // The channel exists; a failed fetch just means the list refreshes later.
       }
@@ -498,25 +462,19 @@ export async function startDirectMessage(user: User): Promise<void> {
       // list it fills in behind is not what the reader came for.
       ChatDrawer.open().catch(() => {});
     } else {
-      m.route.set(app.route("chat.channel", { id: channelId }));
+      m.route.set(app.route('chat.channel', { id: channelId }));
     }
   } catch (e: any) {
-    app.alerts.show(
-      { type: "error" },
-      e?.response?.errors?.[0]?.detail ??
-        app.translator.trans(
-          "ramon-chat.forum.user_controls.start_chat_failed",
-        ),
-    );
+    app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.user_controls.start_chat_failed'));
   }
 }
 
 function mountDrawer(): void {
   const attach = () => {
-    if (document.getElementById("ramon-chat-drawer")) return;
+    if (document.getElementById('ramon-chat-drawer')) return;
 
-    const node = document.createElement("div");
-    node.id = "ramon-chat-drawer";
+    const node = document.createElement('div');
+    node.id = 'ramon-chat-drawer';
     document.body.appendChild(node);
 
     m.mount(node, ChatDrawer);
@@ -525,7 +483,7 @@ function mountDrawer(): void {
   if (document.body) {
     attach();
   } else {
-    document.addEventListener("DOMContentLoaded", attach, { once: true });
+    document.addEventListener('DOMContentLoaded', attach, { once: true });
   }
 }
 
@@ -538,11 +496,11 @@ function mountDrawer(): void {
  * the other refuses.
  */
 function canUseChat(): boolean {
-  if (!app.forum.attribute<boolean>("canUseChat")) return false;
+  if (!app.forum.attribute<boolean>('canUseChat')) return false;
   if (!app.session.user) return false;
 
   // Honour the per-user opt-out from /settings.
-  return app.session.user.preferences()?.["ramon-chat.enabled"] !== false;
+  return app.session.user.preferences()?.['ramon-chat.enabled'] !== false;
 }
 
 /** Guards against a second loop when both callers ask for one. */
@@ -574,7 +532,7 @@ const backgroundErrorHandler = (error: { status?: number }): false | void => {
   if (error?.status === 401) {
     if (!sessionLost) {
       sessionLost = true;
-      console.warn("[ramon-chat] session ended; live updates stopped");
+      console.warn('[ramon-chat] session ended; live updates stopped');
     }
 
     return;
@@ -650,9 +608,7 @@ function poll(): void {
   if (!chatState.channelsLoaded) return;
 
   const now = Date.now();
-  const channelFloor = realtimeLive()
-    ? CHANNEL_POLL_INTERVAL_PROVEN
-    : CHANNEL_POLL_INTERVAL;
+  const channelFloor = realtimeLive() ? CHANNEL_POLL_INTERVAL_PROVEN : CHANNEL_POLL_INTERVAL;
 
   if (now - lastChannelPoll >= channelFloor) {
     lastChannelPoll = now;
@@ -677,22 +633,20 @@ function poll(): void {
 
   app.store
     .find<Message[]>(
-      "chat-messages",
+      'chat-messages',
       {
         filter: {
           channel: activeId,
           ...(newest ? { greaterThan: Number(newest.id()) } : {}),
         },
-        sort: "id",
+        sort: 'id',
         page: { limit: 50 },
       },
       undefined,
-      { errorHandler: backgroundErrorHandler },
+      { errorHandler: backgroundErrorHandler }
     )
     .then((results) => {
-      for (const message of (Array.isArray(results)
-        ? results
-        : []) as Message[]) {
+      for (const message of (Array.isArray(results) ? results : []) as Message[]) {
         chatState.upsertMessage(message);
       }
 
@@ -718,22 +672,20 @@ function poll(): void {
 
   app.store
     .find<Message[]>(
-      "chat-messages",
+      'chat-messages',
       {
         filter: {
           thread: threadId,
           ...(newestReply ? { greaterThan: Number(newestReply.id()) } : {}),
         },
-        sort: "id",
+        sort: 'id',
         page: { limit: 50 },
       },
       undefined,
-      { errorHandler: backgroundErrorHandler },
+      { errorHandler: backgroundErrorHandler }
     )
     .then((results) => {
-      for (const message of (Array.isArray(results)
-        ? results
-        : []) as Message[]) {
+      for (const message of (Array.isArray(results) ? results : []) as Message[]) {
         chatState.upsertMessage(message);
       }
 
@@ -741,11 +693,7 @@ function poll(): void {
     })
     .catch(() => {});
 
-  pollChanges(
-    `thread:${threadId}`,
-    { thread: threadId },
-    threadStream.messages,
-  );
+  pollChanges(`thread:${threadId}`, { thread: threadId }, threadStream.messages);
 }
 
 /**
@@ -775,30 +723,24 @@ const changeCursors = new Map<string, number>();
  * actively wrong: a changed message from outside the loaded window would be
  * spliced into the middle of it as though the gap between them did not exist.
  */
-function pollChanges(
-  key: string,
-  filter: Record<string, unknown>,
-  messages: Message[],
-): void {
+function pollChanges(key: string, filter: Record<string, unknown>, messages: Message[]): void {
   const since = changeCursors.get(key) ?? newestChange(messages);
 
   if (since === null) return;
 
   app.store
     .find<Message[]>(
-      "chat-messages",
+      'chat-messages',
       {
         filter: { ...filter, updatedSince: since },
-        sort: "id",
+        sort: 'id',
         page: { limit: 50 },
       },
       undefined,
-      { errorHandler: backgroundErrorHandler },
+      { errorHandler: backgroundErrorHandler }
     )
     .then((results) => {
-      const advanced = newestChange(
-        (Array.isArray(results) ? results : []) as Message[],
-      );
+      const advanced = newestChange((Array.isArray(results) ? results : []) as Message[]);
 
       // Only ever forwards. A page truncated at the limit can come back with a
       // lower maximum than the cursor already holds, and moving backwards would

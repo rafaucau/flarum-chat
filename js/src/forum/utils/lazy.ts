@@ -1,6 +1,6 @@
-import type FlagMessageModal from "../components/FlagMessageModal";
-import type FlagPostModal from "ext:flarum/flags/forum/components/FlagPostModal";
-import type { ChatFlagPostModalAttrs } from "../components/ChatFlagPostModal";
+import type FlagMessageModal from '../components/FlagMessageModal';
+import type FlagPostModal from 'ext:flarum/flags/forum/components/FlagPostModal';
+import type { ChatFlagPostModalAttrs } from '../components/ChatFlagPostModal';
 
 /**
  * Loaders for the chat's lazy chunks.
@@ -11,7 +11,7 @@ import type { ChatFlagPostModalAttrs } from "../components/ChatFlagPostModal";
  * chunk that Flarum cannot serve.
  */
 
-const importChatUi = () => import("../chatUi");
+const importChatUi = () => import('../chatUi');
 
 let chatUi: ReturnType<typeof importChatUi> | null = null;
 
@@ -28,37 +28,28 @@ export function loadChatUi(): ReturnType<typeof importChatUi> {
   return chatUi;
 }
 
-export const loadChannelFormModal = () =>
-  import("../components/ChannelFormModal");
-export const loadChannelInfoModal = () =>
-  import("../components/ChannelInfoModal");
-export const loadAddMembersModal = () =>
-  import("../components/AddMembersModal");
-const importChatFlagModal = () => import("../components/FlagMessageModal");
-const importFlagPostModal = () =>
-  import("ext:flarum/flags/forum/components/FlagPostModal");
-const importChatFlagPostModal = () => import("../components/ChatFlagPostModal");
+export const loadChannelFormModal = () => import('../components/ChannelFormModal');
+export const loadChannelInfoModal = () => import('../components/ChannelInfoModal');
+export const loadAddMembersModal = () => import('../components/AddMembersModal');
+const importChatFlagModal = () => import('../components/FlagMessageModal');
+const importFlagPostModal = () => import('ext:flarum/flags/forum/components/FlagPostModal');
+const importChatFlagPostModal = () => import('../components/ChatFlagPostModal');
 
 /**
  * The report dialog: flarum/flags' own where that extension is enabled, so a
  * message is reported the way a post is, and the chat's otherwise.
  */
 export async function loadFlagMessageModal(): Promise<{
-  default:
-    typeof FlagMessageModal | typeof FlagPostModal<ChatFlagPostModalAttrs>;
+  default: typeof FlagMessageModal | typeof FlagPostModal<ChatFlagPostModalAttrs>;
 }> {
-  if (!("flarum-flags" in (flarum.extensions ?? {}))) {
+  if (!('flarum-flags' in (flarum.extensions ?? {}))) {
     return importChatFlagModal();
   }
 
-  const [flags, chat] = await Promise.all([
-    importFlagPostModal(),
-    importChatFlagPostModal(),
-  ]);
+  const [flags, chat] = await Promise.all([importFlagPostModal(), importChatFlagPostModal()]);
 
   return { default: chat.default(flags.default) };
 }
-export const loadMessageTooLongModal = () =>
-  import("../components/MessageTooLongModal");
-export const loadImageLightbox = () => import("../components/ImageLightbox");
-export const loadStickerPicker = () => import("../components/StickerPicker");
+export const loadMessageTooLongModal = () => import('../components/MessageTooLongModal');
+export const loadImageLightbox = () => import('../components/ImageLightbox');
+export const loadStickerPicker = () => import('../components/StickerPicker');

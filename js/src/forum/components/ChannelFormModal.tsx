@@ -1,22 +1,22 @@
-import app from "flarum/forum/app";
-import FormModal from "flarum/common/components/FormModal";
-import type { IFormModalAttrs } from "flarum/common/components/FormModal";
-import Alert from "flarum/common/components/Alert";
-import Button from "flarum/common/components/Button";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import Switch from "flarum/common/components/Switch";
-import Stream from "flarum/common/utils/Stream";
-import classList from "flarum/common/utils/classList";
-import withAttr from "flarum/common/utils/withAttr";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import FormModal from 'flarum/common/components/FormModal';
+import type { IFormModalAttrs } from 'flarum/common/components/FormModal';
+import Alert from 'flarum/common/components/Alert';
+import Button from 'flarum/common/components/Button';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import Switch from 'flarum/common/components/Switch';
+import Stream from 'flarum/common/utils/Stream';
+import classList from 'flarum/common/utils/classList';
+import withAttr from 'flarum/common/utils/withAttr';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import chatState from "../state/chat";
-import afterModalClosed from "../utils/afterModalClosed";
-import EmojiPicker from "./EmojiPicker";
-import { resolveEmoji } from "../utils/emoji";
-import { humanDuration } from "../utils/duration";
-import { forumMaxMessageLength } from "../utils/messageLimit";
+import type Channel from '../../common/models/Channel';
+import chatState from '../state/chat';
+import afterModalClosed from '../utils/afterModalClosed';
+import EmojiPicker from './EmojiPicker';
+import { resolveEmoji } from '../utils/emoji';
+import { humanDuration } from '../utils/duration';
+import { forumMaxMessageLength } from '../utils/messageLimit';
 
 /**
  * Message-length presets, and the bounds the API clamps a custom value to.
@@ -30,7 +30,7 @@ const MIN_LENGTH = 100;
 const MAX_LENGTH = 50000;
 
 /** Sentinel for the "custom" option — never a value that gets saved. */
-const CUSTOM_LENGTH = "custom";
+const CUSTOM_LENGTH = 'custom';
 
 export interface ChannelFormModalAttrs extends IFormModalAttrs {
   /** Omit to create a channel; pass one to edit it. */
@@ -67,7 +67,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
    * one flag meant pressing Save spun Close, Archive and Delete along with it,
    * as though the dialog had started four things at once.
    */
-  private pending: "status" | "archive" | "unarchive" | "delete" | null = null;
+  private pending: 'status' | 'archive' | 'unarchive' | 'delete' | null = null;
 
   /**
    * A picture chosen on the create form, held until the channel exists.
@@ -119,15 +119,15 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     const channel = this.attrs.channel;
 
-    this.name = Stream(channel?.name() ?? "");
-    this.description = Stream(channel?.description() ?? "");
-    this.emoji = Stream(channel?.emoji() ?? "");
+    this.name = Stream(channel?.name() ?? '');
+    this.description = Stream(channel?.description() ?? '');
+    this.emoji = Stream(channel?.emoji() ?? '');
 
     // Whichever the channel already uses. A saved picture is the one that shows,
     // so opening the form on the emoji field would misreport the channel.
     this.useImage = Stream(Boolean(channel?.imageUrl()));
 
-    this.tagId = Stream(channel?.tagId() ? String(channel.tagId()) : "");
+    this.tagId = Stream(channel?.tagId() ? String(channel.tagId()) : '');
 
     // A string, because it backs a <select> whose values are strings. Coerced
     // on submit rather than here, so an unchanged form round-trips exactly.
@@ -135,35 +135,23 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     // Empty string, not "0": the option that means "follow the forum" has to
     // round-trip as null, and 0 would read as a limit of zero characters.
-    this.maxMessageLength = Stream(
-      channel?.maxMessageLength() ? String(channel.maxMessageLength()) : "",
-    );
+    this.maxMessageLength = Stream(channel?.maxMessageLength() ? String(channel.maxMessageLength()) : '');
 
     // A channel already set to something off the list opens on the custom
     // field rather than snapping to the nearest preset.
     const saved = channel?.maxMessageLength() ?? 0;
     this.customLength = Stream(saved > 0 && !LENGTH_STEPS.includes(saved));
 
-    this.threading = Stream(
-      channel
-        ? Boolean(channel.threadingEnabled())
-        : Boolean(app.forum.attribute("ramon-chat.threadingDefault")),
-    );
+    this.threading = Stream(channel ? Boolean(channel.threadingEnabled()) : Boolean(app.forum.attribute('ramon-chat.threadingDefault')));
     this.autoJoin = Stream(channel ? Boolean(channel.autoJoin()) : false);
-    this.allowChannelWide = Stream(
-      channel ? channel.allowChannelWideMentions() !== false : true,
-    );
-    this.autoJoinOnReply = Stream(
-      channel ? Boolean(channel.autoJoinOnReply()) : false,
-    );
+    this.allowChannelWide = Stream(channel ? channel.allowChannelWideMentions() !== false : true);
+    this.autoJoinOnReply = Stream(channel ? Boolean(channel.autoJoinOnReply()) : false);
 
     // Public by default: a channel nobody can find is the surprising outcome, so
     // it has to be chosen rather than fallen into.
     this.isPrivate = Stream(channel ? Boolean(channel.isPrivate()) : false);
-    this.postPermission = Stream(channel?.postPermission() ?? "all");
-    this.postDiscussions = Stream(
-      channel ? Boolean(channel.postDiscussions()) : false,
-    );
+    this.postPermission = Stream(channel?.postPermission() ?? 'all');
+    this.postDiscussions = Stream(channel ? Boolean(channel.postDiscussions()) : false);
   }
 
   /**
@@ -183,15 +171,11 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   }
 
   className(): string {
-    return "ChatModal ChannelFormModal Modal--large";
+    return 'ChatModal ChannelFormModal Modal--large';
   }
 
   title(): Mithril.Children {
-    return app.translator.trans(
-      this.isEditing()
-        ? "ramon-chat.forum.edit_channel.title"
-        : "ramon-chat.forum.browse.new_channel",
-    );
+    return app.translator.trans(this.isEditing() ? 'ramon-chat.forum.edit_channel.title' : 'ramon-chat.forum.browse.new_channel');
   }
 
   /**
@@ -240,26 +224,13 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     return (
       <div className="Modal-header ChannelFormModal-header">
         <div className="ChannelFormModal-headerIcon" aria-hidden="true">
-          {image ? (
-            <img src={image} alt="" />
-          ) : emoji ? (
-            <span>{emoji}</span>
-          ) : (
-            <i className="fas fa-hashtag" />
-          )}
+          {image ? <img src={image} alt="" /> : emoji ? <span>{emoji}</span> : <i className="fas fa-hashtag" />}
         </div>
 
         <div className="ChannelFormModal-headerText">
-          <h3 className="App-titleControl App-titleControl--text">
-            {this.title()}
-          </h3>
+          <h3 className="App-titleControl App-titleControl--text">{this.title()}</h3>
           <p className="ChannelFormModal-headerSubtitle">
-            {name ||
-              app.translator.trans(
-                this.isEditing()
-                  ? "ramon-chat.forum.edit_channel.subtitle"
-                  : "ramon-chat.forum.new_channel.subtitle",
-              )}
+            {name || app.translator.trans(this.isEditing() ? 'ramon-chat.forum.edit_channel.subtitle' : 'ramon-chat.forum.new_channel.subtitle')}
           </p>
         </div>
       </div>
@@ -285,7 +256,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   /** Name, description and the channel's icon. */
   protected identitySection(): Mithril.Children {
     return this.section(
-      "ramon-chat.forum.new_channel.section_identity",
+      'ramon-chat.forum.new_channel.section_identity',
       [
         // Icon and name on one line: the emoji is a property of the name, not a
         // field of its own, and stacking them put an empty picker row between
@@ -294,19 +265,13 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         // field would have about 90px to live in.
         <div className="Form-group ChannelFormModal-nameRow">
           <div>
-            <label>
-              {app.translator.trans("ramon-chat.forum.new_channel.name")}
-            </label>
+            <label>{app.translator.trans('ramon-chat.forum.new_channel.name')}</label>
             <input
               className="FormControl"
               type="text"
               maxlength={100}
               bidi={this.name}
-              placeholder={app.translator.trans(
-                "ramon-chat.forum.new_channel.name_placeholder",
-                {},
-                true,
-              )}
+              placeholder={app.translator.trans('ramon-chat.forum.new_channel.name_placeholder', {}, true)}
               disabled={this.loading}
             />
           </div>
@@ -315,19 +280,11 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         </div>,
 
         <div className="Form-group">
-          <label>
-            {app.translator.trans("ramon-chat.forum.new_channel.description")}
-          </label>
-          <textarea
-            className="FormControl"
-            rows={2}
-            maxlength={1000}
-            bidi={this.description}
-            disabled={this.loading}
-          />
+          <label>{app.translator.trans('ramon-chat.forum.new_channel.description')}</label>
+          <textarea className="FormControl" rows={2} maxlength={1000} bidi={this.description} disabled={this.loading} />
         </div>,
       ],
-      "ChannelFormModal-section--wide",
+      'ChannelFormModal-section--wide'
     );
   }
 
@@ -345,13 +302,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
       <div className="ChannelFormModal-iconField">
         <div className="ChannelFormModal-iconField-head">
           {/* The label names the field that is showing, not the pair. */}
-          <label>
-            {app.translator.trans(
-              picture
-                ? "ramon-chat.forum.new_channel.image"
-                : "ramon-chat.forum.new_channel.emoji",
-            )}
-          </label>
+          <label>{app.translator.trans(picture ? 'ramon-chat.forum.new_channel.image' : 'ramon-chat.forum.new_channel.emoji')}</label>
 
           {/* One button carrying both sides, not two buttons — a click
               anywhere on it flips to the other, the way a switch behaves.
@@ -365,24 +316,18 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             type="button"
             className="ChannelFormModal-iconKind"
             role="switch"
-            aria-checked={picture ? "true" : "false"}
-            aria-label={app.translator.trans(
-              "ramon-chat.forum.new_channel.icon_kind",
-              {},
-              true,
-            )}
+            aria-checked={picture ? 'true' : 'false'}
+            aria-label={app.translator.trans('ramon-chat.forum.new_channel.icon_kind', {}, true)}
             title={app.translator.trans(
-              picture
-                ? "ramon-chat.forum.new_channel.icon_kind_to_emoji"
-                : "ramon-chat.forum.new_channel.icon_kind_to_image",
+              picture ? 'ramon-chat.forum.new_channel.icon_kind_to_emoji' : 'ramon-chat.forum.new_channel.icon_kind_to_image',
               {},
-              true,
+              true
             )}
             disabled={this.loading || this.uploadingImage}
             onclick={() => this.chooseIconKind(!picture)}
           >
-            {this.iconKindSide(false, "far fa-face-smile")}
-            {this.iconKindSide(true, "fas fa-image")}
+            {this.iconKindSide(false, 'far fa-face-smile')}
+            {this.iconKindSide(true, 'fas fa-image')}
           </button>
         </div>
 
@@ -395,17 +340,9 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             this.image()
           ) : (
             <>
-              <EmojiPicker
-                value={this.emoji()}
-                onchange={(value: string | null) => this.emoji(value ?? "")}
-                disabled={this.loading}
-              />
+              <EmojiPicker value={this.emoji()} onchange={(value: string | null) => this.emoji(value ?? '')} disabled={this.loading} />
 
-              <div className="helpText">
-                {app.translator.trans(
-                  "ramon-chat.forum.new_channel.emoji_help",
-                )}
-              </div>
+              <div className="helpText">{app.translator.trans('ramon-chat.forum.new_channel.emoji_help')}</div>
             </>
           )}
         </div>
@@ -420,9 +357,8 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected iconKindSide(picture: boolean, icon: string): Mithril.Children {
     return (
       <span
-        className={classList("ChannelFormModal-iconKind-option", {
-          "ChannelFormModal-iconKind-option--active":
-            this.useImage() === picture,
+        className={classList('ChannelFormModal-iconKind-option', {
+          'ChannelFormModal-iconKind-option--active': this.useImage() === picture,
         })}
         aria-hidden="true"
       >
@@ -448,35 +384,25 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
   /** Who can see the channel, who can write in it, and what it inherits. */
   protected accessSection(): Mithril.Children {
-    return this.section("ramon-chat.forum.new_channel.section_access", [
-      this.visibility(),
-      this.posting(),
-      this.tagOptions(),
-    ]);
+    return this.section('ramon-chat.forum.new_channel.section_access', [this.visibility(), this.posting(), this.tagOptions()]);
   }
 
   /** How the channel behaves once it exists. */
   protected behaviourSection(): Mithril.Children {
     const tag = this.selectedTag();
-    const curates = !!app.forum.attribute<boolean>("canCurateChatChannels");
+    const curates = !!app.forum.attribute<boolean>('canCurateChatChannels');
 
-    return this.section("ramon-chat.forum.new_channel.section_behaviour", [
+    return this.section('ramon-chat.forum.new_channel.section_behaviour', [
       this.slowModeOptions(),
       this.messageLengthOptions(),
 
       <div className="Form-group ChannelFormModal-toggles">
-        {this.toggle(
-          this.threading,
-          "ramon-chat.forum.info.threading",
-          app.translator.trans("ramon-chat.forum.new_channel.threading_help"),
-        )}
+        {this.toggle(this.threading, 'ramon-chat.forum.info.threading', app.translator.trans('ramon-chat.forum.new_channel.threading_help'))}
 
         {this.toggle(
           this.allowChannelWide,
-          "ramon-chat.forum.settings.channel_wide_mentions",
-          app.translator.trans(
-            "ramon-chat.forum.new_channel.channel_wide_mentions_help",
-          ),
+          'ramon-chat.forum.settings.channel_wide_mentions',
+          app.translator.trans('ramon-chat.forum.new_channel.channel_wide_mentions_help')
         )}
 
         {/* Only with a category chosen, like the announcements switch below: it
@@ -487,11 +413,8 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         {tag && curates
           ? this.toggle(
               this.autoJoinOnReply,
-              "ramon-chat.forum.info.auto_join_on_reply",
-              app.translator.trans(
-                "ramon-chat.forum.info.auto_join_on_reply_help_bound",
-                { category: tag.name() },
-              ),
+              'ramon-chat.forum.info.auto_join_on_reply',
+              app.translator.trans('ramon-chat.forum.info.auto_join_on_reply_help_bound', { category: tag.name() })
             )
           : null}
 
@@ -504,22 +427,13 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         {tag && curates
           ? this.toggle(
               this.postDiscussions,
-              "ramon-chat.forum.info.post_discussions",
-              app.translator.trans(
-                "ramon-chat.forum.info.post_discussions_help_bound",
-                { category: tag.name() },
-              ),
+              'ramon-chat.forum.info.post_discussions',
+              app.translator.trans('ramon-chat.forum.info.post_discussions_help_bound', { category: tag.name() })
             )
           : null}
 
         {/* Auto-join can add every account on the forum. */}
-        {curates
-          ? this.toggle(
-              this.autoJoin,
-              "ramon-chat.forum.info.auto_join",
-              app.translator.trans("ramon-chat.forum.info.auto_join_help"),
-            )
-          : null}
+        {curates ? this.toggle(this.autoJoin, 'ramon-chat.forum.info.auto_join', app.translator.trans('ramon-chat.forum.info.auto_join_help')) : null}
       </div>,
     ]);
   }
@@ -528,20 +442,14 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
    * A titled group of fields, dropped entirely when it has nothing to show —
    * an empty bordered box with a heading is worse than no box.
    */
-  protected section(
-    titleKey: string,
-    children: Mithril.Children[],
-    className?: string,
-  ): Mithril.Children {
+  protected section(titleKey: string, children: Mithril.Children[], className?: string): Mithril.Children {
     const content = children.filter(Boolean);
 
     if (content.length === 0) return null;
 
     return (
-      <section className={classList("ChannelFormModal-section", className)}>
-        <h4 className="ChannelFormModal-sectionTitle">
-          {app.translator.trans(titleKey)}
-        </h4>
+      <section className={classList('ChannelFormModal-section', className)}>
+        <h4 className="ChannelFormModal-sectionTitle">{app.translator.trans(titleKey)}</h4>
         {content}
       </section>
     );
@@ -561,15 +469,11 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     // Rendered children rather than a translator key: two of these rows change
     // their sentence with the category picked above, and a key alone cannot
     // carry the interpolated category name.
-    help?: Mithril.Children,
+    help?: Mithril.Children
   ): Mithril.Children {
     return (
       <div className="ChannelFormModal-toggle">
-        <Switch
-          state={stream()}
-          onchange={(checked: boolean) => stream(checked)}
-          disabled={this.loading}
-        >
+        <Switch state={stream()} onchange={(checked: boolean) => stream(checked)} disabled={this.loading}>
           {app.translator.trans(labelKey)}
         </Switch>
 
@@ -588,26 +492,17 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected footer(): Mithril.Children {
     return (
       <div className="Modal-footer ChannelFormModal-footer">
-        <Button
-          className="Button Button--link"
-          type="button"
-          disabled={this.loading}
-          onclick={() => this.hide()}
-        >
-          {app.translator.trans("ramon-chat.forum.new_channel.cancel")}
+        <Button className="Button Button--link" type="button" disabled={this.loading} onclick={() => this.hide()}>
+          {app.translator.trans('ramon-chat.forum.new_channel.cancel')}
         </Button>
 
         <Button
           className="Button Button--primary"
           type="submit"
           loading={this.loading && this.pending === null}
-          disabled={this.loading || this.name().trim() === ""}
+          disabled={this.loading || this.name().trim() === ''}
         >
-          {app.translator.trans(
-            this.isEditing()
-              ? "ramon-chat.forum.edit_channel.submit"
-              : "ramon-chat.forum.new_channel.submit",
-          )}
+          {app.translator.trans(this.isEditing() ? 'ramon-chat.forum.edit_channel.submit' : 'ramon-chat.forum.new_channel.submit')}
         </Button>
       </div>
     );
@@ -635,53 +530,34 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     return (
       <div className="ChatChannelForm-image">
         <div className="ChatChannelForm-imageRow">
-          <div className="ChatChannelForm-imagePreview">
-            {url ? (
-              <img src={url} alt="" />
-            ) : (
-              <i className="fas fa-hashtag" aria-hidden="true" />
-            )}
-          </div>
+          <div className="ChatChannelForm-imagePreview">{url ? <img src={url} alt="" /> : <i className="fas fa-hashtag" aria-hidden="true" />}</div>
 
           {this.uploadingImage ? (
             <LoadingIndicator display="inline" size="small" />
           ) : (
             <>
               <label className="Button">
-                {app.translator.trans(
-                  "ramon-chat.forum.new_channel.image_upload",
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onchange={(e: Event) => this.chooseImage(e)}
-                />
+                {app.translator.trans('ramon-chat.forum.new_channel.image_upload')}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onchange={(e: Event) => this.chooseImage(e)} />
               </label>
 
               {url ? (
                 <Button className="Button" onclick={() => this.removeImage()}>
-                  {app.translator.trans(
-                    "ramon-chat.forum.new_channel.image_remove",
-                  )}
+                  {app.translator.trans('ramon-chat.forum.new_channel.image_remove')}
                 </Button>
               ) : null}
             </>
           )}
         </div>
 
-        <div className="helpText">
-          {app.translator.trans("ramon-chat.forum.new_channel.image_help")}
-        </div>
+        <div className="helpText">{app.translator.trans('ramon-chat.forum.new_channel.image_help')}</div>
       </div>
     );
   }
 
   /** The picture standing in for the channel: staged on create, saved on edit. */
   protected iconImageUrl(): string | null {
-    return this.attrs.channel
-      ? this.attrs.channel.imageUrl()
-      : this.pendingImageUrl;
+    return this.attrs.channel ? this.attrs.channel.imageUrl() : this.pendingImageUrl;
   }
 
   /**
@@ -698,7 +574,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     const file = input.files?.[0];
 
     // Cleared so re-picking the same file still fires a change event.
-    input.value = "";
+    input.value = '';
 
     if (!file) return;
 
@@ -740,12 +616,12 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     if (!file) return;
 
     const body = new FormData();
-    body.append("image", file);
+    body.append('image', file);
 
     try {
       const response = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat/channels/${channel.id()}/image`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat/channels/${channel.id()}/image`,
         serialize: (raw: any) => raw,
         body,
       });
@@ -753,11 +629,8 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
       channel.pushAttributes({ imageUrl: response?.data?.imageUrl ?? null });
     } catch (err: any) {
       app.alerts.show(
-        { type: "error" },
-        err?.response?.errors?.[0]?.detail ??
-          app.translator.trans(
-            "ramon-chat.forum.new_channel.image_failed_after_create",
-          ),
+        { type: 'error' },
+        err?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.new_channel.image_failed_after_create')
       );
     } finally {
       this.discardPendingImage();
@@ -775,12 +648,12 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     m.redraw();
 
     const body = new FormData();
-    body.append("image", file);
+    body.append('image', file);
 
     try {
       const response = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat/channels/${channel.id()}/image`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat/channels/${channel.id()}/image`,
         // The default serializer would JSON-encode the FormData into "[object
         // FormData]" and the request would arrive with no file at all.
         serialize: (raw: any) => raw,
@@ -789,15 +662,11 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
       channel.pushAttributes({ imageUrl: response?.data?.imageUrl ?? null });
     } catch (err: any) {
-      app.alerts.show(
-        { type: "error" },
-        err?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.new_channel.image_failed"),
-      );
+      app.alerts.show({ type: 'error' }, err?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.new_channel.image_failed'));
     } finally {
       this.uploadingImage = false;
       // Cleared so re-picking the same file still fires a change event.
-      input.value = "";
+      input.value = '';
       m.redraw();
     }
   }
@@ -812,16 +681,13 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     try {
       await app.request({
-        method: "DELETE",
-        url: `${app.forum.attribute("apiUrl")}/chat/channels/${channel.id()}/image`,
+        method: 'DELETE',
+        url: `${app.forum.attribute('apiUrl')}/chat/channels/${channel.id()}/image`,
       });
 
       channel.pushAttributes({ imageUrl: null });
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.new_channel.image_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.new_channel.image_failed'));
     } finally {
       this.uploadingImage = false;
       m.redraw();
@@ -831,9 +697,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected visibility(): Mithril.Children {
     return (
       <div className="Form-group">
-        <label>
-          {app.translator.trans("ramon-chat.forum.new_channel.visibility")}
-        </label>
+        <label>{app.translator.trans('ramon-chat.forum.new_channel.visibility')}</label>
 
         {/* Two cards side by side rather than two stacked radio rows. The
             choice is between named alternatives whose consequences differ, so
@@ -841,54 +705,31 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             option's help text sat below the fold of the group and the reader
             chose "public" without ever seeing what "private" meant. */}
         <div className="ChannelFormModal-choices">
-          {this.choice(
-            false,
-            "fas fa-globe",
-            "ramon-chat.forum.new_channel.public",
-            "ramon-chat.forum.new_channel.public_help",
-          )}
-          {this.choice(
-            true,
-            "fas fa-lock",
-            "ramon-chat.forum.new_channel.private",
-            "ramon-chat.forum.new_channel.private_help",
-          )}
+          {this.choice(false, 'fas fa-globe', 'ramon-chat.forum.new_channel.public', 'ramon-chat.forum.new_channel.public_help')}
+          {this.choice(true, 'fas fa-lock', 'ramon-chat.forum.new_channel.private', 'ramon-chat.forum.new_channel.private_help')}
         </div>
       </div>
     );
   }
 
   /** One visibility card. Still a radio underneath — keyboard and screen readers get the group semantics for free. */
-  protected choice(
-    value: boolean,
-    icon: string,
-    labelKey: string,
-    helpKey: string,
-  ): Mithril.Children {
+  protected choice(value: boolean, icon: string, labelKey: string, helpKey: string): Mithril.Children {
     const selected = this.isPrivate() === value;
 
     return (
       <label
-        className={classList("ChannelFormModal-choice", {
-          "ChannelFormModal-choice--selected": selected,
+        className={classList('ChannelFormModal-choice', {
+          'ChannelFormModal-choice--selected': selected,
         })}
       >
-        <input
-          type="radio"
-          name="ramon-chat-visibility"
-          checked={selected}
-          onchange={() => this.isPrivate(value)}
-          disabled={this.loading}
-        />
+        <input type="radio" name="ramon-chat-visibility" checked={selected} onchange={() => this.isPrivate(value)} disabled={this.loading} />
 
         <span className="ChannelFormModal-choice-title">
           <i className={icon} aria-hidden="true" />
           {app.translator.trans(labelKey)}
         </span>
 
-        <span className="ChannelFormModal-choice-help">
-          {app.translator.trans(helpKey)}
-        </span>
+        <span className="ChannelFormModal-choice-help">{app.translator.trans(helpKey)}</span>
       </label>
     );
   }
@@ -903,30 +744,11 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected posting(): Mithril.Children {
     return (
       <div className="Form-group">
-        <label>
-          {app.translator.trans("ramon-chat.forum.new_channel.post_permission")}
-        </label>
+        <label>{app.translator.trans('ramon-chat.forum.new_channel.post_permission')}</label>
 
-        <select
-          className="FormControl"
-          value={this.postPermission()}
-          onchange={withAttr("value", this.postPermission)}
-          disabled={this.loading}
-        >
-          <option value="all">
-            {app.translator.trans(
-              "ramon-chat.forum.new_channel.post_all",
-              {},
-              true,
-            )}
-          </option>
-          <option value="moderators">
-            {app.translator.trans(
-              "ramon-chat.forum.new_channel.post_moderators",
-              {},
-              true,
-            )}
-          </option>
+        <select className="FormControl" value={this.postPermission()} onchange={withAttr('value', this.postPermission)} disabled={this.loading}>
+          <option value="all">{app.translator.trans('ramon-chat.forum.new_channel.post_all', {}, true)}</option>
+          <option value="moderators">{app.translator.trans('ramon-chat.forum.new_channel.post_moderators', {}, true)}</option>
         </select>
 
         {/* The sentence describes the option that is selected, not the one that
@@ -935,9 +757,9 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             setting and says the opposite of the truth. */}
         <div className="helpText">
           {app.translator.trans(
-            this.postPermission() === "moderators"
-              ? "ramon-chat.forum.new_channel.post_moderators_help"
-              : "ramon-chat.forum.new_channel.post_all_help",
+            this.postPermission() === 'moderators'
+              ? 'ramon-chat.forum.new_channel.post_moderators_help'
+              : 'ramon-chat.forum.new_channel.post_all_help'
           )}
         </div>
       </div>
@@ -957,7 +779,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     if (!channel) return null;
 
-    const closed = channel.status() === "closed";
+    const closed = channel.status() === 'closed';
 
     // The status, not `archivedAt`: see ChannelInfoModal::moderation().
     const archived = channel.isArchived();
@@ -967,17 +789,13 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
       items.push(
         <Button
           className="Button"
-          icon={closed ? "fas fa-lock-open" : "fas fa-lock"}
-          loading={this.pending === "status"}
+          icon={closed ? 'fas fa-lock-open' : 'fas fa-lock'}
+          loading={this.pending === 'status'}
           disabled={this.loading}
-          onclick={() => this.setStatus(closed ? "open" : "closed")}
+          onclick={() => this.setStatus(closed ? 'open' : 'closed')}
         >
-          {app.translator.trans(
-            closed
-              ? "ramon-chat.forum.info.reopen_channel"
-              : "ramon-chat.forum.info.close_channel",
-          )}
-        </Button>,
+          {app.translator.trans(closed ? 'ramon-chat.forum.info.reopen_channel' : 'ramon-chat.forum.info.close_channel')}
+        </Button>
       );
     }
 
@@ -986,12 +804,12 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         <Button
           className="Button"
           icon="fas fa-box-archive"
-          loading={this.pending === "archive"}
+          loading={this.pending === 'archive'}
           disabled={this.loading}
           onclick={() => this.archive()}
         >
-          {app.translator.trans("ramon-chat.forum.info.archive_channel")}
-        </Button>,
+          {app.translator.trans('ramon-chat.forum.info.archive_channel')}
+        </Button>
       );
     }
 
@@ -1000,12 +818,12 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         <Button
           className="Button"
           icon="fas fa-box-open"
-          loading={this.pending === "unarchive"}
+          loading={this.pending === 'unarchive'}
           disabled={this.loading}
           onclick={() => this.unarchive()}
         >
-          {app.translator.trans("ramon-chat.forum.info.unarchive_channel")}
-        </Button>,
+          {app.translator.trans('ramon-chat.forum.info.unarchive_channel')}
+        </Button>
       );
     }
 
@@ -1018,28 +836,22 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     return (
       <div className="ChannelFormModal-lifecycle ChannelFormModal-section ChannelFormModal-section--wide">
-        <label className="ChannelFormModal-sectionTitle">
-          {app.translator.trans("ramon-chat.forum.edit_channel.lifecycle")}
-        </label>
+        <label className="ChannelFormModal-sectionTitle">{app.translator.trans('ramon-chat.forum.edit_channel.lifecycle')}</label>
 
-        {items.length > 0 ? (
-          <div className="ChannelFormModal-lifecycleActions">{items}</div>
-        ) : null}
+        {items.length > 0 ? <div className="ChannelFormModal-lifecycleActions">{items}</div> : null}
 
-        <div className="helpText">
-          {app.translator.trans("ramon-chat.forum.edit_channel.lifecycle_help")}
-        </div>
+        <div className="helpText">{app.translator.trans('ramon-chat.forum.edit_channel.lifecycle_help')}</div>
 
         {canDelete ? (
           <div className="ChannelFormModal-lifecycleDanger">
             <Button
               className="Button ChannelFormModal-deleteButton"
               icon="fas fa-trash"
-              loading={this.pending === "delete"}
+              loading={this.pending === 'delete'}
               disabled={this.loading}
               onclick={() => this.destroy()}
             >
-              {app.translator.trans("ramon-chat.forum.info.delete_channel")}
+              {app.translator.trans('ramon-chat.forum.info.delete_channel')}
             </Button>
           </div>
         ) : null}
@@ -1062,23 +874,16 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     if (!channel) return;
 
-    if (
-      !confirm(
-        app.translator.trans("ramon-chat.forum.info.delete_confirm", {}, true),
-      )
-    )
-      return;
+    if (!confirm(app.translator.trans('ramon-chat.forum.info.delete_confirm', {}, true))) return;
 
-    this.pending = "delete";
+    this.pending = 'delete';
     this.loading = true;
     m.redraw();
 
     try {
       await channel.delete();
 
-      chatState.channels = chatState.channels.filter(
-        (c) => c.id() !== channel.id(),
-      );
+      chatState.channels = chatState.channels.filter((c) => c.id() !== channel.id());
 
       // Leaving the active channel pointing at a deleted record strands the
       // stream on something that can no longer be fetched.
@@ -1090,11 +895,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
       afterModalClosed(() => this.attrs.onSaved?.(channel));
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        e?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.edit_channel.failed"),
-      );
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.edit_channel.failed'));
     } finally {
       this.pending = null;
       this.loading = false;
@@ -1102,41 +903,20 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     }
   }
 
-  protected async setStatus(status: "open" | "closed"): Promise<void> {
-    await this.act(
-      "status",
-      `/chat-channels/${this.attrs.channel!.id()}/status`,
-      {
-        status,
-      },
-    );
+  protected async setStatus(status: 'open' | 'closed'): Promise<void> {
+    await this.act('status', `/chat-channels/${this.attrs.channel!.id()}/status`, {
+      status,
+    });
   }
 
   protected async archive(): Promise<void> {
-    if (
-      !confirm(
-        app.translator.trans(
-          "ramon-chat.forum.edit_channel.archive_confirm",
-          {},
-          true,
-        ),
-      )
-    )
-      return;
+    if (!confirm(app.translator.trans('ramon-chat.forum.edit_channel.archive_confirm', {}, true))) return;
 
-    await this.act(
-      "archive",
-      `/chat-channels/${this.attrs.channel!.id()}/archive`,
-      {},
-    );
+    await this.act('archive', `/chat-channels/${this.attrs.channel!.id()}/archive`, {});
   }
 
   protected async unarchive(): Promise<void> {
-    await this.act(
-      "unarchive",
-      `/chat-channels/${this.attrs.channel!.id()}/unarchive`,
-      {},
-    );
+    await this.act('unarchive', `/chat-channels/${this.attrs.channel!.id()}/unarchive`, {});
   }
 
   /**
@@ -1145,19 +925,15 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
    * `action` names the button that owns the spinner for the duration; `loading`
    * still gates the rest of the form, so nothing else can be started meanwhile.
    */
-  protected async act(
-    action: "status" | "archive" | "unarchive",
-    path: string,
-    attributes: Record<string, unknown>,
-  ): Promise<void> {
+  protected async act(action: 'status' | 'archive' | 'unarchive', path: string, attributes: Record<string, unknown>): Promise<void> {
     this.pending = action;
     this.loading = true;
     m.redraw();
 
     try {
       const payload = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}${path}`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}${path}`,
         body: { data: { attributes } },
       });
 
@@ -1169,11 +945,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
       // race the close animation.
       afterModalClosed(() => this.attrs.onSaved?.(this.attrs.channel!));
     } catch (e: any) {
-      app.alerts.show(
-        { type: "error" },
-        e?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.edit_channel.failed"),
-      );
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.edit_channel.failed'));
     } finally {
       this.pending = null;
       this.loading = false;
@@ -1187,32 +959,22 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
    * yields a restricted channel.
    */
   protected tagOptions(): Mithril.Children {
-    const tags = app.store.all("tags");
+    const tags = app.store.all('tags');
 
-    if (!("flarum-tags" in (flarum.extensions ?? {})) || tags.length === 0)
-      return null;
+    if (!('flarum-tags' in (flarum.extensions ?? {})) || tags.length === 0) return null;
 
     const selected = this.selectedTag();
 
     return (
       <div className="Form-group">
-        <label>
-          {app.translator.trans("ramon-chat.forum.new_channel.category")}
-        </label>
+        <label>{app.translator.trans('ramon-chat.forum.new_channel.category')}</label>
 
         {/* Deliberately not `bidi`. For a <select>, bidi walks node.children and
             reads `option.attrs.value` on each — so it requires flat, literal
             children. A mapped list arrives as a nested array whose entries have no
             `.attrs`, which throws. value + onchange is equivalent and safe. */}
-        <select
-          className="FormControl"
-          value={this.tagId()}
-          onchange={withAttr("value", (id: string) => this.chooseTag(id))}
-          disabled={this.loading}
-        >
-          <option value="">
-            {app.translator.trans("ramon-chat.forum.new_channel.no_category")}
-          </option>
+        <select className="FormControl" value={this.tagId()} onchange={withAttr('value', (id: string) => this.chooseTag(id))} disabled={this.loading}>
+          <option value="">{app.translator.trans('ramon-chat.forum.new_channel.no_category')}</option>
           {tags
             .filter((tag: any) => !tag.isChild?.())
             .map((tag: any) => (
@@ -1228,13 +990,8 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             worth saying in one sentence. */}
         <div className="helpText">
           {selected
-            ? app.translator.trans(
-                "ramon-chat.forum.new_channel.category_help_bound",
-                { category: selected.name() },
-              )
-            : app.translator.trans(
-                "ramon-chat.forum.new_channel.category_help_none",
-              )}
+            ? app.translator.trans('ramon-chat.forum.new_channel.category_help_bound', { category: selected.name() })
+            : app.translator.trans('ramon-chat.forum.new_channel.category_help_none')}
         </div>
       </div>
     );
@@ -1255,7 +1012,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     // them off — for whoever may change them. Anyone else saving would have the
     // change refused by ChannelResource, so for them the values are left as
     // the curator set them.
-    if (!id && app.forum.attribute<boolean>("canCurateChatChannels")) {
+    if (!id && app.forum.attribute<boolean>('canCurateChatChannels')) {
       this.postDiscussions(false);
       this.autoJoinOnReply(false);
     }
@@ -1265,11 +1022,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected selectedTag(): any | null {
     if (!this.tagId()) return null;
 
-    return (
-      app.store
-        .all("tags")
-        .find((tag: any) => String(tag.id()) === this.tagId()) ?? null
-    );
+    return app.store.all('tags').find((tag: any) => String(tag.id()) === this.tagId()) ?? null;
   }
 
   /**
@@ -1294,38 +1047,20 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     return (
       <div className="Form-group">
-        <label>
-          {app.translator.trans("ramon-chat.forum.new_channel.slow_mode")}
-        </label>
+        <label>{app.translator.trans('ramon-chat.forum.new_channel.slow_mode')}</label>
 
-        <select
-          className="FormControl"
-          value={this.slowMode()}
-          onchange={withAttr("value", this.slowMode)}
-          disabled={this.loading}
-        >
+        <select className="FormControl" value={this.slowMode()} onchange={withAttr('value', this.slowMode)} disabled={this.loading}>
           {steps.map((seconds) => (
             <option key={seconds} value={String(seconds)}>
-              {seconds === 0
-                ? app.translator.trans(
-                    "ramon-chat.forum.new_channel.slow_mode_off",
-                    {},
-                    true,
-                  )
-                : humanDuration(seconds)}
+              {seconds === 0 ? app.translator.trans('ramon-chat.forum.new_channel.slow_mode_off', {}, true) : humanDuration(seconds)}
             </option>
           ))}
         </select>
 
         <p className="helpText">
           {seconds === 0
-            ? app.translator.trans(
-                "ramon-chat.forum.new_channel.slow_mode_help_off",
-              )
-            : app.translator.trans(
-                "ramon-chat.forum.new_channel.slow_mode_help_on",
-                { duration: humanDuration(seconds) },
-              )}
+            ? app.translator.trans('ramon-chat.forum.new_channel.slow_mode_help_off')
+            : app.translator.trans('ramon-chat.forum.new_channel.slow_mode_help_on', { duration: humanDuration(seconds) })}
         </p>
       </div>
     );
@@ -1347,43 +1082,23 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     return (
       <div className="Form-group">
-        <label>
-          {app.translator.trans("ramon-chat.forum.new_channel.message_length")}
-        </label>
+        <label>{app.translator.trans('ramon-chat.forum.new_channel.message_length')}</label>
 
         <select
           className="FormControl"
           value={custom ? CUSTOM_LENGTH : value}
-          onchange={withAttr("value", (picked: string) =>
-            this.chooseMessageLength(picked),
-          )}
+          onchange={withAttr('value', (picked: string) => this.chooseMessageLength(picked))}
           disabled={this.loading}
         >
-          <option value="">
-            {app.translator.trans(
-              "ramon-chat.forum.new_channel.message_length_inherit",
-              { count: forumDefault },
-              true,
-            )}
-          </option>
+          <option value="">{app.translator.trans('ramon-chat.forum.new_channel.message_length_inherit', { count: forumDefault }, true)}</option>
 
           {LENGTH_STEPS.map((chars) => (
             <option key={chars} value={String(chars)}>
-              {app.translator.trans(
-                "ramon-chat.forum.new_channel.message_length_chars",
-                { count: chars },
-                true,
-              )}
+              {app.translator.trans('ramon-chat.forum.new_channel.message_length_chars', { count: chars }, true)}
             </option>
           ))}
 
-          <option value={CUSTOM_LENGTH}>
-            {app.translator.trans(
-              "ramon-chat.forum.new_channel.message_length_custom",
-              {},
-              true,
-            )}
-          </option>
+          <option value={CUSTOM_LENGTH}>{app.translator.trans('ramon-chat.forum.new_channel.message_length_custom', {}, true)}</option>
         </select>
 
         {custom ? (
@@ -1400,10 +1115,8 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
             value={value}
             placeholder={String(forumDefault)}
             disabled={this.loading}
-            oninput={withAttr("value", this.maxMessageLength)}
-            oncreate={(vnode: Mithril.VnodeDOM) =>
-              (vnode.dom as HTMLInputElement).focus()
-            }
+            oninput={withAttr('value', this.maxMessageLength)}
+            oncreate={(vnode: Mithril.VnodeDOM) => (vnode.dom as HTMLInputElement).focus()}
           />
         ) : null}
 
@@ -1416,12 +1129,10 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
   protected messageLengthHelp(forumDefault: number): Mithril.Children {
     const raw = this.maxMessageLength().trim();
 
-    if (raw === "") {
+    if (raw === '') {
       return app.translator.trans(
-        this.customLength()
-          ? "ramon-chat.forum.new_channel.message_length_help_empty"
-          : "ramon-chat.forum.new_channel.message_length_help_inherit",
-        { count: forumDefault },
+        this.customLength() ? 'ramon-chat.forum.new_channel.message_length_help_empty' : 'ramon-chat.forum.new_channel.message_length_help_inherit',
+        { count: forumDefault }
       );
     }
 
@@ -1431,16 +1142,10 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
     // clamps, and a help text promising 40 characters under a field the API
     // will raise to 100 is a lie the reader only discovers afterwards.
     if (chars < MIN_LENGTH || chars > MAX_LENGTH) {
-      return app.translator.trans(
-        "ramon-chat.forum.new_channel.message_length_help_clamped",
-        { count: this.clampedMessageLength() ?? forumDefault },
-      );
+      return app.translator.trans('ramon-chat.forum.new_channel.message_length_help_clamped', { count: this.clampedMessageLength() ?? forumDefault });
     }
 
-    return app.translator.trans(
-      "ramon-chat.forum.new_channel.message_length_help_own",
-      { count: chars },
-    );
+    return app.translator.trans('ramon-chat.forum.new_channel.message_length_help_own', { count: chars });
   }
 
   /** Switches between a preset, the forum default, and the custom field. */
@@ -1450,7 +1155,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
       // Seeded with the preset that was showing, so the field opens on a
       // sensible number instead of empty.
-      if (this.maxMessageLength() === "") {
+      if (this.maxMessageLength() === '') {
         this.maxMessageLength(String(forumMaxMessageLength()));
       }
 
@@ -1504,11 +1209,10 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
 
     // `type` is writable only on create; sending it on update would be rejected.
     if (!editing) {
-      attributes.type = "category";
+      attributes.type = 'category';
     }
 
-    const record =
-      this.attrs.channel ?? app.store.createRecord<Channel>("chat-channels");
+    const record = this.attrs.channel ?? app.store.createRecord<Channel>('chat-channels');
 
     record
       .save(attributes)
@@ -1528,10 +1232,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
           await this.clearImage();
         }
 
-        if (
-          !editing &&
-          !chatState.channels.some((c) => c.id() === channel.id())
-        ) {
+        if (!editing && !chatState.channels.some((c) => c.id() === channel.id())) {
           // The server subscribes the creator, so the channel belongs in the
           // sidebar straight away rather than after the next poll.
           chatState.channels.unshift(channel as Channel);
@@ -1540,10 +1241,7 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
         this.hide();
 
         if (editing) {
-          app.alerts.show(
-            { type: "success" },
-            app.translator.trans("ramon-chat.forum.edit_channel.saved"),
-          );
+          app.alerts.show({ type: 'success' }, app.translator.trans('ramon-chat.forum.edit_channel.saved'));
         }
 
         // Deferred until the modal has actually gone.
@@ -1565,13 +1263,9 @@ export default class ChannelFormModal extends FormModal<ChannelFormModalAttrs> {
           this.onerror(error);
         } else {
           app.alerts.show(
-            { type: "error" },
+            { type: 'error' },
             error?.response?.errors?.[0]?.detail ??
-              app.translator.trans(
-                editing
-                  ? "ramon-chat.forum.edit_channel.failed"
-                  : "ramon-chat.forum.new_channel.failed",
-              ),
+              app.translator.trans(editing ? 'ramon-chat.forum.edit_channel.failed' : 'ramon-chat.forum.new_channel.failed')
           );
 
           m.redraw();

@@ -1,4 +1,4 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
 /**
  * A span of seconds, said the way a person would.
@@ -15,24 +15,12 @@ export function humanDuration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
 
   if (total >= 3600 && total % 3600 === 0) {
-    return app.translator.trans(
-      "ramon-chat.forum.duration.hours",
-      { count: total / 3600 },
-      true,
-    );
+    return app.translator.trans('ramon-chat.forum.duration.hours', { count: total / 3600 }, true);
   }
 
   if (total >= 60 && total % 60 === 0) {
-    return app.translator.trans(
-      "ramon-chat.forum.duration.minutes",
-      { count: total / 60 },
-      true,
-    );
+    return app.translator.trans('ramon-chat.forum.duration.minutes', { count: total / 60 }, true);
   }
 
-  return app.translator.trans(
-    "ramon-chat.forum.duration.seconds",
-    { count: total },
-    true,
-  );
+  return app.translator.trans('ramon-chat.forum.duration.seconds', { count: total }, true);
 }

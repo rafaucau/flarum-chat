@@ -1,7 +1,7 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import type Channel from "../../common/models/Channel";
-import chatState from "../state/chat";
+import type Channel from '../../common/models/Channel';
+import chatState from '../state/chat';
 
 /**
  * Answering a channel invitation.
@@ -25,12 +25,10 @@ import chatState from "../state/chat";
  * capability flags, which is what lets the composer appear at once instead of
  * after a reload.
  */
-export async function acceptInvitation(
-  channelId: number,
-): Promise<Channel | null> {
+export async function acceptInvitation(channelId: number): Promise<Channel | null> {
   const payload = await app.request<any>({
-    method: "POST",
-    url: `${app.forum.attribute("apiUrl")}/chat/invites/${channelId}/accept`,
+    method: 'POST',
+    url: `${app.forum.attribute('apiUrl')}/chat/invites/${channelId}/accept`,
   });
 
   const channel = adoptChannelPayload(payload);
@@ -42,8 +40,8 @@ export async function acceptInvitation(
 
 export async function declineInvitation(channelId: number): Promise<void> {
   await app.request({
-    method: "POST",
-    url: `${app.forum.attribute("apiUrl")}/chat/invites/${channelId}/decline`,
+    method: 'POST',
+    url: `${app.forum.attribute('apiUrl')}/chat/invites/${channelId}/decline`,
   });
 
   const channel = chatState.channel(channelId);
@@ -70,8 +68,7 @@ export function adoptChannelPayload(payload: unknown): Channel | null {
 
   if (!document?.data?.id) return null;
 
-  const pushed = app.store.pushPayload(document as any) as unknown as
-    Channel | Channel[] | null;
+  const pushed = app.store.pushPayload(document as any) as unknown as Channel | Channel[] | null;
 
   return (Array.isArray(pushed) ? pushed[0] : pushed) ?? null;
 }
@@ -83,7 +80,7 @@ export function adoptChannelPayload(payload: unknown): Channel | null {
 export function invitationErrorText(error: any, fallbackKey: string): string {
   const detail = error?.response?.errors?.[0]?.detail;
 
-  if (typeof detail === "string" && detail !== "") return detail;
+  if (typeof detail === 'string' && detail !== '') return detail;
 
   return app.translator.trans(fallbackKey, {}, true) as string;
 }

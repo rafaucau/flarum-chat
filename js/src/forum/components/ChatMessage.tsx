@@ -1,29 +1,29 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import Link from "flarum/common/components/Link";
-import username from "flarum/common/helpers/username";
-import humanTime from "flarum/common/helpers/humanTime";
-import humanTimeUtil from "flarum/common/utils/humanTime";
-import listItems from "flarum/common/helpers/listItems";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import Link from 'flarum/common/components/Link';
+import username from 'flarum/common/helpers/username';
+import humanTime from 'flarum/common/helpers/humanTime';
+import humanTimeUtil from 'flarum/common/utils/humanTime';
+import listItems from 'flarum/common/helpers/listItems';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Message from "../../common/models/Message";
-import type ChatState from "../state/ChatState";
-import { displayEmoji } from "../utils/emoji";
-import { customEmoji, customEmojiImage } from "../utils/flamoji";
-import { isOnline } from "../utils/presence";
-import { authorAvatar, authorLink } from "../utils/bot";
-import { safeFileUrl } from "../utils/url";
-import { jumpToMessage, revealAndJump } from "../utils/jumpToMessage";
-import { verifiedBadge } from "../utils/integrations";
-import { messageRank, rankNameAttrs, rankTag } from "../utils/ranks";
-import { messagePreview } from "../../common/utils/preview";
-import { refreshMessageCapabilities } from "../realtime";
-import iconLabel from "../utils/iconLabel";
-import { loadFlagMessageModal, loadImageLightbox } from "../utils/lazy";
+import type Message from '../../common/models/Message';
+import type ChatState from '../state/ChatState';
+import { displayEmoji } from '../utils/emoji';
+import { customEmoji, customEmojiImage } from '../utils/flamoji';
+import { isOnline } from '../utils/presence';
+import { authorAvatar, authorLink } from '../utils/bot';
+import { safeFileUrl } from '../utils/url';
+import { jumpToMessage, revealAndJump } from '../utils/jumpToMessage';
+import { verifiedBadge } from '../utils/integrations';
+import { messageRank, rankNameAttrs, rankTag } from '../utils/ranks';
+import { messagePreview } from '../../common/utils/preview';
+import { refreshMessageCapabilities } from '../realtime';
+import iconLabel from '../utils/iconLabel';
+import { loadFlagMessageModal, loadImageLightbox } from '../utils/lazy';
 
 export interface ChatMessageAttrs extends ComponentAttrs {
   message: Message;
@@ -49,7 +49,7 @@ export interface ChatMessageAttrs extends ComponentAttrs {
  * reachable through the picker, and hearts already stored on old messages keep
  * rendering as hearts.
  */
-const LIKE_REACTION = "+1";
+const LIKE_REACTION = '+1';
 
 /**
  * One row in the message stream.
@@ -68,8 +68,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     // A pinned or reported message never collapses into the run above it:
     // grouping hides the meta row, which is where both are stated.
-    const grouped =
-      message.isGroupedWith(previous) && !message.isPinned() && reports === 0;
+    const grouped = message.isGroupedWith(previous) && !message.isPinned() && reports === 0;
     const selected = state.selected.has(Number(message.id()));
     const rank = grouped ? null : messageRank(message);
 
@@ -79,33 +78,26 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     return (
       <div
-        className={classList("ChatMessage", {
-          "ChatMessage--grouped": grouped,
-          "ChatMessage--pinned": !deleted && Boolean(message.isPinned()),
-          "ChatMessage--flagged": reports > 0,
-          "ChatMessage--mentioned": !deleted && message.mentionsActor(),
-          "ChatMessage--selected": selected,
+        className={classList('ChatMessage', {
+          'ChatMessage--grouped': grouped,
+          'ChatMessage--pinned': !deleted && Boolean(message.isPinned()),
+          'ChatMessage--flagged': reports > 0,
+          'ChatMessage--mentioned': !deleted && message.mentionsActor(),
+          'ChatMessage--selected': selected,
           // A bot post that stands for something elsewhere — currently only a new
           // discussion. The row stays an ordinary message: same avatar, same
           // timestamp, same reactions. Only its content block is drawn as a quoted
           // card, which is what distinguishes "here is a thing over there" from
           // somebody talking.
-          "ChatMessage--announcement":
-            !deleted && message.isBot() && Boolean(message.systemKey()),
+          'ChatMessage--announcement': !deleted && message.isBot() && Boolean(message.systemKey()),
           // Only meaningful on an ungrouped row, which is the one showing an
           // avatar for the halo to sit on.
-          "ChatMessage--online": !grouped && isOnline(message.user() || null),
+          'ChatMessage--online': !grouped && isOnline(message.user() || null),
         })}
         data-id={message.id()}
-        onclick={
-          state.selecting
-            ? () => state.toggleSelected(Number(message.id()))
-            : undefined
-        }
+        onclick={state.selecting ? () => state.toggleSelected(Number(message.id())) : undefined}
       >
-        <div className="ChatMessage-gutter">
-          {grouped ? this.shortTime(message) : this.avatar(message)}
-        </div>
+        <div className="ChatMessage-gutter">{grouped ? this.shortTime(message) : this.avatar(message)}</div>
 
         <div className="ChatMessage-body">
           {grouped ? null : (
@@ -113,15 +105,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
               {/* The author's rank in this room, before the name the way a
                   forum rank sits before it. A rank set not to show as a tag
                   colours the name instead. */}
-              {rank?.showBadge ? rankTag(rank, "ChatMessage-rank") : null}
+              {rank?.showBadge ? rankTag(rank, 'ChatMessage-rank') : null}
 
-              <span
-                {...rankNameAttrs(rank)}
-                className={classList(
-                  "ChatMessage-author",
-                  rankNameAttrs(rank).className,
-                )}
-              >
+              <span {...rankNameAttrs(rank)} className={classList('ChatMessage-author', rankNameAttrs(rank).className)}>
                 {authorLink(message)}
               </span>
 
@@ -134,26 +120,15 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
                   person by default, and the one thing a reader needs to know here is
                   that nobody typed it — so the badge is part of the identity rather
                   than a decoration on top of it. */}
-              {message.isBot() ? (
-                <span className="ChatMessage-botTag">
-                  {app.translator.trans("ramon-chat.forum.bot.tag")}
-                </span>
-              ) : null}
-              {message.createdAt() ? (
-                <span className="ChatMessage-time">
-                  {humanTime(message.createdAt()!)}
-                </span>
-              ) : null}
+              {message.isBot() ? <span className="ChatMessage-botTag">{app.translator.trans('ramon-chat.forum.bot.tag')}</span> : null}
+              {message.createdAt() ? <span className="ChatMessage-time">{humanTime(message.createdAt()!)}</span> : null}
               {/* A pin is channel-wide, so it is stated on the row itself and not
                   only in the pinned list — otherwise nobody scrolling past would
                   know why the message is highlighted. */}
               {!deleted && message.isPinned() ? (
-                <span
-                  className="ChatMessage-pinMark"
-                  title={String(message.pinnedAt() ?? "")}
-                >
+                <span className="ChatMessage-pinMark" title={String(message.pinnedAt() ?? '')}>
                   <i className="fas fa-thumbtack" aria-hidden="true" />
-                  {app.translator.trans("ramon-chat.forum.message.pinned")}
+                  {app.translator.trans('ramon-chat.forum.message.pinned')}
                 </span>
               ) : null}
               {/* For moderators already in the room: which messages are waiting
@@ -161,16 +136,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
               {reports > 0 ? (
                 <Link
                   className="ChatMessage-flagMark"
-                  href={app.route("chat.flags")}
-                  title={app.translator.trans(
-                    "ramon-chat.forum.message.reports_open",
-                    { count: reports },
-                    true,
-                  )}
+                  href={app.route('chat.flags')}
+                  title={app.translator.trans('ramon-chat.forum.message.reports_open', { count: reports }, true)}
                   onclick={(e: MouseEvent) => e.stopPropagation()}
                 >
                   <i className="fas fa-flag" aria-hidden="true" />
-                  {app.translator.trans("ramon-chat.forum.message.reports", {
+                  {app.translator.trans('ramon-chat.forum.message.reports', {
                     count: reports,
                   })}
                 </Link>
@@ -207,9 +178,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     if (!message.isModeratorDeleted()) {
       return (
         <div className="ChatMessage-tombstone">
-          <span>
-            {app.translator.trans("ramon-chat.forum.message.deleted")}
-          </span>
+          <span>{app.translator.trans('ramon-chat.forum.message.deleted')}</span>
 
           {this.purgeButton(message)}
         </div>
@@ -227,15 +196,10 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       <div className="ChatMessage-tombstone">
         <span>
           {moderator
-            ? app.translator.trans(
-                "ramon-chat.forum.message.deleted_by_named",
-                {
-                  username: username(moderator),
-                },
-              )
-            : app.translator.trans(
-                "ramon-chat.forum.message.deleted_by_moderator",
-              )}
+            ? app.translator.trans('ramon-chat.forum.message.deleted_by_named', {
+                username: username(moderator),
+              })
+            : app.translator.trans('ramon-chat.forum.message.deleted_by_moderator')}
         </span>
 
         {this.purgeButton(message)}
@@ -292,42 +256,26 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       <Button
         className="Button Button--flat Button--icon ChatMessage-purge"
         icon="fas fa-eraser"
-        {...iconLabel(
-          app.translator.trans("ramon-chat.forum.message.purge", {}, true),
-        )}
+        {...iconLabel(app.translator.trans('ramon-chat.forum.message.purge', {}, true))}
         onclick={() => this.purge(message)}
       />
     );
   }
 
   protected async purge(message: Message): Promise<void> {
-    if (
-      !confirm(
-        app.translator.trans(
-          "ramon-chat.forum.message.purge_confirm",
-          {},
-          true,
-        ),
-      )
-    ) {
+    if (!confirm(app.translator.trans('ramon-chat.forum.message.purge_confirm', {}, true))) {
       return;
     }
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/purge`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/purge`,
       });
 
-      this.attrs.state.removeMessage(
-        Number(message.channelId()),
-        Number(message.id()),
-      );
+      this.attrs.state.removeMessage(Number(message.channelId()), Number(message.id()));
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.message.purge_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.message.purge_failed'));
     } finally {
       m.redraw();
     }
@@ -367,24 +315,17 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     const at = message.editedAt();
 
     if (!at) {
-      return (
-        <span className="ChatMessage-editedMark">
-          ({app.translator.trans("ramon-chat.forum.message.edited")})
-        </span>
-      );
+      return <span className="ChatMessage-editedMark">({app.translator.trans('ramon-chat.forum.message.edited')})</span>;
     }
 
     return (
       <time
         className="ChatMessage-editedMark"
         datetime={at.toISOString()}
-        title={app.translator.formatDateTime(
-          dayjs(at),
-          "core.lib.datetime_formats.fullTime",
-        )}
+        title={app.translator.formatDateTime(dayjs(at), 'core.lib.datetime_formats.fullTime')}
       >
         (
-        {app.translator.trans("ramon-chat.forum.message.edited_at", {
+        {app.translator.trans('ramon-chat.forum.message.edited_at', {
           ago: humanTimeUtil(at),
         })}
         )
@@ -400,12 +341,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <div className="ChatMessage-gutter" />
         <div className="ChatMessage-body">
           <div className="ChatMessage-tombstone">
-            {key
-              ? app.translator.trans(
-                  `ramon-chat.forum.message.system.${key}`,
-                  message.systemData() ?? {},
-                )
-              : null}
+            {key ? app.translator.trans(`ramon-chat.forum.message.system.${key}`, message.systemData() ?? {}) : null}
           </div>
         </div>
       </div>
@@ -422,7 +358,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   protected async openLightbox(images: any[], index: number): Promise<void> {
     const ImageLightbox = (await loadImageLightbox()).default;
 
-    const mount = document.createElement("div");
+    const mount = document.createElement('div');
     document.body.appendChild(mount);
 
     const close = () => {
@@ -463,9 +399,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     return (
       <span className="ChatMessage-avatar">
         {authorAvatar(message)}
-        <ul className="ChatMessage-badges badges badges--packed">
-          {listItems(badges)}
-        </ul>
+        <ul className="ChatMessage-badges badges badges--packed">{listItems(badges)}</ul>
       </span>
     );
   }
@@ -477,8 +411,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     return (
       <span>
-        {at.getHours().toString().padStart(2, "0")}:
-        {at.getMinutes().toString().padStart(2, "0")}
+        {at.getHours().toString().padStart(2, '0')}:{at.getMinutes().toString().padStart(2, '0')}
       </span>
     );
   }
@@ -505,42 +438,28 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       <button
         type="button"
         className="ChatMessage-replyTo"
-        title={app.translator.trans(
-          "ramon-chat.forum.message.reply_jump",
-          {},
-          true,
-        )}
+        title={app.translator.trans('ramon-chat.forum.message.reply_jump', {}, true)}
         onclick={(e: MouseEvent) => {
           e.stopPropagation();
 
-          if ((e.target as HTMLElement | null)?.closest("a")) return;
+          if ((e.target as HTMLElement | null)?.closest('a')) return;
 
           const from = e.currentTarget as HTMLElement;
-          const inThread = !!from.closest(".ChatThreadPanel-stream");
+          const inThread = !!from.closest('.ChatThreadPanel-stream');
           const jumped = inThread
             ? Promise.resolve(jumpToMessage(target.id()!, from))
-            : revealAndJump(
-                this.attrs.state,
-                Number(message.channelId()),
-                target.id()!,
-                from,
-              );
+            : revealAndJump(this.attrs.state, Number(message.channelId()), target.id()!, from);
 
           jumped.then((found) => {
             if (found) return;
 
-            app.alerts.show(
-              { type: "error" },
-              app.translator.trans("ramon-chat.forum.message.reply_not_loaded"),
-            );
+            app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.message.reply_not_loaded'));
           });
         }}
       >
         <i className="fas fa-reply" aria-hidden="true" />
         <span>{authorLink(target)}</span>
-        <span className="ChatMessage-replyTo-content">
-          {messagePreview(target, 120)}
-        </span>
+        <span className="ChatMessage-replyTo-content">{messagePreview(target, 120)}</span>
       </button>
     );
   }
@@ -565,8 +484,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
             <button
               key={emoji}
               type="button"
-              className={classList("ChatReactions-chip", {
-                "ChatReactions-chip--active": entry.reacted,
+              className={classList('ChatReactions-chip', {
+                'ChatReactions-chip--active': entry.reacted,
               })}
               disabled={!message.canReact()}
               onclick={(e: Event) => {
@@ -579,18 +498,11 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
                   the chip's colour where an emoji stays fixed. Every other
                   reaction is a real emoji and renders as one. */}
               {emoji === LIKE_REACTION ? (
-                <i
-                  className="ChatReactions-icon fas fa-thumbs-up"
-                  aria-hidden="true"
-                />
+                <i className="ChatReactions-icon fas fa-thumbs-up" aria-hidden="true" />
               ) : custom ? (
-                <span className="ChatReactions-emoji">
-                  {customEmojiImage(custom, "ChatReactions-flamoji")}
-                </span>
+                <span className="ChatReactions-emoji">{customEmojiImage(custom, 'ChatReactions-flamoji')}</span>
               ) : (
-                <span className="ChatReactions-emoji">
-                  {displayEmoji(emoji)}
-                </span>
+                <span className="ChatReactions-emoji">{displayEmoji(emoji)}</span>
               )}
               <span>{entry.count}</span>
             </button>
@@ -607,9 +519,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     if (!related) return null;
 
-    const uploads = related.filter(
-      (upload): upload is NonNullable<typeof upload> => Boolean(upload),
-    );
+    const uploads = related.filter((upload): upload is NonNullable<typeof upload> => Boolean(upload));
 
     if (uploads.length === 0) return null;
 
@@ -631,11 +541,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
               className="ChatUploads-imageButton"
               onclick={(e: Event) => {
                 e.stopPropagation();
-                this.openLightbox(images, images.indexOf(upload)).catch(
-                  () => {},
-                );
+                this.openLightbox(images, images.indexOf(upload)).catch(() => {});
               }}
-              aria-label={upload.fileName() ?? ""}
+              aria-label={upload.fileName() ?? ''}
             >
               <img
                 className="ChatUploads-image"
@@ -649,20 +557,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
               />
             </button>
           ) : (
-            <a
-              key={upload.id()}
-              className="ChatUploads-file"
-              href={safeFileUrl(upload.url())}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a key={upload.id()} className="ChatUploads-file" href={safeFileUrl(upload.url())} target="_blank" rel="noopener noreferrer">
               <i className="fas fa-paperclip" aria-hidden="true" />
               <span className="ChatUploads-file-name">{upload.fileName()}</span>
-              <span className="ChatUploads-file-size">
-                {upload.humanSize()}
-              </span>
+              <span className="ChatUploads-file-size">{upload.humanSize()}</span>
             </a>
-          ),
+          )
         )}
       </div>
     );
@@ -674,8 +574,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     const thread = message.thread();
 
     // Only the thread's root carries the indicator; replies live inside the panel.
-    if (!thread || thread.originalMessageId() !== Number(message.id()))
-      return null;
+    if (!thread || thread.originalMessageId() !== Number(message.id())) return null;
 
     const last = thread.lastMessage();
 
@@ -690,15 +589,11 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       >
         <i className="fas fa-comments" aria-hidden="true" />
         <span className="ChatThreadIndicator-count">
-          {app.translator.trans("ramon-chat.forum.thread.replies", {
+          {app.translator.trans('ramon-chat.forum.thread.replies', {
             count: thread.repliesCount(),
           })}
         </span>
-        {last ? (
-          <span className="ChatThreadIndicator-preview">
-            {messagePreview(last, 80)}
-          </span>
-        ) : null}
+        {last ? <span className="ChatThreadIndicator-preview">{messagePreview(last, 80)}</span> : null}
       </button>
     );
   }
@@ -707,28 +602,18 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     const items: Mithril.Children[] = [];
 
     if (message.canReact()) {
-      const liked = Boolean(
-        message.reactionSummary()?.[LIKE_REACTION]?.reacted,
-      );
+      const liked = Boolean(message.reactionSummary()?.[LIKE_REACTION]?.reacted);
 
       items.push(
         <Button
-          className={classList("ChatMessage-action", {
-            "ChatMessage-action--active": liked,
+          className={classList('ChatMessage-action', {
+            'ChatMessage-action--active': liked,
           })}
           // Filled while liked, outlined otherwise — the same read as flarum/likes.
-          icon={liked ? "fas fa-thumbs-up" : "far fa-thumbs-up"}
-          {...iconLabel(
-            app.translator.trans(
-              liked
-                ? "ramon-chat.forum.message.unlike"
-                : "ramon-chat.forum.message.like",
-              {},
-              true,
-            ),
-          )}
+          icon={liked ? 'fas fa-thumbs-up' : 'far fa-thumbs-up'}
+          {...iconLabel(app.translator.trans(liked ? 'ramon-chat.forum.message.unlike' : 'ramon-chat.forum.message.like', {}, true))}
           onclick={() => this.react(message, LIKE_REACTION)}
-        />,
+        />
       );
     }
 
@@ -737,15 +622,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <Button
           className="ChatMessage-action"
           icon="fas fa-comments"
-          {...iconLabel(
-            app.translator.trans(
-              "ramon-chat.forum.message.reply_in_thread",
-              {},
-              true,
-            ),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.message.reply_in_thread', {}, true))}
           onclick={() => this.attrs.onOpenThread?.(message)}
-        />,
+        />
       );
     }
 
@@ -754,11 +633,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <Button
           className="ChatMessage-action"
           icon="fas fa-reply"
-          {...iconLabel(
-            app.translator.trans("ramon-chat.forum.message.reply", {}, true),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.message.reply', {}, true))}
           onclick={() => this.attrs.onReply?.(message)}
-        />,
+        />
       );
     }
 
@@ -767,11 +644,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <Button
           className="ChatMessage-action"
           icon="fas fa-pencil"
-          {...iconLabel(
-            app.translator.trans("ramon-chat.forum.message.edit", {}, true),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.message.edit', {}, true))}
           onclick={() => this.attrs.onEdit?.(message)}
-        />,
+        />
       );
     }
 
@@ -779,18 +654,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       items.push(
         <Button
           className="ChatMessage-action"
-          icon={message.isBookmarked() ? "fas fa-bookmark" : "far fa-bookmark"}
+          icon={message.isBookmarked() ? 'fas fa-bookmark' : 'far fa-bookmark'}
           {...iconLabel(
-            app.translator.trans(
-              message.isBookmarked()
-                ? "ramon-chat.forum.message.remove_bookmark"
-                : "ramon-chat.forum.message.bookmark",
-              {},
-              true,
-            ),
+            app.translator.trans(message.isBookmarked() ? 'ramon-chat.forum.message.remove_bookmark' : 'ramon-chat.forum.message.bookmark', {}, true)
           )}
           onclick={() => this.bookmark(message)}
-        />,
+        />
       );
     }
 
@@ -801,9 +670,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       <Button
         className="ChatMessage-action"
         icon="fas fa-list-check"
-        {...iconLabel(
-          app.translator.trans("ramon-chat.forum.message.select", {}, true),
-        )}
+        {...iconLabel(app.translator.trans('ramon-chat.forum.message.select', {}, true))}
         onclick={() => {
           const state = this.attrs.state;
 
@@ -811,7 +678,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
           state.selected.add(Number(message.id()));
           m.redraw();
         }}
-      />,
+      />
     );
 
     if (message.canPin()) {
@@ -819,26 +686,18 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
       items.push(
         <Button
-          className={classList("ChatMessage-action", {
-            "ChatMessage-action--active": pinned,
+          className={classList('ChatMessage-action', {
+            'ChatMessage-action--active': pinned,
           })}
           // The struck-through pin on an already-pinned message: the icon shows
           // what the click does, not what the message currently is. Colour alone
           // said "this is pinned" and left the reader to guess that pressing it
           // again undoes that — and the accent is invisible to anyone who cannot
           // separate it from the resting colour.
-          icon={pinned ? "fas fa-thumbtack-slash" : "fas fa-thumbtack"}
-          {...iconLabel(
-            app.translator.trans(
-              pinned
-                ? "ramon-chat.forum.message.unpin"
-                : "ramon-chat.forum.message.pin",
-              {},
-              true,
-            ),
-          )}
+          icon={pinned ? 'fas fa-thumbtack-slash' : 'fas fa-thumbtack'}
+          {...iconLabel(app.translator.trans(pinned ? 'ramon-chat.forum.message.unpin' : 'ramon-chat.forum.message.pin', {}, true))}
           onclick={() => this.pin(message)}
-        />,
+        />
       );
     }
 
@@ -850,21 +709,13 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
       items.push(
         <Button
-          className={classList("ChatMessage-action", {
-            "ChatMessage-action--active": reported,
+          className={classList('ChatMessage-action', {
+            'ChatMessage-action--active': reported,
           })}
           icon="fas fa-flag"
-          {...iconLabel(
-            app.translator.trans(
-              reported
-                ? "ramon-chat.forum.message.flagged"
-                : "ramon-chat.forum.message.flag",
-              {},
-              true,
-            ),
-          )}
+          {...iconLabel(app.translator.trans(reported ? 'ramon-chat.forum.message.flagged' : 'ramon-chat.forum.message.flag', {}, true))}
           onclick={() => app.modal.show(loadFlagMessageModal, { message })}
-        />,
+        />
       );
     }
 
@@ -873,11 +724,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <Button
           className="ChatMessage-action"
           icon="fas fa-trash"
-          {...iconLabel(
-            app.translator.trans("ramon-chat.forum.message.delete", {}, true),
-          )}
+          {...iconLabel(app.translator.trans('ramon-chat.forum.message.delete', {}, true))}
           onclick={() => this.delete(message)}
-        />,
+        />
       );
     }
 
@@ -906,8 +755,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     try {
       const payload = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/react`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/react`,
         body: { data: { attributes: { emoji } } },
       });
 
@@ -928,8 +777,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/bookmark`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/bookmark`,
         body: { data: { attributes: {} } },
       });
     } catch {
@@ -954,8 +803,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     try {
       const payload = await app.request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/pin`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/pin`,
         body: { data: { attributes: {} } },
       });
 
@@ -963,32 +812,19 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     } catch (e: any) {
       message.pushAttributes({ isPinned: was });
 
-      app.alerts.show(
-        { type: "error" },
-        e?.response?.errors?.[0]?.detail ??
-          app.translator.trans("ramon-chat.forum.message.pin_failed"),
-      );
+      app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.message.pin_failed'));
     } finally {
       m.redraw();
     }
   }
 
   protected async delete(message: Message): Promise<void> {
-    if (
-      !confirm(
-        app.translator.trans(
-          "ramon-chat.forum.message.delete_confirm",
-          {},
-          true,
-        ),
-      )
-    )
-      return;
+    if (!confirm(app.translator.trans('ramon-chat.forum.message.delete_confirm', {}, true))) return;
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/delete`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/delete`,
       });
 
       message.pushAttributes({
@@ -999,9 +835,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         // until then this row renders from whatever the client last set — and a
         // tombstone that guesses is how "removed by a moderator" ended up on
         // messages people had deleted themselves.
-        isModeratorDeleted:
-          Number((message.user() || null)?.id() ?? 0) !==
-          Number(app.session.user?.id() ?? 0),
+        isModeratorDeleted: Number((message.user() || null)?.id() ?? 0) !== Number(app.session.user?.id() ?? 0),
       });
 
       // What the optimistic push above cannot state: `canForceDelete` and its
@@ -1015,10 +849,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       // only after a reload.
       refreshMessageCapabilities(Number(message.id()));
     } catch (e) {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.message.delete_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.message.delete_failed'));
     } finally {
       m.redraw();
     }

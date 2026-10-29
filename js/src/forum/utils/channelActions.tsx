@@ -1,15 +1,10 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import type Channel from "../../common/models/Channel";
-import type ChatState from "../state/ChatState";
-import {
-  acceptInvitation,
-  adoptChannelPayload,
-  declineInvitation,
-  invitationErrorText,
-} from "./invitations";
-import { loadChannelFormModal } from "./lazy";
-import { loadChannelInfoModal } from "./lazy";
+import type Channel from '../../common/models/Channel';
+import type ChatState from '../state/ChatState';
+import { acceptInvitation, adoptChannelPayload, declineInvitation, invitationErrorText } from './invitations';
+import { loadChannelFormModal } from './lazy';
+import { loadChannelInfoModal } from './lazy';
 
 /**
  * One thing the actor can do to a channel from its header.
@@ -63,13 +58,8 @@ export interface ChannelActionOptions {
  * Every entry is gated on a server-computed flag, so a control is absent rather
  * than present-and-rejected — see ChannelPolicy.
  */
-export function channelActions(
-  channel: Channel,
-  state: ChatState,
-  options: ChannelActionOptions = {},
-): ChannelAction[] {
-  const trans = (key: string) =>
-    app.translator.trans(`ramon-chat.forum.channel.${key}`, {}, true) as string;
+export function channelActions(channel: Channel, state: ChatState, options: ChannelActionOptions = {}): ChannelAction[] {
+  const trans = (key: string) => app.translator.trans(`ramon-chat.forum.channel.${key}`, {}, true) as string;
 
   const busy = inFlight.has(String(channel.id()));
   const actions: ChannelAction[] = [];
@@ -78,17 +68,17 @@ export function channelActions(
   // behind the title, which every member can open.
   if (channel.canEdit() && channel.isCategory()) {
     actions.push({
-      key: "edit",
-      icon: "fas fa-pen-to-square",
-      label: trans("edit"),
+      key: 'edit',
+      icon: 'fas fa-pen-to-square',
+      label: trans('edit'),
       onclick: () => app.modal.show(loadChannelFormModal, { channel }),
     });
   }
 
   actions.push({
-    key: "pinned",
-    icon: "fas fa-thumbtack",
-    label: trans("pinned_messages"),
+    key: 'pinned',
+    icon: 'fas fa-thumbtack',
+    label: trans('pinned_messages'),
     active: state.showPinned,
     onclick: () => {
       state.togglePinned();
@@ -101,24 +91,23 @@ export function channelActions(
   // like the pinned list, for the same reason search is one.
   if (channel.threadingEnabled()) {
     actions.push({
-      key: "threads",
-      icon: "fas fa-code-branch",
-      label: trans("threads"),
+      key: 'threads',
+      icon: 'fas fa-code-branch',
+      label: trans('threads'),
       active: options.embedded ? state.showThreads : undefined,
       onclick: options.embedded
         ? () => {
             state.toggleThreads();
             m.redraw();
           }
-        : () =>
-            m.route.set(app.route("chat.threads", { channel: channel.id() })),
+        : () => m.route.set(app.route('chat.threads', { channel: channel.id() })),
     });
   }
 
   actions.push({
-    key: "search",
-    icon: "fas fa-magnifying-glass",
-    label: trans("search_in_channel"),
+    key: 'search',
+    icon: 'fas fa-magnifying-glass',
+    label: trans('search_in_channel'),
     // In the drawer it is a toggle over the conversation, so it is drawn pressed
     // while open — the same treatment the pinned list gets there.
     active: options.embedded ? state.showSearch : undefined,
@@ -127,16 +116,16 @@ export function channelActions(
           state.toggleSearch();
           m.redraw();
         }
-      : () => m.route.set(app.route("chat.search", { channel: channel.id() })),
+      : () => m.route.set(app.route('chat.search', { channel: channel.id() })),
   });
 
   // Leaving is offered only for a channel you are actually in. A direct channel
   // keeps its history, so leaving one is not destructive.
   if (channel.isFollowing()) {
     actions.push({
-      key: "leave",
-      icon: "fas fa-arrow-right-from-bracket",
-      label: trans("leave"),
+      key: 'leave',
+      icon: 'fas fa-arrow-right-from-bracket',
+      label: trans('leave'),
       loading: busy,
       onclick: () => void leaveChannel(channel, state),
     });
@@ -148,17 +137,17 @@ export function channelActions(
   // rather than sitting beside it; declining is the other half of the answer.
   if (channel.isInvited()) {
     actions.push({
-      key: "acceptInvite",
-      icon: "fas fa-check",
-      label: trans("accept_invite"),
+      key: 'acceptInvite',
+      icon: 'fas fa-check',
+      label: trans('accept_invite'),
       loading: busy,
       onclick: () => void answerInvitation(channel, state, true),
     });
 
     actions.push({
-      key: "declineInvite",
-      icon: "fas fa-xmark",
-      label: trans("decline_invite"),
+      key: 'declineInvite',
+      icon: 'fas fa-xmark',
+      label: trans('decline_invite'),
       loading: busy,
       onclick: () => void answerInvitation(channel, state, false),
     });
@@ -173,9 +162,9 @@ export function channelActions(
   // drawn only when the server says the actor holds it.
   if (channel.canJoin()) {
     actions.push({
-      key: "join",
-      icon: "fas fa-arrow-right-to-bracket",
-      label: trans("join"),
+      key: 'join',
+      icon: 'fas fa-arrow-right-to-bracket',
+      label: trans('join'),
       loading: busy,
       onclick: () => void joinChannel(channel, state, false),
     });
@@ -183,9 +172,9 @@ export function channelActions(
 
   if (channel.canJoinHidden()) {
     actions.push({
-      key: "joinHidden",
-      icon: "fas fa-user-secret",
-      label: trans("join_hidden"),
+      key: 'joinHidden',
+      icon: 'fas fa-user-secret',
+      label: trans('join_hidden'),
       loading: busy,
       onclick: () => void joinChannel(channel, state, true),
     });
@@ -202,11 +191,7 @@ export function openChannelInfo(channel: Channel): void {
   app.modal.show(loadChannelInfoModal, { channel });
 }
 
-async function joinChannel(
-  channel: Channel,
-  state: ChatState,
-  hidden: boolean,
-): Promise<void> {
+async function joinChannel(channel: Channel, state: ChatState, hidden: boolean): Promise<void> {
   const id = String(channel.id());
 
   if (inFlight.has(id)) return;
@@ -216,8 +201,8 @@ async function joinChannel(
 
   try {
     const payload = await app.request<any>({
-      method: "POST",
-      url: `${app.forum.attribute("apiUrl")}/chat-channels/${id}/join`,
+      method: 'POST',
+      url: `${app.forum.attribute('apiUrl')}/chat-channels/${id}/join`,
       body: { data: { attributes: { hidden } } },
     });
 
@@ -231,26 +216,17 @@ async function joinChannel(
         isHiddenMember: hidden,
         canPostMessage: channel.isOpen(),
         // A hidden join is absent from the count, so it must not appear to move it.
-        userCount: hidden
-          ? channel.userCount()
-          : (channel.userCount() ?? 0) + 1,
+        userCount: hidden ? channel.userCount() : (channel.userCount() ?? 0) + 1,
       });
     }
 
     state.rememberChannel(channel);
 
     if (hidden) {
-      app.alerts.show(
-        { type: "success" },
-        app.translator.trans("ramon-chat.forum.channel.joined_hidden"),
-      );
+      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-chat.forum.channel.joined_hidden'));
     }
   } catch (e: any) {
-    app.alerts.show(
-      { type: "error" },
-      e?.response?.errors?.[0]?.detail ??
-        app.translator.trans("ramon-chat.forum.channel.join_failed"),
-    );
+    app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.channel.join_failed'));
   } finally {
     inFlight.delete(id);
     m.redraw();
@@ -264,25 +240,12 @@ async function joinChannel(
  * nothing navigates; the composer simply appears. Declining on a public channel
  * leaves the reader where they are, with the invitation gone from the record.
  */
-async function answerInvitation(
-  channel: Channel,
-  state: ChatState,
-  accept: boolean,
-): Promise<void> {
+async function answerInvitation(channel: Channel, state: ChatState, accept: boolean): Promise<void> {
   const id = String(channel.id());
 
   if (inFlight.has(id)) return;
 
-  if (
-    !accept &&
-    !confirm(
-      app.translator.trans(
-        "ramon-chat.forum.channel.decline_invite_confirm",
-        {},
-        true,
-      ),
-    )
-  ) {
+  if (!accept && !confirm(app.translator.trans('ramon-chat.forum.channel.decline_invite_confirm', {}, true))) {
     return;
   }
 
@@ -295,23 +258,14 @@ async function answerInvitation(
 
       if (joined) state.rememberChannel(joined);
 
-      app.alerts.show(
-        { type: "success" },
-        app.translator.trans("ramon-chat.forum.channel.invite_accepted"),
-      );
+      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-chat.forum.channel.invite_accepted'));
     } else {
       await declineInvitation(Number(channel.id()));
 
-      app.alerts.show(
-        { type: "success" },
-        app.translator.trans("ramon-chat.forum.channel.invite_declined"),
-      );
+      app.alerts.show({ type: 'success' }, app.translator.trans('ramon-chat.forum.channel.invite_declined'));
     }
   } catch (e: any) {
-    app.alerts.show(
-      { type: "error" },
-      invitationErrorText(e, "ramon-chat.forum.channel.invite_failed"),
-    );
+    app.alerts.show({ type: 'error' }, invitationErrorText(e, 'ramon-chat.forum.channel.invite_failed'));
   } finally {
     inFlight.delete(id);
     m.redraw();
@@ -328,11 +282,7 @@ async function leaveChannel(channel: Channel, state: ChatState): Promise<void> {
 
   if (inFlight.has(id)) return;
 
-  if (
-    !confirm(
-      app.translator.trans("ramon-chat.forum.channel.leave_confirm", {}, true),
-    )
-  ) {
+  if (!confirm(app.translator.trans('ramon-chat.forum.channel.leave_confirm', {}, true))) {
     return;
   }
 
@@ -341,8 +291,8 @@ async function leaveChannel(channel: Channel, state: ChatState): Promise<void> {
 
   try {
     await app.request({
-      method: "POST",
-      url: `${app.forum.attribute("apiUrl")}/chat-channels/${id}/leave`,
+      method: 'POST',
+      url: `${app.forum.attribute('apiUrl')}/chat-channels/${id}/leave`,
     });
 
     channel.pushAttributes({
@@ -356,15 +306,11 @@ async function leaveChannel(channel: Channel, state: ChatState): Promise<void> {
     state.channels = state.channels.filter((c) => c.id() !== channel.id());
     state.setActiveChannel(null);
 
-    if ((m.route.get() ?? "").includes("/chat/c/")) {
-      m.route.set(app.route("chat.index"));
+    if ((m.route.get() ?? '').includes('/chat/c/')) {
+      m.route.set(app.route('chat.index'));
     }
   } catch (e: any) {
-    app.alerts.show(
-      { type: "error" },
-      e?.response?.errors?.[0]?.detail ??
-        app.translator.trans("ramon-chat.forum.channel.leave_failed"),
-    );
+    app.alerts.show({ type: 'error' }, e?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.channel.leave_failed'));
   } finally {
     inFlight.delete(id);
     m.redraw();

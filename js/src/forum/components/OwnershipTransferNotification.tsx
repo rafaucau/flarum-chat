@@ -1,16 +1,11 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
-import {
-  channelIdOf,
-  channelNameOf,
-  fromName,
-  openChannelFromNotification,
-} from "./ModeratorPromotedNotification";
-import { acceptTransfer, declineTransfer } from "../utils/transfers";
-import { invitationErrorText } from "../utils/invitations";
+import { channelIdOf, channelNameOf, fromName, openChannelFromNotification } from './ModeratorPromotedNotification';
+import { acceptTransfer, declineTransfer } from '../utils/transfers';
+import { invitationErrorText } from '../utils/invitations';
 
 /**
  * "X wants to transfer #channel to you", with the answer on the row.
@@ -21,38 +16,31 @@ import { invitationErrorText } from "../utils/invitations";
  * channel's members tab shows the same offer with the same two buttons.
  */
 export default class OwnershipTransferNotification extends Notification {
-  private answered: "accepted" | "declined" | null = null;
+  private answered: 'accepted' | 'declined' | null = null;
 
-  private busy: "accept" | "decline" | null = null;
+  private busy: 'accept' | 'decline' | null = null;
 
   icon(): string {
-    return "fas fa-crown";
+    return 'fas fa-crown';
   }
 
   href(): string {
     const channelId = channelIdOf(this);
 
-    return channelId
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId ? app.route('chat.channel', { id: channelId }) : app.route('chat.index');
   }
 
   content(): Mithril.Children {
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.ownership_transfer",
-      {
-        username: fromName(this),
-        channel: channelNameOf(this),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.ownership_transfer', {
+      username: fromName(this),
+      channel: channelNameOf(this),
+    });
   }
 
   excerpt(): Mithril.Children {
     if (this.answered) {
       return app.translator.trans(
-        this.answered === "accepted"
-          ? "ramon-chat.forum.info.transfer_accepted"
-          : "ramon-chat.forum.info.transfer_declined",
+        this.answered === 'accepted' ? 'ramon-chat.forum.info.transfer_accepted' : 'ramon-chat.forum.info.transfer_declined'
       );
     }
 
@@ -61,23 +49,21 @@ export default class OwnershipTransferNotification extends Notification {
         <Button
           className="Button Button--primary Button--compact"
           icon="fas fa-check"
-          loading={this.busy === "accept"}
+          loading={this.busy === 'accept'}
           disabled={this.busy !== null}
           onclick={(e: MouseEvent) => this.answer(e, true)}
         >
-          {app.translator.trans("ramon-chat.forum.notifications.invite_accept")}
+          {app.translator.trans('ramon-chat.forum.notifications.invite_accept')}
         </Button>
 
         <Button
           className="Button Button--compact"
           icon="fas fa-xmark"
-          loading={this.busy === "decline"}
+          loading={this.busy === 'decline'}
           disabled={this.busy !== null}
           onclick={(e: MouseEvent) => this.answer(e, false)}
         >
-          {app.translator.trans(
-            "ramon-chat.forum.notifications.invite_decline",
-          )}
+          {app.translator.trans('ramon-chat.forum.notifications.invite_decline')}
         </Button>
       </span>
     );
@@ -99,24 +85,21 @@ export default class OwnershipTransferNotification extends Notification {
 
     if (!channelId || this.busy) return;
 
-    this.busy = accept ? "accept" : "decline";
+    this.busy = accept ? 'accept' : 'decline';
     m.redraw();
 
     try {
       if (accept) {
         await acceptTransfer(channelId);
-        this.answered = "accepted";
+        this.answered = 'accepted';
       } else {
         await declineTransfer(channelId);
-        this.answered = "declined";
+        this.answered = 'declined';
       }
 
       this.markAsRead();
     } catch (error: any) {
-      app.alerts.show(
-        { type: "error" },
-        invitationErrorText(error, "ramon-chat.forum.info.transfer_failed"),
-      );
+      app.alerts.show({ type: 'error' }, invitationErrorText(error, 'ramon-chat.forum.info.transfer_failed'));
     } finally {
       this.busy = null;
       m.redraw();

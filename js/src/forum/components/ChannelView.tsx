@@ -1,22 +1,22 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import type Message from "../../common/models/Message";
-import type ChatState from "../state/ChatState";
-import ChatMessage from "./ChatMessage";
-import ChatComposer from "./ChatComposer";
-import ChatSelectionBar from "./ChatSelectionBar";
-import { MessageStreamSkeleton } from "./Skeletons";
-import { channelIcon } from "../utils/channelIcon";
-import { channelActions, openChannelInfo } from "../utils/channelActions";
-import { revealAndJump } from "../utils/jumpToMessage";
-import { messagePreview } from "../../common/utils/preview";
-import iconLabel from "../utils/iconLabel";
+import type Channel from '../../common/models/Channel';
+import type Message from '../../common/models/Message';
+import type ChatState from '../state/ChatState';
+import ChatMessage from './ChatMessage';
+import ChatComposer from './ChatComposer';
+import ChatSelectionBar from './ChatSelectionBar';
+import { MessageStreamSkeleton } from './Skeletons';
+import { channelIcon } from '../utils/channelIcon';
+import { channelActions, openChannelInfo } from '../utils/channelActions';
+import { revealAndJump } from '../utils/jumpToMessage';
+import { messagePreview } from '../../common/utils/preview';
+import iconLabel from '../utils/iconLabel';
 
 export interface ChannelViewAttrs extends ComponentAttrs {
   channel: Channel;
@@ -74,7 +74,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   oncreate(vnode: Mithril.VnodeDOM<ChannelViewAttrs>): void {
     super.oncreate(vnode);
 
-    this.scroller = vnode.dom.querySelector(".ChatChannel-stream");
+    this.scroller = vnode.dom.querySelector('.ChatChannel-stream');
     this.scrollToBottom();
   }
 
@@ -87,8 +87,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     // Restore the pre-prepend position after paging upwards, so the viewport does
     // not jump to the top when older messages arrive.
     if (this.heightBeforePrepend !== null && this.scroller) {
-      this.scroller.scrollTop =
-        this.scroller.scrollHeight - this.heightBeforePrepend;
+      this.scroller.scrollTop = this.scroller.scrollHeight - this.heightBeforePrepend;
       this.heightBeforePrepend = null;
     } else if (count > this.lastRenderedCount && this.pinned) {
       this.scrollToBottom();
@@ -111,27 +110,18 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
             which grows with the text in it and with the typing indicator; against
             the scroller itself it would scroll away with the content. */}
         <div className="ChatChannel-streamWrap">
-          <div
-            className="ChatChannel-stream"
-            onscroll={(e: Event) => this.onScroll(e)}
-          >
-            {stream.loading && stream.messages.length === 0
-              ? this.skeleton()
-              : null}
+          <div className="ChatChannel-stream" onscroll={(e: Event) => this.onScroll(e)}>
+            {stream.loading && stream.messages.length === 0 ? this.skeleton() : null}
             {/* Paging upwards. A skeleton row rather than a spinner: it occupies
                 roughly the height the arriving messages will, so the stream does
                 not lurch when they land — and it says "messages are coming"
                 rather than "something is happening". */}
             {stream.hasMore && stream.messages.length > 0 ? (
-              <div className="ChatChannel-loadMore">
-                {stream.loading ? MessageStreamSkeleton(2) : null}
-              </div>
+              <div className="ChatChannel-loadMore">{stream.loading ? MessageStreamSkeleton(2) : null}</div>
             ) : null}
 
             {stream.loadedInitial && stream.messages.length === 0 ? (
-              <div className="ChatBrowse-empty">
-                {app.translator.trans("ramon-chat.forum.channel.no_messages")}
-              </div>
+              <div className="ChatBrowse-empty">{app.translator.trans('ramon-chat.forum.channel.no_messages')}</div>
             ) : null}
 
             {this.rows(stream.messages, stream.dividerAfterId)}
@@ -148,19 +138,11 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         {state.selecting ? (
           <ChatSelectionBar channel={channel} state={state} />
         ) : (
-          <ChatComposer
-            channel={channel}
-            state={state}
-            onSent={() => this.onSent()}
-          />
+          <ChatComposer channel={channel} state={state} onSent={() => this.onSent()} />
         )}
 
         {/* Announces arrivals to screen readers without stealing focus. */}
-        <div
-          className="ChatChannel-liveRegion"
-          role="status"
-          aria-live="polite"
-        />
+        <div className="ChatChannel-liveRegion" role="status" aria-live="polite" />
       </div>
     );
   }
@@ -189,20 +171,11 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         <button
           type="button"
           className="ChatChannel-pinnedBar-jump"
-          title={app.translator.trans(
-            "ramon-chat.forum.channel.pinned_messages",
-            {},
-            true,
-          )}
+          title={app.translator.trans('ramon-chat.forum.channel.pinned_messages', {}, true)}
           onclick={() => this.jumpToPinned(pinned)}
         >
-          <i
-            className="ChatChannel-pinnedBar-icon fas fa-thumbtack"
-            aria-hidden="true"
-          />
-          <span className="ChatChannel-pinnedBar-text">
-            {text || app.translator.trans("ramon-chat.forum.message.pinned")}
-          </span>
+          <i className="ChatChannel-pinnedBar-icon fas fa-thumbtack" aria-hidden="true" />
+          <span className="ChatChannel-pinnedBar-text">{text || app.translator.trans('ramon-chat.forum.message.pinned')}</span>
         </button>
 
         {/* Only past the first. The bar already *is* the one pinned message, and
@@ -219,14 +192,10 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         {count > 1 ? (
           <button
             type="button"
-            className={classList("ChatChannel-pinnedBar-all", {
-              "ChatChannel-pinnedBar-all--active": state.showPinned,
+            className={classList('ChatChannel-pinnedBar-all', {
+              'ChatChannel-pinnedBar-all--active': state.showPinned,
             })}
-            title={app.translator.trans(
-              "ramon-chat.forum.channel.view_all_pinned",
-              { count },
-              true,
-            )}
+            title={app.translator.trans('ramon-chat.forum.channel.view_all_pinned', { count }, true)}
             onclick={() => {
               state.togglePinned();
               m.redraw();
@@ -243,12 +212,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   protected jumpToPinned(pinned: Message): void {
     const channelId = Number(this.attrs.channel.id());
 
-    revealAndJump(
-      this.attrs.state,
-      channelId,
-      pinned.id()!,
-      this.scroller,
-    ).then((found) => {
+    revealAndJump(this.attrs.state, channelId, pinned.id()!, this.scroller).then((found) => {
       if (!found) this.attrs.state.togglePinned();
       m.redraw();
     });
@@ -273,13 +237,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           <Button
             className="Button Button--icon Button--flat"
             icon="fas fa-chevron-left"
-            {...iconLabel(
-              app.translator.trans(
-                "ramon-chat.forum.sidebar.back_to_channels",
-                {},
-                true,
-              ),
-            )}
+            {...iconLabel(app.translator.trans('ramon-chat.forum.sidebar.back_to_channels', {}, true))}
             onclick={onBack}
           />
         ) : null}
@@ -289,21 +247,13 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
             resolved it by cutting the *name*: "Canal Priva…Apenas um canal …".
             Stacked, each truncates within its own line and the name is always
             whole for as long as the header is wide enough to hold it. */}
-        <button
-          type="button"
-          className="ChatChannel-title"
-          onclick={() => openChannelInfo(channel)}
-        >
-          {channelIcon(channel, "ChatChannel-icon")}
+        <button type="button" className="ChatChannel-title" onclick={() => openChannelInfo(channel)}>
+          {channelIcon(channel, 'ChatChannel-icon')}
 
           <span className="ChatChannel-titleText">
             <span className="ChatChannel-name">{channel.displayName()}</span>
 
-            {channel.description() ? (
-              <span className="ChatChannel-description">
-                {channel.description()}
-              </span>
-            ) : null}
+            {channel.description() ? <span className="ChatChannel-description">{channel.description()}</span> : null}
           </span>
         </button>
 
@@ -313,8 +263,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           {channelActions(channel, state).map((action) => (
             <Button
               key={action.key}
-              className={classList("Button Button--icon Button--flat", {
-                "ChatChannel-headerAction--active": action.active,
+              className={classList('Button Button--icon Button--flat', {
+                'ChatChannel-headerAction--active': action.active,
               })}
               icon={action.icon}
               {...iconLabel(action.label)}
@@ -330,10 +280,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   /**
    * Interleaves date separators and the unread divider with the message rows.
    */
-  protected rows(
-    messages: Message[],
-    dividerAfterId: number | null,
-  ): Mithril.Children {
+  protected rows(messages: Message[], dividerAfterId: number | null): Mithril.Children {
     const out: Mithril.Children[] = [];
     let lastDate: string | null = null;
     let dividerPlaced = false;
@@ -347,26 +294,18 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
       if (dateKey && dateKey !== lastDate) {
         out.push(
           <div className="ChatDateSeparator" key={`date-${dateKey}`}>
-            <span className="ChatDateSeparator-label">
-              {this.dateLabel(at!)}
-            </span>
-          </div>,
+            <span className="ChatDateSeparator-label">{this.dateLabel(at!)}</span>
+          </div>
         );
 
         lastDate = dateKey;
       }
 
-      if (
-        !dividerPlaced &&
-        dividerAfterId !== null &&
-        Number(message.id()) > dividerAfterId
-      ) {
+      if (!dividerPlaced && dividerAfterId !== null && Number(message.id()) > dividerAfterId) {
         out.push(
           <div className="ChatUnreadDivider" key="unread">
-            <span className="ChatUnreadDivider-label">
-              {app.translator.trans("ramon-chat.forum.stream.new_messages")}
-            </span>
-          </div>,
+            <span className="ChatUnreadDivider-label">{app.translator.trans('ramon-chat.forum.stream.new_messages')}</span>
+          </div>
         );
 
         dividerPlaced = true;
@@ -381,7 +320,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           onReply={(msg: Message) => this.reply(msg)}
           onEdit={(msg: Message) => this.edit(msg)}
           onOpenThread={(msg: Message) => this.openThread(msg)}
-        />,
+        />
       );
     });
 
@@ -393,15 +332,11 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     const yesterday = new Date(today.getTime() - 86400000);
 
     if (date.toDateString() === today.toDateString()) {
-      return app.translator.trans("ramon-chat.forum.stream.today", {}, true);
+      return app.translator.trans('ramon-chat.forum.stream.today', {}, true);
     }
 
     if (date.toDateString() === yesterday.toDateString()) {
-      return app.translator.trans(
-        "ramon-chat.forum.stream.yesterday",
-        {},
-        true,
-      );
+      return app.translator.trans('ramon-chat.forum.stream.yesterday', {}, true);
     }
 
     // Through Day.js rather than toLocaleDateString: the browser's locale is
@@ -409,10 +344,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     // machine saw "27 de agosto" between English messages. Core exposes the
     // dayjs instance the language pack has set the locale on, and the format
     // token is a translation so a pack can reorder it.
-    return app.translator.formatDateTime(
-      dayjs(date),
-      "ramon-chat.forum.stream.date_format",
-    );
+    return app.translator.formatDateTime(dayjs(date), 'ramon-chat.forum.stream.date_format');
   }
 
   protected typingIndicator(): Mithril.Children {
@@ -429,10 +361,10 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         </span>
         <span>
           {names.length === 1
-            ? app.translator.trans("ramon-chat.forum.typing.one", {
+            ? app.translator.trans('ramon-chat.forum.typing.one', {
                 username: names[0],
               })
-            : app.translator.trans("ramon-chat.forum.typing.several", {
+            : app.translator.trans('ramon-chat.forum.typing.several', {
                 count: names.length,
               })}
         </span>
@@ -523,11 +455,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   protected scrollDownButton(): Mithril.Children {
     if (this.pinned) return null;
 
-    const label = app.translator.trans(
-      "ramon-chat.forum.channel.scroll_to_latest",
-      {},
-      true,
-    );
+    const label = app.translator.trans('ramon-chat.forum.channel.scroll_to_latest', {}, true);
 
     return (
       <button
@@ -577,7 +505,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     const { channel, state } = this.attrs;
 
     state.setEditing(Number(channel.id()), message);
-    state.setDraft(Number(channel.id()), message.content() ?? "");
+    state.setDraft(Number(channel.id()), message.content() ?? '');
     m.redraw();
   }
 
@@ -597,9 +525,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         return;
       }
 
-      m.route.set(
-        app.route("chat.thread", { id: channel.id(), threadId: thread.id() }),
-      );
+      m.route.set(app.route('chat.thread', { id: channel.id(), threadId: thread.id() }));
 
       return;
     }
