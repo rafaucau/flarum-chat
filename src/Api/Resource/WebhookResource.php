@@ -34,11 +34,13 @@ use Tobyz\JsonApiServer\Context as OriginalContext;
 class WebhookResource extends AbstractDatabaseResource
 {
     /**
-     * Marcado pelo rotate para os getters saberem que a chave é nova e pode sair.
-     * Propriedade de instância porque o Api\Context não identifica endpoint custom,
-     * e `withInternal()` devolve uma cópia que o serializer não vê.
+     * O webhook que o rotate acabou de salvar, para os getters saberem que a chave
+     * é nova e pode sair. Propriedade de instância porque o Api\Context não
+     * identifica endpoint custom, e `withInternal()` devolve uma cópia que o
+     * serializer não vê. Guarda a instância, não um booleano: o resource vive
+     * entre requests, e a marca ligada mostraria as chaves na próxima listagem.
      */
-    protected bool $keyJustMinted = false;
+    protected ?Webhook $minted = null;
 
     public function __construct(
         protected Translator $translator,
@@ -46,9 +48,9 @@ class WebhookResource extends AbstractDatabaseResource
     ) {
     }
 
-    protected function keyVisible(Context $context): bool
+    protected function keyVisible(Webhook $webhook, Context $context): bool
     {
-        return $context->creating() || $this->keyJustMinted;
+        return $context->creating() || $this->minted === $webhook;
     }
 
     public function type(): string
@@ -111,7 +113,7 @@ class WebhookResource extends AbstractDatabaseResource
                     $webhook->key = Webhook::generateKey();
                     $webhook->save();
 
-                    $this->keyJustMinted = true;
+                    $this->minted = $webhook;
 
                     return $webhook;
                 })
@@ -192,12 +194,12 @@ class WebhookResource extends AbstractDatabaseResource
             // é null, para a chave não ser colhida de cache, log ou screenshot.
             Schema\Str::make('key')
                 ->nullable()
-                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($context) ? $webhook->key : null),
+                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($webhook, $context) ? $webhook->key : null),
 
             // URL completa para configurar no lado que envia.
             Schema\Str::make('url')
                 ->nullable()
-                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($context)
+                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($webhook, $context)
                     ? $this->url->to('api')->route('chat.webhooks.deliver', ['key' => $webhook->key])
                     : null),
 
