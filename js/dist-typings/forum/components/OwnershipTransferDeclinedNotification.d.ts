@@ -1,8 +1,8 @@
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 /**
- * "X declined to take over #channel." Sent to whoever offered the channel, so
- * a refusal is an answer rather than an offer that quietly stopped pending.
+ * "X recusou assumir #canal." Vai para quem ofereceu o canal, para a recusa
+ * chegar como resposta em vez de a oferta só deixar de estar pendente.
  */
 export default class OwnershipTransferDeclinedNotification extends Notification {
     icon(): string;

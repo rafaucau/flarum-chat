@@ -1,19 +1,15 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Message from "./Message";
-/**
- * Per-channel notification level. Mirrors Ramon\Chat\ChannelUser.
- */
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Message from './Message';
+/** Espelha Ramon\Chat\ChannelUser. */
 export declare const enum NotificationLevel {
     Never = 0,
     Mentions = 1,
     Always = 2
 }
 /**
- * A pending ownership handover. Mirrors ChannelResource::transferState().
- *
- * `incoming` is true for the member it is offered to; `confirmed` is false
- * while the owner has yet to enter the code mailed to them.
+ * Espelha ChannelResource::transferState(). `incoming` é true para quem recebe
+ * a oferta; `confirmed` fica false até o dono digitar o código enviado por e-mail.
  */
 export interface OwnershipTransferState {
     id: number;
@@ -24,32 +20,29 @@ export interface OwnershipTransferState {
     expiresAt: string;
 }
 /**
- * One rank as the server describes it. Mirrors Ramon\Chat\Rank\RankBook.
- *
- * `builtin` names the two every channel has; their `name` and `color` are null
- * until the owner customises them, meaning the translated default and the
- * theme's colour. The three derived colours are null exactly when `color` is.
+ * Espelha Ramon\Chat\Rank\RankBook. Nos dois `builtin`, `name` e `color` ficam
+ * null até o dono personalizar (tradução padrão e cor do tema). As três cores
+ * derivadas são null exatamente quando `color` é.
  */
 export interface RankEntry {
     key: string;
     id: number | null;
-    builtin: "owner" | "moderator" | null;
+    builtin: 'owner' | 'moderator' | null;
     name: string | null;
     color: string | null;
     icon: string | null;
     showBadge: boolean;
     position: number;
-    /** Text on the tag: white or near-black, whichever reads better. */
+    /** Branco ou quase preto, o que tiver mais contraste. */
     textColor: string | null;
-    /** The colour as a name on a light surface, darkened as far as needed. */
+    /** Para nome em fundo claro, escurecida o quanto for preciso. */
     nameLight: string | null;
-    /** And on a dark one, lightened. */
+    /** Em fundo escuro, clareada. */
     nameDark: string | null;
 }
 /**
- * A channel's ranks in priority order, and who holds what. `assignments` maps
- * a user id to the ids of the custom ranks they hold; PHP sends an empty one
- * as `[]`.
+ * Ranks em ordem de prioridade. `assignments` mapeia id de usuário para ids de
+ * ranks personalizados; vazio, o PHP manda `[]`.
  */
 export interface RankBook {
     ranks: RankEntry[];
@@ -67,39 +60,32 @@ export default class Channel extends Model {
     status: () => string;
     tagId: () => number | null;
     /**
-     * Server-computed label. Direct channels have no stored name — they are named
-     * after the other participants, from the reader's perspective — so this is the
-     * only correct thing to render.
+     * Calculado no servidor. Conversas diretas não têm nome salvo e levam o nome
+     * dos outros participantes, então é isto que se deve exibir.
      */
     displayName: () => string;
-    /** Invitation-only: absent from Browse, and not joinable by a non-member. */
+    /** Só por convite: fora do Browse e fechado para quem não é membro. */
     isPrivate: () => boolean;
-    /** 'all' or 'moderators' — who may post here. */
+    /** 'all' ou 'moderators'. */
     postPermission: () => string;
     threadingEnabled: () => boolean;
-    /** Minimum gap between one person's messages, in seconds. 0 is off. */
+    /** Intervalo mínimo entre mensagens de uma pessoa, em segundos. 0 desliga. */
     slowModeSeconds: () => number;
     /**
-     * Seconds this reader must still wait, as the server sees it.
-     *
-     * Sent per actor rather than derived on the client: a reload has no memory of
-     * when you last posted, and a composer that offers a send the server refuses
-     * is worse than one that shows the wait.
+     * Segundos que este leitor ainda espera. Vem do servidor porque o cliente não
+     * sabe, depois de recarregar, quando foi a última mensagem.
      */
     slowModeRemaining: () => number;
     bypassesSlowMode: () => boolean;
     /**
-     * Longest message this channel accepts, or null to follow the forum setting.
-     *
-     * Null is "inherit", not "unlimited" — see `Channel::maxMessageLength()` on
-     * the server, which is the authority. Resolve it with
-     * `resolveMaxMessageLength()` rather than reading it raw.
+     * Null significa herdar a setting do fórum, não "sem limite"
+     * (`Channel::maxMessageLength()` no servidor). Use `resolveMaxMessageLength()`.
      */
     maxMessageLength: () => number | null;
     autoJoin: () => boolean;
-    /** Subscribe a user when they reply in the bound category. */
+    /** Inscreve quem responde na categoria vinculada. */
     autoJoinOnReply: () => boolean;
-    /** Announce the bound category's new discussions in the channel. */
+    /** Anuncia no canal as discussões novas da categoria vinculada. */
     postDiscussions: () => boolean;
     allowChannelWideMentions: () => boolean;
     messagesCount: () => number;
@@ -110,7 +96,7 @@ export default class Channel extends Model {
     archivedAt: () => Date | null | undefined;
     archivedDiscussionId: () => number | null;
     isFollowing: () => boolean;
-    /** A pending invitation for the reader, and who sent it. */
+    /** Convite pendente para o leitor e quem o enviou. */
     isInvited: () => boolean;
     invitedById: () => number | null;
     invitedByName: () => string | null;
@@ -122,78 +108,57 @@ export default class Channel extends Model {
     canPostMessage: () => boolean;
     canEdit: () => boolean;
     canJoin: () => boolean;
-    /** May join without appearing in the member list — moderators only. */
+    /** Entrar sem aparecer na lista de membros; só moderadores. */
     canJoinHidden: () => boolean;
-    /** The actor is in this channel, but invisibly. */
+    /** Membro invisível. */
     isHiddenMember: () => boolean;
     canClose: () => boolean;
     canArchive: () => boolean;
-    /** May take the channel back out of the archive. */
     canUnarchive: () => boolean;
     canDelete: () => boolean;
     canManageMembers: () => boolean;
-    /** May promote members to moderators of this channel — its owner, or chat moderators. */
+    /** O dono ou moderadores do chat. */
     canManageModerators: () => boolean;
-    /** May hand the channel to another member: its owner, or an administrator. */
+    /** O dono ou um administrador. */
     canTransferOwnership: () => boolean;
-    /**
-     * The pending handover, as this reader may see it, or null. Filled only when
-     * participants are loaded, like `moderatorIds`.
-     */
+    /** Só preenchido quando os participantes são carregados, como `moderatorIds`. */
     ownershipTransfer: () => OwnershipTransferState | null;
     creatorId: () => number | null;
-    /** May create, edit and hand out this channel's ranks. */
     canManageRanks: () => boolean;
     /**
-     * Every rank here and who holds which. Absent from the channel list, where
-     * the server leaves it off; read it through `utils/ranks`, which falls back
-     * to the rank each message carries.
+     * Ausente na listagem de canais. Leia por `utils/ranks`, que cai no rank que
+     * cada mensagem traz.
      */
     rankBook: () => RankBook | null | undefined;
-    /** Members holding the channel's own moderator role; filled when participants are loaded. */
+    /** Moderadores do canal; preenchido quando os participantes são carregados. */
     moderatorIds: () => number[];
     canMentionChannelWide: () => boolean;
     creator: () => false | User | null;
     lastMessage: () => false | Message | null;
     participants: () => false | (User | undefined)[];
-    /**
-     * People asked in who have not answered. Served only to whoever manages the
-     * member list, and only when the members tab includes it.
-     */
+    /** Convites sem resposta; só para quem gerencia membros e quando incluído. */
     invitedUsers: () => false | (User | undefined)[];
     /**
-     * The other side of a conversation, default-included on the channel list.
-     *
-     * `participants` is only populated once something asks for it explicitly — the
-     * members tab — so the sidebar cannot read its avatars from there. Use
-     * `others()` rather than either relation directly.
+     * Incluído por padrão na listagem; `participants` só vem quando pedido (aba de
+     * membros). Use `others()` em vez das relações direto.
      */
     directParticipants: () => false | (User | undefined)[];
     isDirect(): boolean;
     isCategory(): boolean;
     /**
-     * Everyone who can see the channel is in it, without being added. Mirrors
-     * `Channel::isForEveryone()` on the server: its member list holds only the
-     * people who run it, and its member count is not a headcount of the room.
+     * Quem vê o canal já está nele. Espelha `Channel::isForEveryone()`: a lista de
+     * membros só tem quem o administra e a contagem não é a da sala.
      */
     isForEveryone(): boolean;
     isOpen(): boolean;
     isClosed(): boolean;
     isArchived(): boolean;
-    /**
-     * Whether a badge should be shown. Muted channels stay listed but never
-     * accrue visible pressure.
-     */
+    /** Canal silenciado continua listado, mas sem badge. */
     hasUnread(): boolean;
     hasUnreadMentions(): boolean;
     /**
-     * Everyone in the channel except the reader, for the avatars a direct channel
-     * shows in place of an icon.
-     *
-     * Reads the default-included `directParticipants` first and falls back to
-     * `participants`, which is present once the members tab has been opened. Both
-     * return `false` from `hasMany` when the relationship was never included, so
-     * neither can be trusted on its own.
+     * Todos menos o leitor. `hasMany` devolve `false` para relação não incluída,
+     * então tenta `directParticipants` e depois `participants`.
      */
     others(): User[];
     apiEndpoint(): string;

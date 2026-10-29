@@ -1,34 +1,22 @@
 /**
- * Global chat shortcuts.
+ * Atalhos globais do chat. Poucos e sempre com modificador: numa página cheia de
+ * campos de texto, a única tecla solta tratada é Escape, e só quando o chat tem um
+ * modo aberto.
  *
- * Deliberately few and all modified: an unmodified single-letter shortcut on a page
- * that is mostly text entry is a trap, so the only bare key handled is Escape, and
- * only when the chat itself owns the current mode.
+ *   Alt+C          abre/fecha a gaveta
+ *   Alt+Shift+C    vai para o chat em tela cheia
+ *   Alt+K          busca, no escopo do canal aberto
+ *   Escape         sai da seleção, depois fecha o painel de tópico/fixadas
  *
- *   Alt+C          toggle the drawer
- *   Alt+Shift+C    go to the full-screen chat
- *   Alt+K          jump to search, scoped to the open channel
- *   Escape         leave selection mode, then close the thread/pinned panel
- *
- * Alt rather than Ctrl/Cmd throughout: the browser and the OS have prior claim on
- * almost every Ctrl combination, and Alt+letter is what Discord and Slack use for
- * their own navigation.
+ * Alt em vez de Ctrl/Cmd: o navegador e o SO já usam quase toda combinação com Ctrl.
  */
 export declare function bindShortcuts(): void;
-/** Which key sends. Enter unless the member asked for Ctrl+Enter. */
-export type SendKey = "enter" | "ctrl";
+/** Tecla de envio: Enter, a menos que o membro tenha escolhido Ctrl+Enter. */
+export type SendKey = 'enter' | 'ctrl';
 /**
- * This member's own answer, defaulting to Enter.
- *
- * Anything that is not "ctrl" reads as Enter, which also absorbs the "default"
- * value stored while the preference had a third "follow the forum" state: those
- * rows resolve to Enter without needing to be rewritten.
+ * Preferência do membro, Enter por padrão. Qualquer valor diferente de "ctrl" vale
+ * Enter, o que cobre o antigo "default" gravado sem reescrever linhas.
  */
 export declare function sendKeyPreference(): SendKey;
-/**
- * Whether the composer sends on Ctrl/Cmd+Enter instead of on a bare Enter.
- *
- * Read per call rather than cached: a cached copy would keep the old behaviour
- * for the rest of the session after the member changed it.
- */
+/** Lido a cada chamada: um cache manteria o comportamento antigo após a troca. */
 export declare function sendsOnCtrlEnter(): boolean;

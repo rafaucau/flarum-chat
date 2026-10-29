@@ -1,11 +1,10 @@
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 /**
- * "X made you a moderator of #channel."
+ * "X tornou você moderador de #canal."
  *
- * The stored data is ids only; the channel's name is read from the
- * notification's subject, which the notification list loads through the
- * channel's own visibility rules. The recipient is a member, so it is there.
+ * Os dados guardados são só ids; o nome vem do subject, que a lista de
+ * notificações carrega pelas regras de visibilidade do canal.
  */
 export default class ModeratorPromotedNotification extends Notification {
     icon(): string;
@@ -14,14 +13,14 @@ export default class ModeratorPromotedNotification extends Notification {
     excerpt(): Mithril.Children;
     onclick(e: MouseEvent): void;
 }
-/** The notification's channel id, from its data or its subject. */
+/** Id do canal, vindo dos dados ou do subject. */
 export declare function channelIdOf(notification: Notification): number | null;
-/** The channel's name as the reader sees it, or the chat's own title. */
+/** Nome do canal como o leitor o vê, ou o título do chat. */
 export declare function channelNameOf(notification: Notification): string;
-/** Who sent the notification, or "Someone". */
+/** Quem enviou a notificação, ou "Alguém". */
 export declare function fromName(notification: Notification): string;
 /**
- * Opens the drawer when that is the reader's preference instead of following
- * the href, the same choice the header button makes.
+ * Abre o drawer em vez de seguir o href quando essa é a preferência do leitor,
+ * igual ao botão do cabeçalho.
  */
 export declare function openChannelFromNotification(notification: Notification, e: MouseEvent): void;

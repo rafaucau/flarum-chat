@@ -3,50 +3,35 @@ export declare function setConnectionHandlers(handlers: {
     change: () => void;
 }): void;
 /**
- * Whether the socket is connected and has proven it delivers end to end.
- *
- * The one state in which polling is pure waste: everything the poller would
- * fetch is already being pushed.
+ * Se o socket está conectado e comprovou entrega de ponta a ponta: o único estado
+ * em que o polling é puro desperdício.
  */
 export declare function realtimeLive(): boolean;
 /**
- * Binds chat events on the actor's private websocket channel.
+ * Liga os eventos do chat no canal privado do ator (ver ChatBroadcaster).
  *
- * Chat is delivered per-user rather than on the shared `public` channel — see
- * Ramon\Chat\Realtime\ChatBroadcaster for why that is a privacy boundary.
- *
- * Returns whether binding succeeded. It retries briefly because realtime creates
- * `app.websocket` inside its own `mount` extension, and extension load order is
- * not guaranteed — without the retry, being a few milliseconds early would
- * permanently downgrade the client to polling.
+ * Retorna se ligou. Tenta de novo por um tempo porque o realtime cria
+ * `app.websocket` no próprio `mount`, e a ordem das extensões não é garantida; sem
+ * isso, chegar milissegundos antes rebaixaria o cliente ao polling de vez.
  */
 export declare function bindRealtime(): boolean;
 export declare function setPollingFallback(fn: () => void): void;
-/** Whether the websocket handlers are live, for diagnostics. */
+/** Se os handlers do websocket estão ativos, para diagnóstico. */
 export declare function realtimeBound(): boolean;
 /**
- * Whether anything has ever actually arrived over the socket.
- *
- * Distinct from `bound`, and the distinction is the whole point: subscribing
- * succeeds on the client whatever the server can or cannot do. If the forum's PHP
- * process cannot reach the websocket daemon — a common enough split, since the
- * queue worker and the web process are not always on the same side of a
- * firewall — every client sits on a healthy-looking socket that will never carry
- * a chat event, and the chat quietly stops updating until the page is reloaded.
- *
- * A delivered event is the only proof the whole round-trip works, so the poller
- * uses this to decide how hard it has to work. See startPolling() in index.tsx.
+ * Se algo já chegou pelo socket. Diferente de `bound`: a inscrição funciona no
+ * cliente seja qual for a situação do servidor, e se o PHP não alcança o daemon o
+ * socket parece saudável e nunca entrega nada. Só um evento entregue prova o
+ * caminho inteiro; o poller usa isto para decidir o ritmo (ver startPolling() em
+ * index.tsx).
  */
 export declare function realtimeDelivered(): boolean;
 /**
- * Re-reads one message so the actor's own capability flags are the server's.
+ * Relê uma mensagem para as flags de permissão do ator virem do servidor. O Show
+ * tem o mesmo `defaultInclude` da listagem e traz `deletedBy`, que permite à
+ * lápide nomear o moderador.
  *
- * The Show endpoint carries the same `defaultInclude` the listing does, so this
- * also lands `deletedBy` — which is what lets a tombstone name the moderator
- * rather than falling back to the unnamed wording.
- *
- * Exported because the moderator who performs the deletion needs it too, and
- * cannot get it from here: `whenMessageChanged` excludes the actor, so their own
- * client never sees the event. See ChatMessage.delete().
+ * Exportado porque o moderador que exclui também precisa: `whenMessageChanged`
+ * exclui o ator, então o próprio cliente não recebe o evento. Ver ChatMessage.delete().
  */
 export declare function refreshMessageCapabilities(id: number): void;

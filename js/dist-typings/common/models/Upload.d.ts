@@ -1,13 +1,10 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
 export default class Upload extends Model {
     fileName: () => string;
     mimeType: () => string | null;
     size: () => number;
-    /**
-     * Present for images so the client can reserve layout space and avoid a
-     * reflow as attachments load.
-     */
+    /** Só em imagens, para reservar o espaço e evitar reflow ao carregar. */
     width: () => number | null;
     height: () => number | null;
     messageId: () => number | null;
@@ -15,9 +12,7 @@ export default class Upload extends Model {
     isImage: () => boolean;
     createdAt: () => Date | null | undefined;
     user: () => false | User | null;
-    /**
-     * A pending upload belongs to a composer session that has not sent yet.
-     */
+    /** Pendente: anexado no composer, mensagem ainda não enviada. */
     isPending(): boolean;
     humanSize(): string;
     apiEndpoint(): string;

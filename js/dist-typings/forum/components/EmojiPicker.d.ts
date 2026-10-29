@@ -1,23 +1,17 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type Mithril from "mithril";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type Mithril from 'mithril';
 export interface EmojiPickerAttrs extends ComponentAttrs {
-    /** Current value: a shortcode or a Unicode emoji. */
+    /** Valor atual: shortcode ou emoji Unicode. */
     value: string | null;
     onchange: (value: string | null) => void;
     disabled?: boolean;
 }
 /**
- * A searchable emoji picker.
+ * Seletor de emoji com busca, para campos cujo valor é um único emoji.
  *
- * The discussion composer's picker is an autocomplete triggered by typing `:`
- * mid-sentence, which is the right interaction for prose but wrong for a field
- * whose entire value is one emoji. Here the field *is* the search box: type to
- * filter, click or press Enter to choose.
- *
- * Stores Unicode rather than a shortcode. A stored `❤️` renders everywhere with no
- * map lookup and survives the extension being disabled, whereas a stored `heart`
- * is meaningless without this table.
+ * Grava Unicode, não shortcode: `❤️` renderiza em qualquer lugar e sobrevive à
+ * extensão desativada; `heart` não significa nada sem esta tabela.
  */
 export default class EmojiPicker extends Component<EmojiPickerAttrs> {
     private open;

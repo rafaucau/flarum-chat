@@ -1,21 +1,15 @@
-import type Model from "flarum/common/Model";
-/**
- * A JSON:API document, in the shape `Store.pushPayload` accepts.
- */
+import type Model from 'flarum/common/Model';
+/** Documento JSON:API no formato aceito por `Store.pushPayload`. */
 export interface Document {
     data: unknown[];
     included?: unknown[];
     meta?: Record<string, unknown>;
 }
 /**
- * What the last visit left behind, so the next one can paint before it asks
- * the server anything.
- *
- * Only the sidebar and the tail of a few recently viewed channels — the same
- * shape the boot payload has (see Content\PreloadChat), so ChatState hydrates
- * both through the same code. Everything read from here is marked stale and
- * revalidated the moment it is on screen; the snapshot buys the first paint,
- * not the truth.
+ * O que a última visita deixou, para a próxima pintar antes de consultar o
+ * servidor. Só a sidebar e o fim de alguns canais vistos, no mesmo formato do
+ * payload de boot (ver Content\PreloadChat). Tudo lido daqui é marcado como velho e
+ * revalidado assim que aparece na tela.
  */
 export interface Snapshot {
     version: number;
@@ -25,28 +19,25 @@ export interface Snapshot {
     pinned: Record<string, Document>;
 }
 /**
- * Rebuilds a JSON:API document from models already in the store.
+ * Reconstrói um documento JSON:API a partir dos models no store. Cada model guarda
+ * em `data` o recurso de origem; seguir as relações e pegar o que o store ainda
+ * tem gera o documento que o servidor mandaria, inclusive linhas que chegaram pelo
+ * websocket.
  *
- * Every model keeps the resource object it was hydrated from as `data`, and
- * the store holds everything that arrived as `included`. Walking the primary
- * models' relationships and collecting what the store still has for each
- * linkage produces the document the server would have sent — including rows
- * that arrived over the websocket after the original request, which no captured
- * response could carry.
- *
- * Bounded by depth rather than by type so a new relationship on a model is
- * picked up without this needing to know about it. Three levels reach
- * `replyTo.user.groups`, the deepest thing the message list includes.
+ * Limitado por profundidade, não por tipo, para pegar relações novas sozinho. Três
+ * níveis alcançam `replyTo.user.groups`, o mais fundo que a lista de mensagens inclui.
  */
 export declare function serialize(models: Model[], depth?: number): Document;
 export declare function readSnapshot(userId: string): Snapshot | null;
 export declare function writeSnapshot(userId: string, snapshot: Snapshot): void;
 /**
- * Drops every account's snapshot.
- *
- * Called when the page boots with nobody signed in: the tail of somebody's
- * private channel must not outlive their session on a shared browser. Keyed by
- * user id, so a different account signing in afterwards would never read it —
- * but it should not be on the disk at all.
+ * Apaga o snapshot de todas as contas. Chamado quando a página sobe sem sessão: o
+ * histórico de um canal privado não pode sobreviver à sessão num navegador
+ * compartilhado.
  */
 export declare function purgeSnapshots(): void;
+/**
+ * Se alguma aba saiu da conta depois de `since` (ms). Uma aba aberta antes da
+ * saída não sabe que a sessão acabou e não deve gravar o snapshot de volta.
+ */
+export declare function signedOutSince(since: number): boolean;

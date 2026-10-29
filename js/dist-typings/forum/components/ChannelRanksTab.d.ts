@@ -1,24 +1,24 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type Mithril from "mithril";
-import type Channel from "../../common/models/Channel";
-import type { RankBook, RankEntry } from "../../common/models/Channel";
-/** Mirrors ChannelRank::MAX_PER_CHANNEL and ChannelRank::NAME_MAX. */
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type Mithril from 'mithril';
+import type Channel from '../../common/models/Channel';
+import type { RankBook, RankEntry } from '../../common/models/Channel';
+/** Espelha ChannelRank::MAX_PER_CHANNEL e ChannelRank::NAME_MAX. */
 export declare const MAX_RANKS = 20;
 export declare const RANK_NAME_MAX = 32;
-type RankPath = "" | "/update" | "/delete" | "/order" | "/assign";
+type RankPath = '' | '/update' | '/delete' | '/order' | '/assign';
 /**
- * One rank write, answered with the channel; the new `rankBook` lands on the
- * store record every author line and the members tab read from.
+ * Grava um rank; a resposta traz o canal, e o novo `rankBook` vai para o registro
+ * do store que as linhas de autor e a aba de membros leem.
  */
 export declare function rankRequest(channelId: number | string, path: RankPath, attributes: Record<string, unknown>): Promise<Channel | null>;
 interface RankDraft {
-    /** 'new', a built-in's name, or a custom rank's id. */
-    target: "new" | "owner" | "moderator" | number;
-    builtin: "owner" | "moderator" | null;
+    /** 'new', o nome de um rank nativo ou o id de um rank próprio. */
+    target: 'new' | 'owner' | 'moderator' | number;
+    builtin: 'owner' | 'moderator' | null;
     name: string;
     color: string;
-    /** A built-in left at the theme's colour. */
+    /** Rank nativo com a cor do tema. */
     themeColor: boolean;
     icon: string;
     showBadge: boolean;
@@ -27,13 +27,9 @@ export interface ChannelRanksTabAttrs extends ComponentAttrs {
     channel: Channel;
 }
 /**
- * The ranks editor, for whoever may manage them: the two built-in ranks every
- * channel has, then the owner's own in priority order, each editable, the own
- * ones reorderable and removable. Handing them out happens in the Members tab,
- * where the people are.
- *
- * Draws only from the channel's `rankBook`, and every write answers with the
- * new one, so the list is always the server's word.
+ * Editor de ranks: os dois nativos e os próprios do canal, em ordem de prioridade.
+ * A atribuição fica na aba de membros. Lê só o `rankBook` do canal, que toda
+ * gravação devolve atualizado.
  */
 export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
     private draft;
@@ -47,10 +43,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
     protected holders(book: RankBook, rank: RankEntry): number;
     protected edit(rank: RankEntry | null): void;
     protected editor(draft: RankDraft): Mithril.Children;
-    /**
-     * The rank as it would look, on a light surface and on a dark one side by
-     * side, so whoever picks a colour sees both themes before anyone else does.
-     */
+    /** Prévia do rank no tema claro e no escuro, lado a lado. */
     protected preview(draft: RankDraft): Mithril.Children;
     protected save(draft: RankDraft): Promise<void>;
     protected move(custom: RankEntry[], index: number, by: number): Promise<void>;

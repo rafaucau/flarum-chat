@@ -1,5 +1,5 @@
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 interface FlaggedData {
     flagId?: number;
     messageId?: number;
@@ -8,23 +8,18 @@ interface FlaggedData {
     reason?: string;
 }
 /**
- * "X reported a message in #channel."
+ * "X denunciou uma mensagem em #canal." Vai para os moderadores.
  *
- * Sent to moderators, so a report reaches them the way a flag on a post does
- * instead of waiting to be found the next time someone opens the queue.
- *
- * Clicking goes to the queue rather than to the message: the decision to be made
- * is about the report, and the queue is where both the reporter's words and the
- * two actions are.
+ * O clique leva à fila, e não à mensagem: lá estão o texto da denúncia e as ações.
  */
 export default class MessageFlaggedNotification extends Notification {
     icon(): string;
     href(): string;
     content(): Mithril.Children;
     /**
-     * The reason, not the reported text. The notification's stored data is returned
-     * verbatim with no policy re-check, so a message hidden after the report would
-     * still be readable here — see MessageFlaggedBlueprint.
+     * Mostra o motivo, não o texto denunciado: os dados da notificação voltam sem
+     * nova checagem de permissão, e uma mensagem ocultada depois ainda apareceria
+     * aqui (ver MessageFlaggedBlueprint).
      */
     excerpt(): Mithril.Children;
     protected data(): FlaggedData;

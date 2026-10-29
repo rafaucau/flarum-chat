@@ -1,26 +1,20 @@
-import type FlagMessageModal from "../components/FlagMessageModal";
-import type FlagPostModal from "ext:flarum/flags/forum/components/FlagPostModal";
-import type { ChatFlagPostModalAttrs } from "../components/ChatFlagPostModal";
+import type FlagMessageModal from '../components/FlagMessageModal';
+import type FlagPostModal from 'ext:flarum/flags/forum/components/FlagPostModal';
+import type { ChatFlagPostModalAttrs } from '../components/ChatFlagPostModal';
 /**
- * Loaders for the chat's lazy chunks.
- *
- * Each `import()` sits alone on a short line: flarum-webpack-config's
- * autoChunkNameLoader only names and registers a dynamic import written on a
- * single line, and an import broken up by the formatter becomes an anonymous
- * chunk that Flarum cannot serve.
+ * Loaders dos chunks lazy. Cada `import()` fica sozinho numa linha curta: o
+ * autoChunkNameLoader só nomeia e registra imports de uma linha, e um import
+ * quebrado pelo formatter vira chunk anônimo que o Flarum não serve.
  */
 declare const importChatUi: () => Promise<typeof import("../chatUi")>;
-/**
- * Returns the interface chunk, requesting it only once. A failure forgets the
- * promise, so the next attempt retries the request.
- */
+/** Pede o chunk da interface uma vez só; se falhar, a próxima chamada tenta de novo. */
 export declare function loadChatUi(): ReturnType<typeof importChatUi>;
 export declare const loadChannelFormModal: () => Promise<typeof import("../components/ChannelFormModal")>;
 export declare const loadChannelInfoModal: () => Promise<typeof import("../components/ChannelInfoModal")>;
 export declare const loadAddMembersModal: () => Promise<typeof import("../components/AddMembersModal")>;
 /**
- * The report dialog: flarum/flags' own where that extension is enabled, so a
- * message is reported the way a post is, and the chat's otherwise.
+ * Modal de denúncia: o do flarum/flags quando ativo, para a mensagem ser
+ * denunciada como um post; senão o do chat.
  */
 export declare function loadFlagMessageModal(): Promise<{
     default: typeof FlagMessageModal | typeof FlagPostModal<ChatFlagPostModalAttrs>;

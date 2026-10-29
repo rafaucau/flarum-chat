@@ -1,12 +1,12 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Channel from "./Channel";
-import type { RankEntry } from "./Channel";
-import type Thread from "./Thread";
-import type Upload from "./Upload";
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Channel from './Channel';
+import type { RankEntry } from './Channel';
+import type Thread from './Thread';
+import type Upload from './Upload';
 /**
- * A single reaction bucket, as sent by MessageResource::reactionSummary().
- * Pre-aggregated on the server so the client never holds every reaction row.
+ * Agregado no servidor (MessageResource::reactionSummary()) para o cliente não
+ * receber cada reação.
  */
 export interface ReactionSummaryEntry {
     count: number;
@@ -14,9 +14,7 @@ export interface ReactionSummaryEntry {
 }
 export type ReactionSummary = Record<string, ReactionSummaryEntry>;
 export default class Message extends Model {
-    /**
-     * Author-facing source text. Null on a deleted message the actor may not see.
-     */
+    /** Texto-fonte. Null em mensagem apagada que o usuário não pode ver. */
     content: () => string | null;
     contentHtml: () => string | null;
     type: () => string;
@@ -30,17 +28,14 @@ export default class Message extends Model {
     editedAt: () => Date | null | undefined;
     deletedAt: () => Date | null | undefined;
     /**
-     * Advanced by every change the row can undergo — an edit, a deletion, a pin,
-     * a reaction. The polling fallback reconciles against it; see pollChanges()
-     * in forum/index.tsx.
+     * Avança a cada mudança (edição, exclusão, fixar, reação). O polling de
+     * fallback se reconcilia por ele (pollChanges() em forum/index.tsx).
      */
     updatedAt: () => Date | null | undefined;
     isDeleted: () => boolean;
     /**
-     * Whether someone other than the author removed it.
-     *
-     * Distinct from `isRedacted()`, which only says the text was withheld from
-     * this reader — true for a self-deleted message too.
+     * Apagada por alguém que não o autor. `isRedacted()` só diz que o texto foi
+     * ocultado deste leitor, o que vale também para autoexclusão.
      */
     isModeratorDeleted: () => boolean;
     isEdited: () => boolean;
@@ -51,18 +46,15 @@ export default class Message extends Model {
     mentionsChannelWide: () => boolean;
     isBookmarked: () => boolean;
     /**
-     * The author's rank in this channel when the row was read. Superseded by
-     * the channel's `rankBook` once that is loaded, which realtime keeps current.
+     * Rank do autor no momento da leitura. O `rankBook` do canal, mantido em dia
+     * pelo realtime, tem precedência quando carregado.
      */
     authorRank: () => RankEntry | null;
-    /** Whether *this* reader has an open report against it. */
+    /** Se *este* leitor tem denúncia aberta contra ela. */
     isFlagged: () => boolean;
     /**
-     * Open reports on this message.
-     *
-     * Withheld from anyone without `ramon-chat.moderate`, so it is undefined rather
-     * than zero for ordinary readers — a visible count would tell everyone which
-     * messages are being reported, and tell an author they had been.
+     * Só para quem tem `ramon-chat.moderate`; para os demais é undefined, não
+     * zero, para não revelar quais mensagens foram denunciadas.
      */
     flagsCount: () => number | undefined;
     canEdit: () => boolean;
@@ -73,7 +65,7 @@ export default class Message extends Model {
     canMove: () => boolean;
     canPin: () => boolean;
     canFlag: () => boolean;
-    /** Whether the row itself may be removed, tombstone and all. */
+    /** Remover a linha de vez, sem deixar tombstone. */
     canForceDelete: () => boolean;
     user: () => false | User | null;
     editedBy: () => false | User | null;
@@ -84,28 +76,18 @@ export default class Message extends Model {
     uploads: () => false | (Upload | undefined)[];
     isSystem(): boolean;
     /**
-     * Posted by the chat's bot rather than a person.
-     *
-     * Not a system message: it has real content and renders through the ordinary
-     * message path. Only the author differs — there is no user record, so the name
-     * and avatar come from the admin's settings.
+     * Não é mensagem de sistema: renderiza como mensagem comum, mas sem registro
+     * de usuário; nome e avatar vêm das settings.
      */
     isBot(): boolean;
     /**
-     * True when the row exists but its text was withheld — a moderator-removed
-     * message shown to someone who may not read it. The stream renders a
-     * tombstone so it does not silently reflow.
+     * A linha existe mas o texto foi ocultado deste leitor. O stream desenha um
+     * tombstone para não haver reflow silencioso.
      */
     isRedacted(): boolean;
-    /**
-     * Whether this message mentions the current user, either by name or through
-     * @here / @all. Drives the mention highlight.
-     */
+    /** Por nome ou via @here / @all. */
     mentionsActor(): boolean;
-    /**
-     * Whether this message should render collapsed under the previous one: same
-     * author, close in time, and neither is a system message.
-     */
+    /** Mesmo autor, perto no tempo e nenhuma das duas é de sistema. */
     isGroupedWith(previous: Message | null | undefined, withinSeconds?: number): boolean;
     totalReactions(): number;
     apiEndpoint(): string;

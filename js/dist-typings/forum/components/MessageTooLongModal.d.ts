@@ -1,22 +1,18 @@
-import Modal from "flarum/common/components/Modal";
-import type { IInternalModalAttrs } from "flarum/common/components/Modal";
-import type Mithril from "mithril";
+import Modal from 'flarum/common/components/Modal';
+import type { IInternalModalAttrs } from 'flarum/common/components/Modal';
+import type Mithril from 'mithril';
 export interface MessageTooLongModalAttrs extends IInternalModalAttrs {
-    /** Length of what the sender tried to post. */
+    /** Tamanho do que o remetente tentou enviar. */
     length: number;
-    /** The cap that applies in this channel. */
+    /** Limite que vale neste canal. */
     max: number;
 }
 /**
- * Says the message is too long, and by exactly how much.
+ * Avisa que a mensagem passou do limite e por quanto.
  *
- * A modal rather than an inline note because the send has just been refused:
- * the composer keeps the text, nothing was lost, and the reader needs to know
- * that before they retype it. The count is the actionable part — "shorten by
- * 412" is a instruction, "too long" is a complaint.
- *
- * The alternative this replaces was worse than either: `maxlength` on the
- * textarea, which let the browser silently drop the tail of anything pasted.
+ * Modal porque o envio acabou de ser recusado e o composer manteve o texto.
+ * Não se usa `maxlength` no textarea: o navegador cortaria o fim do que foi colado
+ * sem avisar.
  */
 export default class MessageTooLongModal extends Modal<MessageTooLongModalAttrs> {
     className(): string;

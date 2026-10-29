@@ -1,214 +1,156 @@
-import Modal from "flarum/common/components/Modal";
-import type { IInternalModalAttrs } from "flarum/common/components/Modal";
-import type User from "flarum/common/models/User";
-import type Mithril from "mithril";
-import type Channel from "../../common/models/Channel";
-import { type SendKey } from "../utils/shortcuts";
+import Modal from 'flarum/common/components/Modal';
+import type { IInternalModalAttrs } from 'flarum/common/components/Modal';
+import type User from 'flarum/common/models/User';
+import type Mithril from 'mithril';
+import type Channel from '../../common/models/Channel';
+import { type SendKey } from '../utils/shortcuts';
 export interface ChannelInfoModalAttrs extends IInternalModalAttrs {
     channel: Channel;
 }
 /**
- * Channel details: notification preferences, the member list, and the moderation
- * actions that change a channel's state.
+ * Detalhes do canal: notificações, membros e ações de moderação.
  *
- * Distinct from ChannelFormModal, which edits what a channel *is* (name, category,
- * threading) and needs the edit permission. This is what any member may see and
- * adjust for themselves, with the state-changing actions gated per capability
- * flag — so a plain member gets a useful panel rather than a locked one.
+ * O ChannelFormModal edita o canal em si e exige permissão de edição; este é o
+ * que qualquer membro vê, com cada ação liberada pela flag de permissão dela.
  */
 export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     private tab;
-    /** Whose ranks are open for editing in the members tab, or null. */
+    /** Membro com os ranks abertos para edição na aba de membros, ou null. */
     private assigningUserId;
     private members;
     /**
-     * Who holds the channel's moderator role, as of the last read of the member
-     * list or the last promotion. Kept here rather than read off the store's
-     * record: every other read of the channel comes without the member list and
-     * answers this empty, so a capability refresh landing while the tab was open
-     * wiped every badge from it.
+     * Moderadores do canal, da última leitura da lista ou promoção. Guardado aqui:
+     * as outras leituras do canal vêm sem membros e devolvem isto vazio.
      */
     private moderatorIds;
-    /** People invited and not yet answered. Served to managers only. */
+    /** Convites sem resposta. Só quem gerencia recebe. */
     private invited;
     /**
-     * The pending ownership handover, as the server shows it to this reader:
-     * the owner's own (waiting for the code, or for the answer), or the one
-     * offered to this reader. Read with the member list, like `moderatorIds`.
+     * Transferência de dono pendente, como o servidor a mostra a este leitor: a do
+     * dono ou a oferecida a ele. Lida junto com os membros, como `moderatorIds`.
      */
     private transfer;
     private loadingMembers;
     private loadedMembers;
     private memberFilter;
     private working;
-    /** Stops listening for membership pushes; set while the modal is open. */
+    /** Para de ouvir pushes de membros; definido enquanto o modal está aberto. */
     private stopListening;
     /**
-     * Which immediate action is running, or null.
-     *
-     * `working` answers "is anything in flight", which is what every control reads
-     * to disable itself. A spinner is a narrower claim — it says *this* button
-     * started something — and driving them all from the one flag meant changing
-     * the notification level spun Close and Archive along with it.
+     * Ação imediata em andamento, ou null. `working` desabilita todos os controles;
+     * isto decide qual botão mostra o spinner.
      */
     private pending;
     className(): string;
     title(): Mithril.Children;
     content(): Mithril.Children;
-    protected tabButton(tab: "settings" | "members" | "ranks", key: string): Mithril.Children;
+    protected tabButton(tab: 'settings' | 'members' | 'ranks', key: string): Mithril.Children;
     protected settings(): Mithril.Children;
     /**
-     * How this member's own composer behaves.
-     *
-     * Its own section rather than a row under NOTIFICATIONS, and worth being
-     * explicit about why it is in a per-channel panel at all: which key sends is a
-     * setting for the person, not for the channel, and it applies everywhere. The
-     * section sits here because this is the panel a member already opens to adjust
-     * the chat for themselves — but the help line says "every channel" so nobody
-     * reads the surrounding modal as the scope.
-     *
-     * Guests never reach this: the chat requires an account, and `savePreferences`
-     * needs a user to save against.
+     * Comportamento do composer do membro. A tecla de envio vale para todos os
+     * canais, não só este; o texto de ajuda deixa isso claro.
      */
     protected composerSection(): Mithril.Children;
-    /** The line describing the notification level currently selected. */
+    /** Descrição do nível de notificação selecionado. */
     protected notificationLevelHelp(channel: Channel): string;
     /**
-     * Actions that change the channel for everyone. Each is drawn only when the
-     * server said the actor may do it, so nothing here is present-and-rejected.
+     * Ações que mudam o canal para todos; cada uma só aparece se o servidor permitir.
      */
     protected moderation(): Mithril.Children;
     protected memberTab(): Mithril.Children;
     /**
-     * Who has been asked in and not answered, for whoever manages the list.
-     *
-     * Under the members rather than among them: an invitation is not a
-     * membership, and a name in the member list that cannot be messaged would
-     * be a lie. Each row can be withdrawn, which is the manager's half of the
-     * exchange the invitee's accept and decline are the other half of.
+     * Convites pendentes, para quem gerencia. Ficam abaixo dos membros porque
+     * convite não é participação; cada um pode ser retirado.
      */
     protected invitedList(): Mithril.Children;
     /**
-     * Withdraws an invitation. The invitee's notification goes with it, so
-     * confirmed first: the person may be reading it at that very moment.
+     * Retira um convite, com confirmação: a notificação do convidado some junto.
      */
     protected cancelInvite(user: User): Promise<void>;
     protected isOwner(user: User): boolean;
     protected isModerator(user: User): boolean;
-    /** The rank shown for a member, from the channel's rank book. */
+    /** Rank exibido do membro, do `rankBook` do canal. */
     protected rankOf(user: User): import("../../common/models/Channel").RankEntry | null;
     /**
-     * The member's rank, the way author lines draw it: a tag, or nothing here
-     * when the rank colours the name instead. Without a rank book — a direct
-     * conversation has none — the role labels the list always had.
+     * Rank do membro como nas linhas de autor: tag, ou nada se o rank só colore o
+     * nome. Sem `rankBook` (conversa direta), usa os rótulos de papel.
      */
     protected memberBadge(user: User): Mithril.Children;
     /**
-     * Opens the member's ranks, for whoever manages them. Offered for oneself
-     * too: a chat moderator running another person's room may wear a rank there.
+     * Abre os ranks do membro para quem gerencia, inclusive os próprios: um
+     * moderador do chat pode ter rank no canal de outra pessoa.
      */
     protected rankControl(user: User): Mithril.Children;
     /**
-     * The owner's ranks as a checklist under the member's row. Each tick saves
-     * at once, the whole set: the server answers with the rank book, which
-     * redraws this list, the member's tag and every author line together.
+     * Checklist de ranks sob a linha do membro. Cada marcação grava o conjunto
+     * inteiro; o servidor devolve o `rankBook`, que redesenha tudo junto.
      */
     protected rankPicker(user: User): Mithril.Children;
     protected assignRanks(user: User, rankIds: number[]): Promise<void>;
     /**
-     * Promote, demote and remove — each drawn only for people the actor may
-     * actually act on, so no button is a promise the server refuses to keep.
-     * Nothing for yourself: leaving is what "Leave channel" is for, and the owner
-     * is not something you can stop being from here.
+     * Promover, rebaixar e remover, só para quem o usuário pode afetar. Nada para si
+     * mesmo: para isso existe "Sair do canal".
      */
     protected memberControls(user: User): Mithril.Children;
     /**
-     * The pending handover, with what this reader can do about it: the owner
-     * enters the code or cancels; the member it is offered to accepts or
-     * declines, the same two answers the notification row carries.
+     * Transferência pendente: o dono digita o código ou cancela; quem recebe aceita
+     * ou recusa, como na notificação.
      */
     protected transferBanner(): Mithril.Children;
-    /** A member's display name by id, from the list or the store. */
+    /** Nome do membro pelo id, da lista ou do store. */
     protected userName(id: number): string;
     /**
-     * First step: asked once, then the server mails the owner a code and the
-     * code dialog opens over this one.
+     * Primeiro passo: após confirmar, o servidor manda o código por e-mail ao dono e
+     * o diálogo do código abre por cima.
      */
     protected startTransfer(user: User): Promise<void>;
     protected openCodeModal(recipientName: string): void;
     protected cancelTransfer(): Promise<void>;
     protected answerTransfer(accept: boolean): Promise<void>;
     /**
-     * Redraws the tab from a channel the server answered with, members and all.
-     * The transfer endpoints include participants, so the badges, the role list
-     * and the pending handover all come from that one answer.
+     * Redesenha a aba a partir do canal devolvido. Os endpoints de transferência
+     * incluem participantes, então tudo vem dessa resposta.
      */
     protected adoptMembers(channel: Channel | null): void;
     protected reloadMembers(): void;
     /**
-     * Hands the channel's moderator role to a member, or takes it back.
-     *
-     * The response carries the channel with its participants, so pushing it
-     * refreshes `moderatorIds` on the very model this modal is drawing from.
+     * Dá ou tira o papel de moderador. A resposta traz o canal com participantes,
+     * o que atualiza `moderatorIds`.
      */
     protected setModerator(user: User, moderator: boolean): Promise<void>;
     /**
-     * Opens the people picker.
-     *
-     * Stacked on top of this modal rather than replacing it: the member list is
-     * the context for the choice, and coming back to a closed dialog after adding
-     * three people would mean reopening it to check they landed.
-     *
-     * This is how anyone gets into a private channel: it is not discoverable and
-     * cannot be joined, so an existing member with `manageMembers` has to put you
-     * there. Offered only when the server says the actor may — a moderator, or the
-     * creator of a group conversation.
+     * Abre o seletor de pessoas empilhado sobre este modal. É a única forma de
+     * entrar num canal privado, que não aparece na busca nem aceita entrada direta.
      */
     protected openAddMembers(): void;
     /**
-     * Folds the picker's result into the pending list.
-     *
-     * Invited, not added: nobody is a member until they say yes, so the count
-     * does not move and the names go under "invitations pending" rather than
-     * into the member list.
+     * Adiciona o resultado do seletor aos convites pendentes. Ninguém vira membro
+     * antes de aceitar, então a contagem não muda.
      */
     protected onMembersInvited(users: User[]): void;
     /**
-     * Removes someone else from the channel.
-     *
-     * Confirmed first: unlike adding, this one is not obviously undoable from the
-     * other side — a private channel cannot be rejoined, so the person would have to
-     * be added back by hand.
+     * Remove alguém do canal, com confirmação: de canal privado a pessoa não volta
+     * sozinha.
      */
     protected remove(user: User): Promise<void>;
     protected loadMembers(): Promise<void>;
     onremove(vnode: Mithril.VnodeDOM<ChannelInfoModalAttrs, this>): void;
     protected saveNotifications(level: number | null, muted: boolean | null): Promise<void>;
     /**
-     * Stores the send-key choice on the user.
+     * Grava a tecla de envio no usuário, de forma otimista: o composer lê a
+     * preferência a cada tecla.
      *
-     * Optimistic like `saveNotifications`, and for a sharper reason: the composer
-     * reads the preference off the same record on every keystroke, so the change
-     * has to be in place before the next one — waiting for the round trip would
-     * mean the first Enter after choosing still did the old thing.
-     *
-     * The rollback is not the redundant belt-and-braces it looks like. `Model.save`
-     * does snapshot and restore on failure, but `savePreferences` mutates the
-     * preferences object *in place* before calling it, so the snapshot is taken
-     * with the new value already in it and core's revert restores that. Undoing it
-     * here is the only thing that stops a rejected save from leaving the select —
-     * and the composer — agreeing with a server that never accepted it.
+     * O rollback manual é necessário: `savePreferences` altera o objeto antes do
+     * `Model.save`, então o snapshot do core já contém o valor novo.
      */
     protected saveSendKey(value: SendKey): Promise<void>;
-    protected setStatus(status: "open" | "closed"): Promise<void>;
+    protected setStatus(status: 'open' | 'closed'): Promise<void>;
     protected archive(): Promise<void>;
     protected unarchive(): Promise<void>;
     protected destroy(): Promise<void>;
     /**
-     * Runs one immediate state change.
-     *
-     * `action` names the button that owns the spinner for the duration; `working`
-     * still gates every other control, so nothing else can be started meanwhile.
+     * Executa uma mudança de estado imediata. `action` diz qual botão mostra o
+     * spinner; `working` bloqueia os demais controles.
      */
-    protected act(action: "status" | "archive" | "unarchive", path: string, attributes: Record<string, unknown>): Promise<void>;
+    protected act(action: 'status' | 'archive' | 'unarchive', path: string, attributes: Record<string, unknown>): Promise<void>;
 }
