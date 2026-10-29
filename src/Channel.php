@@ -344,11 +344,12 @@ class Channel extends AbstractModel
      *
      * Null and zero both mean "follow the forum": a channel that never had an
      * opinion and a channel whose own limit was cleared must behave the same,
-     * and zero as a literal cap would forbid every message.
+     * and zero as a literal cap would forbid every message. A channel only ever
+     * shortens the limit, as the admin page says: the forum's is the ceiling.
      */
     public function maxMessageLength(int $forumDefault): int
     {
-        return $this->max_message_length ?: $forumDefault;
+        return $this->max_message_length ? min($this->max_message_length, $forumDefault) : $forumDefault;
     }
 
     /** @return BelongsTo<User, $this> */

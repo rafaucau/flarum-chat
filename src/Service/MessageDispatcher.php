@@ -73,6 +73,18 @@ class MessageDispatcher
             ]);
         }
 
+        // Só os anexos que vão mesmo para a mensagem (do próprio autor, ainda
+        // soltos) contam para "não está vazia": ids inventados passavam a regra
+        // e gravavam uma mensagem em branco.
+        $uploadIds = $uploadIds === [] ? [] : Upload::query()
+            ->whereIn('id', $uploadIds)
+            ->where('user_id', $actor->id)
+            ->whereNull('message_id')
+            ->when(! UploadPrivacy::requiredFor($channel), fn ($query) => $query->where('is_private', false))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $this->assertValidContent($channel, $content, $uploadIds);
         $this->assertMaySendStickers($actor, $content);
         $this->rateLimiter->assertWithinLimit($actor);

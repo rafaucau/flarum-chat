@@ -15,10 +15,12 @@ const FALLBACK = 3000;
  */
 export function resolveMaxMessageLength(channel?: Channel | null): number {
   const own = channel?.maxMessageLength?.();
+  const forum = forumMaxMessageLength();
 
-  if (own && own > 0) return own;
+  // O canal só encurta o limite: o do fórum é o teto.
+  if (own && own > 0) return Math.min(own, forum);
 
-  return forumMaxMessageLength();
+  return forum;
 }
 
 /** The forum-wide setting, for channels that do not override it. */
