@@ -328,6 +328,12 @@ let delivered = false;
  * um fetch por mensagem.
  */
 function onMessage(data: MessagePayload): void {
+  // O servidor manda a mensagem também ao autor, para as outras abas e aparelhos
+  // dele. A aba que ainda espera a resposta do envio a recebe por ela.
+  const own = !!data.userId && String(data.userId) === String(app.session.user?.id());
+
+  if (own && chatState.hasPendingSends(data.channelId)) return;
+
   const message = pushMessage(data);
 
   if (!message) return;
@@ -340,9 +346,9 @@ function onMessage(data: MessagePayload): void {
     chatState.clearTyping(data.channelId, data.userId);
   }
 
-  bumpChannel(data);
+  bumpChannel(data, own);
   bumpThread(data);
-  announce(data, message);
+  if (!own) announce(data, message);
   queueReconcile(data.channelId, data.id);
 
   m.redraw();
@@ -407,7 +413,7 @@ function queueReconcile(channelId: number, messageId: number): void {
  * foco, se o canal está silenciado, e conforme o nível de notificação do membro
  * (Nunca, Menções ou Sempre; padrão Menções), igual ao badge.
  *
- * Mensagens próprias não chegam aqui: o ChatBroadcaster exclui o ator.
+ * Mensagens próprias não chegam aqui: `onMessage` só anuncia as dos outros.
  */
 function announce(data: MessagePayload, message: Message): void {
   const channel = chatState.channel(data.channelId);
@@ -552,8 +558,8 @@ const ignoreNoLongerVisible = (error: { status?: number }): false | void => {
  * tem o mesmo `defaultInclude` da listagem e traz `deletedBy`, que permite à
  * lápide nomear o moderador.
  *
- * Exportado porque o moderador que exclui também precisa: `whenMessageChanged`
- * exclui o ator, então o próprio cliente não recebe o evento. Ver ChatMessage.delete().
+ * Exportado porque o moderador que exclui também precisa: o eco do
+ * `whenMessageChanged` pode chegar antes da resposta. Ver ChatMessage.delete().
  */
 export function refreshMessageCapabilities(id: number): void {
   if (refetchingMessages.has(id)) return;
@@ -1248,8 +1254,15 @@ function pushMessage(data: MessagePayload): Message | null {
  * Avança o ponteiro de última mensagem e o badge de não lidas localmente: o servidor
  * já fez o incremento oficial, e um request por mensagem anularia o websocket.
  */
-function bumpChannel(data: MessagePayload): void {
+function bumpChannel(data: MessagePayload, own = false): void {
   const channel = chatState.channel(data.channelId);
+
+  // Quem escreveu leu: avança a leitura em vez de somar não lida.
+  if (own) {
+    channel?.pushAttributes({ lastMessageId: data.id, lastMessageAt: data.createdAt, lastReadMessageId: data.id });
+
+    return;
+  }
 
   // Canal fora da lista carregada (em geral o chat não foi aberto na sessão). O
   // badge do canal não tem onde ficar, mas a contagem do header e o ponto da

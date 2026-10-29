@@ -119,7 +119,9 @@ class BroadcastListener
             $channel,
             self::EVENT_MESSAGE,
             $this->messagePayload($event->message),
-            $event->message->user_id
+            // O autor também: as outras abas e aparelhos dele assinam o mesmo canal
+            // privado. A aba que enviou ignora o eco (mesmo id, sem som nem não lida).
+            null
         );
     }
 
@@ -135,7 +137,8 @@ class BroadcastListener
             $channel,
             self::EVENT_MESSAGE_CHANGED,
             $this->messagePayload($event->message),
-            $event->actor?->id
+            // Inclui quem editou: uma aba antiga dele não pode reverter a edição.
+            null
         );
     }
 

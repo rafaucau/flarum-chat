@@ -130,6 +130,25 @@ class RealtimeAudienceTest extends TestCase
         $this->assertSame(['private-user='.self::CHATTER], $pushes[0]['channels']);
     }
 
+    public function test_the_author_gets_their_own_message_on_their_other_tabs(): void
+    {
+        $this->bindRecorder();
+
+        // Todas as abas e aparelhos da conta assinam o mesmo canal privado; sem o
+        // autor no público, os outros só viam a própria mensagem no próximo poll.
+        $message = \Ramon\Chat\Message::build(Channel::query()->findOrFail(2), \Flarum\User\User::query()->findOrFail(self::CHATTER), 'oi');
+        $message->number = 1;
+        $message->save();
+
+        $listener = $this->app()->getContainer()->make(BroadcastListener::class);
+        $listener->whenMessageSent(new \Ramon\Chat\Event\MessageWasSent($message));
+        $listener->whenMessageChanged(new \Ramon\Chat\Event\MessageWasEdited($message, $message->user));
+
+        $channels = array_merge(...array_map(fn (array $push) => $push['channels'], $this->pushes()));
+
+        $this->assertSame(2, count(array_keys($channels, 'private-user='.self::CHATTER, true)));
+    }
+
     public function test_a_deleted_channel_is_announced_to_its_members(): void
     {
         $this->bindRecorder();
