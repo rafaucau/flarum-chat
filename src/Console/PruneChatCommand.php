@@ -14,8 +14,11 @@ use Flarum\Console\AbstractCommand;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Ramon\Chat\Channel;
+use Ramon\Chat\ChannelUser;
 use Ramon\Chat\Message;
+use Ramon\Chat\Service\UnreadTracker;
 use Ramon\Chat\Storage\UploadStorage;
+use Ramon\Chat\Thread;
 use Ramon\Chat\Upload;
 
 /**
@@ -42,7 +45,8 @@ class PruneChatCommand extends AbstractCommand
 
     public function __construct(
         protected SettingsRepositoryInterface $settings,
-        protected UploadStorage $storage
+        protected UploadStorage $storage,
+        protected UnreadTracker $unread
     ) {
         parent::__construct();
     }
@@ -72,6 +76,18 @@ class PruneChatCommand extends AbstractCommand
             Channel::query()
                 ->whereIn('id', array_keys($touched))
                 ->each(fn (Channel $channel) => $channel->refreshMetadata()->save());
+
+            // Tópicos e contadores de não lidas também vêm das mensagens: sem
+            // recontar, ficavam apontando para o que foi apagado.
+            Thread::query()
+                ->whereIn('channel_id', array_keys($touched))
+                ->each(fn (Thread $thread) => $thread->refreshMetadata()->save());
+
+            ChannelUser::query()
+                ->whereIn('channel_id', array_keys($touched))
+                ->whereNull('left_at')
+                ->where(fn ($query) => $query->where('unread_count', '>', 0)->orWhere('unread_mentions_count', '>', 0))
+                ->each(fn (ChannelUser $membership) => $this->unread->recalculate($membership)->save());
         }
 
         $this->info(sprintf(
@@ -111,6 +127,15 @@ class PruneChatCommand extends AbstractCommand
         Message::query()
             ->whereIn('channel_id', $channelIds)
             ->where('created_at', '<', $cutoff)
+            // Fica o que alguém ainda usa: mensagens fixadas, as que têm denúncia
+            // aberta (a evidência some com elas) e a raiz de um tópico que ainda
+            // recebe respostas.
+            ->whereNull('pinned_at')
+            ->whereDoesntHave('flags', fn ($query) => $query->whereNull('resolved_at'))
+            ->whereNotIn('id', Thread::query()
+                ->where('last_message_at', '>=', $cutoff)
+                ->whereNotNull('original_message_id')
+                ->select('original_message_id'))
             ->select(['id', 'channel_id'])
             // Chunk by id so deleting rows cannot shift the pages being iterated.
             ->chunkById(500, function ($messages) use (&$deleted, &$touched, $dryRun) {
