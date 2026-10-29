@@ -102,7 +102,8 @@ class RealtimeLargeAudienceTest extends TestCase
         $largestUserLoad = 0;
 
         $this->database()->listen(function (QueryExecuted $query) use (&$largestUserLoad) {
-            if (preg_match('/from "users" where "users"\."id" in \(([^)]*)\)/', $query->sql, $match)) {
+            // Aspas duplas ou crase, com ou sem prefixo de tabela: o mesmo SQL em todo banco.
+            if (preg_match('/from [`"]\w*users[`"] where [`"]\w*users[`"]\.[`"]id[`"] in \(([^)]*)\)/', $query->sql, $match)) {
                 $largestUserLoad = max($largestUserLoad, count(explode(',', $match[1])));
             }
         });
