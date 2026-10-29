@@ -43,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class Thread extends AbstractModel
 {
+    use CountsMessagesAtomically;
     use EventGeneratorTrait;
     use ScopeVisibilityTrait;
 
@@ -202,12 +203,19 @@ class Thread extends AbstractModel
     /**
      * Registra uma resposta nova de forma incremental, sem refreshMetadata(): o
      * COUNT varre a thread inteira e deixaria as threads movimentadas mais lentas.
+     * Já gravada, a thread é atualizada no banco; veja CountsMessagesAtomically.
      */
     public function noteReply(Message $message): static
     {
         // A raiz não é resposta. Não deveria chegar aqui, mas a guarda mantém a
         // invariante local.
         if ($this->original_message_id !== null && (int) $message->id === (int) $this->original_message_id) {
+            return $this;
+        }
+
+        if ($this->exists) {
+            $this->countNewMessage('replies_count', $message);
+
             return $this;
         }
 

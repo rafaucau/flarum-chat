@@ -110,10 +110,7 @@ class WebhookDeliveryController implements RequestHandlerInterface
         $message->webhook_id = $webhook->id;
         $message->save();
 
-        $channel->last_message_id = $message->id;
-        $channel->last_message_at = $message->created_at;
-        $channel->messages_count++;
-        $channel->save();
+        $channel->recordNewMessage($message);
 
         $message->setRelation('channel', $channel);
 

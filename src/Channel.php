@@ -64,6 +64,7 @@ use Illuminate\Support\Str;
  */
 class Channel extends AbstractModel
 {
+    use CountsMessagesAtomically;
     use EventGeneratorTrait;
     use ScopeVisibilityTrait;
 
@@ -615,6 +616,14 @@ class Channel extends AbstractModel
 
         return static::$config->url()->getPath()
             .'/assets/'.$this->image_path;
+    }
+
+    /** Conta uma mensagem nova; veja CountsMessagesAtomically. */
+    public function recordNewMessage(Message $message): static
+    {
+        $this->countNewMessage('messages_count', $message);
+
+        return $this;
     }
 
     /**

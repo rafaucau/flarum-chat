@@ -154,10 +154,7 @@ class MessageDispatcher
                 $this->trackThread($thread, $actor);
             }
 
-            $channel->last_message_id = $message->id;
-            $channel->last_message_at = $message->created_at;
-            $channel->messages_count++;
-            $channel->save();
+            $channel->recordNewMessage($message);
 
             // Quem envia fica em dia; os demais ganham uma não lida.
             $this->unread->recordNewMessage($message);
@@ -191,10 +188,7 @@ class MessageDispatcher
 
             $message->setRelation('channel', $channel);
 
-            $channel->last_message_id = $message->id;
-            $channel->last_message_at = $message->created_at;
-            $channel->messages_count++;
-            $channel->save();
+            $channel->recordNewMessage($message);
 
             return $message;
         });
