@@ -23,6 +23,7 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Event\MessagesWereMoved;
 use Ramon\Chat\Event\MessageWasMoved;
 use Ramon\Chat\Message;
+use Ramon\Chat\Service\UploadPrivacy;
 use Ramon\Chat\Thread;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
@@ -108,6 +109,25 @@ class MoveMessagesController implements RequestHandlerInterface
         if ($messages->isEmpty()) {
             throw new ValidationException([
                 'messageIds' => $this->translator->trans('ramon-chat.api.move_empty'),
+            ]);
+        }
+
+        // Uma mudança parte de um canal só, e nunca amplia o público, como no
+        // Discourse: nada sai de uma conversa direta, e o que pede privacidade
+        // não vai para onde ela não existe. Os anexos seguem a mensagem.
+        $sources = $messages->pluck('channel')->filter()->unique('id');
+
+        if ($sources->count() > 1) {
+            throw new ValidationException([
+                'messageIds' => $this->translator->trans('ramon-chat.api.move_one_channel'),
+            ]);
+        }
+
+        $source = $sources->first();
+
+        if ($source !== null && ($source->isDirect() || (UploadPrivacy::requiredFor($source) && ! UploadPrivacy::requiredFor($target)))) {
+            throw new ValidationException([
+                'channelId' => $this->translator->trans('ramon-chat.api.move_wider_audience'),
             ]);
         }
 

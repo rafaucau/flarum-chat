@@ -73,6 +73,8 @@ ramon-chat:
     move_empty: Nenhuma mensagem selecionada, ou já estão nesse canal.
     move_too_many: "{max, plural, one {Mova no máximo # mensagem por vez.} other {Mova no máximo # mensagens por vez.}}"
     move_target_frozen: Mensagens não podem ir para um canal fechado ou arquivado.
+    move_one_channel: Só dá para mover mensagens de um canal por vez.
+    move_wider_audience: "Mensagens de uma conversa direta, ou de um canal privado para um aberto, não podem ser movidas: ficariam visíveis para quem não podia lê-las."
 
     webhook_channel_unavailable: O canal desse webhook está fechado ou indisponível.
     webhook_empty: O payload do webhook não continha texto.
