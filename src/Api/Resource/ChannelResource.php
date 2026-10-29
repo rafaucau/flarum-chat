@@ -1261,10 +1261,14 @@ class ChannelResource extends AbstractDatabaseResource
             // `includable()` is what makes `?include=participants` legal; without it
             // the request is rejected outright with a 400 rather than merely omitting
             // the relationship, which is what the info panel's member tab asks for.
+            // Só na leitura de um canal (a aba Membros). Na listagem, um
+            // `?include=participants` carregava todos os membros de até 50
+            // canais numa requisição só.
             Schema\Relationship\ToMany::make('participants')
                 ->type('users')
                 ->includable()
-                ->visible(fn (Channel $c, Context $context) => $context->getActor()->can('viewMembers', $c)),
+                ->visible(fn (Channel $c, Context $context) => ! $context->endpoint instanceof Endpoint\Index
+                    && $context->getActor()->can('viewMembers', $c)),
 
             // Who has been asked in and not answered yet. Only for whoever can
             // manage the member list: a pending invite is between the channel's
