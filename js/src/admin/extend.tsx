@@ -9,9 +9,8 @@ import ChatSettingsPage, { ADAPTER_SETTING, STORAGE_SETTING } from './components
 const trans = (key: string) => app.translator.trans(`ramon-chat.admin.${key}`);
 const text = (key: string) => app.translator.trans(`ramon-chat.admin.${key}`, {}, true) as string;
 
-// Os campos são registrados do jeito comum, então o registry continua sendo o
-// único lugar onde cada um é definido; a ChatSettingsPage só os distribui em
-// cards com título em vez da coluna única da ExtensionPage do core.
+// O registry continua sendo o único lugar onde cada campo é definido; a
+// ChatSettingsPage só os distribui em cards.
 export default [
   ...commonExtend,
 
@@ -20,11 +19,9 @@ export default [
   new Extend.Admin()
     .page(ChatSettingsPage)
 
-    // ── Channels ──────────────────────────────────────────────────────────────
-    // Who creates and runs channels is the decision the permission grid depends
-    // on: in "administrators" mode nobody else creates a channel, whatever the
-    // grid says; in "members" mode whoever may create a channel runs the ones
-    // they created, and the grid grows a second block for exactly those rows.
+    // ── Canais ──
+    // Define a grade de permissões: em "administradores" ninguém mais cria canal,
+    // diga a grade o que disser; em "membros" quem cria administra os próprios.
     .setting(() => ({
       setting: 'ramon-chat.channel_ownership',
       type: 'select',
@@ -49,7 +46,7 @@ export default [
       help: trans('settings.threading_default_help'),
     }))
 
-    // ── Appearance ────────────────────────────────────────────────────────────
+    // ── Aparência ──
     .setting(() => ({
       setting: 'ramon-chat.title',
       type: 'string',
@@ -71,7 +68,7 @@ export default [
       help: trans('settings.show_icon_help'),
     }))
 
-    // ── Messages ──────────────────────────────────────────────────────────────
+    // ── Mensagens ──
     .setting(() => ({
       setting: 'ramon-chat.max_message_length',
       type: 'number',
@@ -100,7 +97,7 @@ export default [
       min: 0,
     }))
 
-    // ── Uploads ───────────────────────────────────────────────────────────────
+    // ── Uploads ──
     .setting(() => ({
       setting: 'ramon-chat.allow_uploads',
       type: 'boolean',
@@ -115,7 +112,7 @@ export default [
       min: 0,
     }))
 
-    // ── Retention ─────────────────────────────────────────────────────────────
+    // ── Retenção ──
     .setting(() => ({
       setting: 'ramon-chat.channel_retention_days',
       type: 'number',
@@ -131,7 +128,7 @@ export default [
       min: 0,
     }))
 
-    // ── Realtime and sound ────────────────────────────────────────────────────
+    // ── Tempo real e som ──
     .setting(() => ({
       setting: 'ramon-chat.queue_realtime',
       type: 'boolean',
@@ -139,9 +136,8 @@ export default [
       help: trans('settings.queue_realtime_help'),
     }))
 
-    // A select rather than a boolean plus a file field: the choice is between two
-    // shipped sounds and silence, and 'none' is a value of the same setting rather
-    // than a second switch that could contradict it.
+    // 'none' é um valor da mesma setting, não um segundo switch que poderia
+    // contradizê-la.
     .setting(() => ({
       setting: 'ramon-chat.notification_sound',
       type: 'select',
@@ -155,9 +151,7 @@ export default [
       help: trans('settings.sound_help'),
     }))
 
-    // ── Webhooks ──────────────────────────────────────────────────────────────
-    // The switch for the feature. Drawn at the top of the webhooks card, so the
-    // records under it are read as "what this switch turns on".
+    // ── Webhooks ──
     .setting(() => ({
       setting: 'ramon-chat.webhooks_enabled',
       type: 'boolean',
@@ -165,11 +159,9 @@ export default [
       help: trans('settings.webhooks_enabled_help'),
     }))
 
-    // ── Permissions ───────────────────────────────────────────────────────────
-    // Registered under core sections like every other row, so the registry
-    // knows the extension has permissions at all (the extension page draws its
-    // grid only then). Where they are actually shown is decided below, in the
-    // permissionItems extension.
+    // ── Permissões ──
+    // Registradas nas seções do core para a ExtensionPage desenhar a grade; onde
+    // cada uma aparece de fato é decidido no permissionItems (admin/index.tsx).
     .permission(
       () => ({
         icon: 'fas fa-comments',
@@ -278,9 +270,8 @@ export default [
       'moderate',
       95
     )
-    // Observing a room unnoticed: no place in the member list, no arrival or
-    // departure announced, no notification written. Separate from `moderate`
-    // so an administration or audit group can hold it on its own.
+    // Observar a sala sem aparecer na lista nem gerar avisos ou notificações.
+    // Separada de `moderate` para um grupo de auditoria ter só ela.
     .permission(
       () => ({
         icon: 'fas fa-user-secret',
@@ -327,10 +318,9 @@ export default [
       93
     )
 
-    // ── Attachment storage through fof/upload ───────────────────────────────
-    // Só com o fof/upload ligado: sem ele o backend grava no disco local seja
-    // qual for a opção, e uma escolha que não muda nada engana. A lista de
-    // adapters vem do payload do admin (Content\FofUploadAdapters).
+    // ── Armazenamento via fof/upload ──
+    // Só com o fof/upload ligado: sem ele o backend grava no disco local de
+    // qualquer jeito. Os adapters vêm do payload do admin.
     .setting(() =>
       isExtensionEnabled('fof-upload')
         ? {
@@ -374,10 +364,8 @@ function adapterOptions(): Record<string, string> {
   return options;
 }
 
-/**
- * fof/upload's own name for an adapter, falling back to the key when it has
- * none (a third-party adapter with no translation).
- */
+// Nome do adapter segundo o fof/upload; adapters de terceiros sem tradução
+// ficam com a chave.
 function adapterLabel(key: string): string {
   const translationKey = `fof-upload.admin.upload_methods.${key}`;
   const label = app.translator.trans(translationKey, {}, true) as string;

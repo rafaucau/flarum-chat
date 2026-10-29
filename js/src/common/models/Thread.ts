@@ -5,9 +5,7 @@ import type Channel from './Channel';
 import type Message from './Message';
 import { messagePreview } from '../utils/preview';
 
-/**
- * Per-thread tracking level. Mirrors Ramon\Chat\ThreadUser.
- */
+/** Espelha Ramon\Chat\ThreadUser. */
 export const enum ThreadTracking {
   Never = 0,
   Mentions = 1,
@@ -26,7 +24,7 @@ export default class Thread extends Model {
   lastMessageAt = Model.attribute('lastMessageAt', Model.transformDate);
   createdAt = Model.attribute('createdAt', Model.transformDate);
 
-  // ── Per-actor tracking state ───────────────────────────────────────────────
+  // ── Estado do usuário atual ──
   notificationLevel = Model.attribute<ThreadTracking>('notificationLevel');
   unreadCount = Model.attribute<number>('unreadCount');
   lastReadMessageId = Model.attribute<number>('lastReadMessageId');
@@ -49,23 +47,17 @@ export default class Thread extends Model {
     return (this.unreadCount() ?? 0) > 0;
   }
 
-  /**
-   * Falls back to an excerpt of the root message when the thread has no title,
-   * which is how an untitled thread stays identifiable in "My Threads".
-   */
+  /** Sem título, usa um trecho da mensagem raiz. */
   displayTitle(excerptLength = 60): string {
     const title = this.title();
 
     if (title) return title;
 
-    // `hasOne` resolves to `false` when the relationship is not loaded, which is
-    // distinct from a loaded-but-null relationship.
+    // `hasOne` devolve `false` quando a relação não foi carregada, diferente de
+    // carregada e null.
     const root = this.originalMessage();
 
-    // Through `messagePreview`, not `content()`: the latter is the *source*, so a
-    // thread branched off a bot announcement was titled `**[Chat Extension](/d/20)**`
-    // — the markup rather than the words. Every other place that shows a message
-    // inside something else already reads the rendered HTML; this one was missed.
+    // `content()` é o Markdown cru; o preview lê o HTML renderizado.
     const content = root ? messagePreview(root, excerptLength) : '';
 
     if (!content) {

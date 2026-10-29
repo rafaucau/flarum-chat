@@ -10,13 +10,9 @@ import type Mithril from 'mithril';
 import { MessagePreview } from './ChatPreview';
 
 /**
- * Who the chat posts as.
- *
- * Two mutually exclusive answers, which is why this is one component rather than
- * three independent settings rows: either a real account announces (and the chat's
- * own identity is irrelevant), or the bot does. Presenting the bot's name and
- * picture as editable while an account is selected would offer a choice that has no
- * effect, so the form collapses to whichever half is live.
+ * Quem o chat usa para postar: uma conta real ou o bot. As opções se excluem,
+ * então o formulário só mostra a metade que está valendo; editar nome e foto do
+ * bot com uma conta escolhida não teria efeito.
  */
 export default class BotSettings extends Component<ComponentAttrs> {
   private uploading = false;
@@ -42,9 +38,6 @@ export default class BotSettings extends Component<ComponentAttrs> {
     );
   }
 
-  /**
-   * The announcement as it will land in a channel, from whichever half is live.
-   */
   protected preview(announcer: User | null): Mithril.Children {
     if (announcer) {
       return <MessagePreview name={announcer.displayName()} avatarUrl={announcer.avatarUrl() ?? null} isUser={true} />;
@@ -62,9 +55,6 @@ export default class BotSettings extends Component<ComponentAttrs> {
     );
   }
 
-  /**
-   * The bot's own identity. Only drawn when no account is announcing.
-   */
   protected botForm(): Mithril.Children {
     const path = this.setting('ramon-chat.bot_avatar_path');
     const url = this.setting('ramon-chat.bot_avatar_url');
@@ -133,9 +123,6 @@ export default class BotSettings extends Component<ComponentAttrs> {
     );
   }
 
-  /**
-   * The account currently announcing, and the way back to the bot.
-   */
   protected selectedUser(user: User): Mithril.Children {
     return (
       <div className="ChatBotSettings-selected">
@@ -183,8 +170,6 @@ export default class BotSettings extends Component<ComponentAttrs> {
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-
   protected announcer(): User | null {
     const id = this.setting('ramon-chat.bot_user_id');
 
@@ -200,9 +185,8 @@ export default class BotSettings extends Component<ComponentAttrs> {
   protected set(key: string, value: string | null): void {
     app.data.settings[key] = value ?? '';
 
-    // Saved immediately rather than through the page's save button: the upload and
-    // the user choice already write straight to the server, and a form where half
-    // the controls persist on click and half on save is a trap.
+    // Salva na hora, sem o botão da página: o upload e a escolha de conta já
+    // gravam direto no servidor, e misturar os dois modelos confunde.
     app
       .request({
         method: 'POST',
@@ -232,14 +216,13 @@ export default class BotSettings extends Component<ComponentAttrs> {
         body,
       });
 
-      // The controller answers with the forum resource, so the new path arrives
-      // without a second round trip.
+      // O controller responde com o recurso forum, que já traz o caminho novo.
       this.applyForumPayload(response);
     } catch (err: any) {
       app.alerts.show({ type: 'error' }, err?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.admin.bot.upload_failed'));
     } finally {
       this.uploading = false;
-      // Cleared so choosing the same file again still fires a change event.
+      // Limpo para escolher o mesmo arquivo de novo ainda disparar change.
       input.value = '';
       m.redraw();
     }
@@ -287,7 +270,7 @@ export default class BotSettings extends Component<ComponentAttrs> {
           page: { limit: 5 },
         })
         .then((results) => {
-          // A slower earlier request must not overwrite a newer answer.
+          // Uma requisição anterior mais lenta não pode sobrescrever a mais nova.
           if (mine !== this.searchSequence) return;
 
           this.candidates = Array.isArray(results) ? results : [];
@@ -316,13 +299,8 @@ export default class BotSettings extends Component<ComponentAttrs> {
     m.redraw();
   }
 
-  /**
-   * Folds a forum payload back into the admin's settings copy.
-   *
-   * The upload controller returns the forum resource, whose `ramon-chat.*`
-   * attributes are the serialised settings — so the new avatar path can be read
-   * straight off it instead of reloading the admin page.
-   */
+  // Os atributos `ramon-chat.*` do recurso forum são as settings serializadas,
+  // então dá para atualizar a cópia do admin sem recarregar a página.
   protected applyForumPayload(payload: any): void {
     const path = payload?.data?.attributes?.['ramon-chat.botAvatarPath'];
 

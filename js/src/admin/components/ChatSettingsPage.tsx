@@ -8,20 +8,18 @@ import BotSettings from './BotSettings';
 import { BrandingPreview } from './ChatPreview';
 import WebhooksPanel from './WebhooksPanel';
 
-/** Where public attachments are stored: "local" or "fof-upload". */
+/** "local" ou "fof-upload". */
 export const STORAGE_SETTING = 'ramon-chat.upload_storage';
 
-/** The fof/upload adapter key; empty follows fof/upload's own mime mapping. */
+/** Vazio segue o mapeamento por mime do próprio fof/upload. */
 export const ADAPTER_SETTING = 'ramon-chat.fof_upload_adapter';
 
-/** Realtime pushes through the queue; only offered on a continuous worker. */
+/** Só oferecido com um worker contínuo. */
 const QUEUE_SETTING = 'ramon-chat.queue_realtime';
 
 /**
- * The forum's queue kind, from the admin payload (Content\QueueDriver):
- * "sync", "database" or "other". Under the first two the server delivers
- * every push inline whatever the switch says (Realtime\QueueKind), so the
- * switch is replaced by a note saying so.
+ * "sync", "database" ou "other". Nos dois primeiros o servidor entrega os
+ * pushes inline de qualquer jeito, então o switch dá lugar a um aviso.
  */
 function queueKind(): string {
   const kind = app.data.ramonChatQueueKind;
@@ -29,16 +27,10 @@ function queueKind(): string {
   return typeof kind === 'string' ? kind : 'sync';
 }
 
-/** The switch at the top of the webhooks card; a registered setting like the rest. */
 const WEBHOOKS_SWITCH = 'ramon-chat.webhooks_enabled';
 
 type GroupKey = 'general' | 'messages' | 'delivery' | 'integrations';
 
-/**
- * The tabs along the top of the page. Each holds two subjects that are
- * decided together, so an operator looking for one setting opens one tab and
- * does not scroll past eight unrelated cards on the way.
- */
 const GROUPS: readonly { key: GroupKey; icon: string }[] = [
   { key: 'general', icon: 'fas fa-comments' },
   { key: 'messages', icon: 'fas fa-message' },
@@ -47,20 +39,16 @@ const GROUPS: readonly { key: GroupKey; icon: string }[] = [
 ];
 
 /**
- * One block of related settings on the page.
- *
- * `keys` are the setting keys registered in index.ts, in the order they are
- * drawn. The registry stays the single source of each field's type, label and
- * help; this only decides where on the page it goes.
+ * `keys` são as settings registradas em extend.tsx, na ordem em que aparecem.
+ * Tipo, label e help continuam vindo do registry.
  */
 interface Section {
   key: string;
   group: GroupKey;
   icon: string;
   keys: readonly string[];
-  /** Fields side by side, for short inputs like numbers. */
   columns?: 1 | 2;
-  /** A translation key drawn as a warning under the fields. */
+  /** Chave de tradução exibida como aviso. */
   warning?: string;
 }
 
@@ -94,8 +82,8 @@ const SECTIONS: readonly Section[] = [
     key: 'uploads',
     group: 'messages',
     icon: 'fas fa-paperclip',
-    // The last two are registered only while fof/upload is enabled; a key that
-    // was never registered is simply not drawn.
+    // As duas últimas só existem com o fof/upload ligado; chave não registrada
+    // não é desenhada.
     keys: ['ramon-chat.allow_uploads', 'ramon-chat.max_upload_size', STORAGE_SETTING, ADAPTER_SETTING],
     columns: 2,
   },
@@ -115,12 +103,11 @@ const SECTIONS: readonly Section[] = [
   },
 ];
 
-/** A card as the page draws it, whichever kind of body it carries. */
 interface Card {
   key: string;
   group: GroupKey;
   icon: string;
-  /** Lower-cased text the search box matches against. */
+  /** Em minúsculas, para a busca. */
   haystack: string;
   body: () => Mithril.Children;
 }
@@ -129,11 +116,8 @@ type SettingEntry = Parameters<ExtensionPage['buildSettingComponent']>[0] extend
 
 const TAB_STORAGE_KEY = 'ramon-chat.admin.tab';
 
-/**
- * The open tab, remembered between visits: saving a setting that needs a
- * reload, or coming back from the permissions page, should not drop the
- * operator back on the first tab.
- */
+// Lembrada entre visitas: um save que recarrega a página ou a volta da página
+// de permissões não deve cair de novo na primeira aba.
 let activeGroup: GroupKey = (() => {
   try {
     const saved = localStorage.getItem(TAB_STORAGE_KEY) as GroupKey | null;
@@ -149,19 +133,10 @@ let activeGroup: GroupKey = (() => {
 let query = '';
 
 /**
- * The chat's admin page.
- *
- * Laid out the way the Avocado theme lays out its own: a sticky bar of tabs,
- * each a group of titled cards, with a search box that reaches across every
- * tab at once. What differs is the save model. Avocado's controls save on
- * change; the chat's are registered settings saved together by the bar at the
- * foot of the form, which stays pinned to the bottom of the window and says
- * how many changes are waiting.
- *
- * The settings are still read from the registry, so `registerSetting` in
- * index.ts remains the one place a field is defined; this page only lays them
- * out. A key registered there and not listed here is still drawn, in a final
- * catch-all card, so nothing can silently disappear from the admin.
+ * Página de admin do chat, no layout do tema Avocado: abas, cards e busca entre
+ * abas. Ao contrário do Avocado, as settings são salvas juntas pela barra do
+ * rodapé. Settings registradas e não listadas em SECTIONS caem num card final,
+ * para nada sumir do admin.
  */
 export default class ChatSettingsPage extends ExtensionPage {
   content(vnode: Mithril.VnodeDOM<any, any>) {
@@ -229,11 +204,7 @@ export default class ChatSettingsPage extends ExtensionPage {
     );
   }
 
-  /**
-   * Every card on the page, in tab order. Built on each draw because the
-   * fields shown in a card follow the live form (the fof/upload adapter
-   * appears once fof/upload is the chosen storage).
-   */
+  // Montados a cada draw porque os campos seguem o estado do formulário.
   protected cards(entries: SettingEntry[]): Card[] {
     const byKey = new Map(entries.map((entry) => [entry.setting, entry]));
     const placed = new Set([...SECTIONS.flatMap((section) => section.keys), WEBHOOKS_SWITCH]);
@@ -289,10 +260,6 @@ export default class ChatSettingsPage extends ExtensionPage {
     return cards;
   }
 
-  /**
-   * What the search box matches for a card: its title and description, and
-   * the label and help of every field in it.
-   */
   protected haystack(key: string, fields: SettingEntry[], extra = ''): string {
     const parts = [
       this.sectionText(key, 'title'),
@@ -308,10 +275,6 @@ export default class ChatSettingsPage extends ExtensionPage {
     return app.translator.trans(`ramon-chat.admin.sections.${key}_${part}`, {}, true) as string;
   }
 
-  /**
-   * The tab bar and the search box. Sticky, so changing tabs from the foot of
-   * a long card does not mean scrolling back to the top first.
-   */
   protected toolbar(cards: Card[], searching: boolean): Mithril.Children {
     return (
       <div className="ChatAdmin-toolbar">
@@ -394,7 +357,6 @@ export default class ChatSettingsPage extends ExtensionPage {
     }
   }
 
-  /** Arrow keys, Home and End move between tabs, as a tab list should. */
   protected onTabKey(e: KeyboardEvent): void {
     const index = GROUPS.findIndex((group) => group.key === activeGroup);
     let next = index;
@@ -455,22 +417,16 @@ export default class ChatSettingsPage extends ExtensionPage {
     );
   }
 
-  /**
-   * A boolean setting as the form holds it: "1"/"0" once loaded, a real
-   * boolean once toggled, nothing at all before it was ever saved.
-   */
+  // O formulário guarda "1"/"0" ao carregar, boolean depois de alternar e nada
+  // se a setting nunca foi salva.
   protected isOn(raw: unknown, fallback: boolean): boolean {
     if (raw === undefined || raw === null || raw === '') return fallback;
 
     return raw === '1' || raw === 'true' || raw === true;
   }
 
-  /**
-   * The queue switch only means something on a continuously worked queue (see
-   * queueKind), so it is not offered elsewhere. The adapter only matters once
-   * fof/upload is the chosen storage, so it is folded away otherwise. Read live from the form, like the webhooks switch,
-   * so it appears the moment the storage is switched rather than after saving.
-   */
+  // Lido do formulário ao vivo, para o adapter aparecer assim que o storage
+  // muda, sem esperar o save.
   protected fieldShown(key: string): boolean {
     if (key === QUEUE_SETTING) return queueKind() === 'other';
 
@@ -479,27 +435,17 @@ export default class ChatSettingsPage extends ExtensionPage {
     return this.setting(STORAGE_SETTING)() === 'fof-upload';
   }
 
-  /**
-   * fof/upload's `local` adapter writes into the forum's own public directory,
-   * so it saves nothing unless fof/upload's CDN URL puts a CDN in front of it.
-   * Following fof/upload's mime mapping often lands there too: its default
-   * rule for images names the local adapter. Said where the choice is made,
-   * because nothing else would tell.
-   */
+  // O adapter `local` do fof/upload grava no public do próprio fórum, então não
+  // ganha nada sem uma CDN na frente. O mapeamento por mime padrão do fof/upload
+  // também manda imagens para ele.
   protected storesOnFofLocal(): boolean {
     const adapter = this.setting(ADAPTER_SETTING)() ?? '';
 
     return this.setting(STORAGE_SETTING)() === 'fof-upload' && (adapter === 'local' || adapter === '');
   }
 
-  /**
-   * The webhooks card: the feature switch first, then the records it governs.
-   *
-   * The switch is read live from the form's own state, so turning it off folds
-   * the panel away before the change is even saved, and the note in its place
-   * says what saving will do. The switch is saved by the bar below, with the
-   * rest of the page.
-   */
+  // O switch é lido do formulário: desligá-lo esconde o painel antes do save,
+  // que acontece junto com o resto da página.
   protected webhooksBody(entry: SettingEntry | undefined): Mithril.Children {
     const enabled = this.isOn(this.setting(WEBHOOKS_SWITCH)(), false);
 
@@ -519,11 +465,7 @@ export default class ChatSettingsPage extends ExtensionPage {
     );
   }
 
-  /**
-   * A titled card. Title and help come from `admin.sections.<key>_title` and
-   * `_help`, so every card says what it is for before showing its fields.
-   * While searching, the card also names the tab it lives in.
-   */
+  // Durante a busca, o card mostra a aba a que pertence.
   protected card(card: Card, group: GroupKey | null): Mithril.Children {
     const titleId = `ChatAdmin-title-${card.key}`;
 

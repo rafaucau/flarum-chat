@@ -1,13 +1,8 @@
-// ── Channel ranks ────────────────────────────────────────────────────────────
-// The small tag before a name, the name drawn in a rank's colour, the ranks
-// editor and the member's rank checklist.
-//
-// A custom colour arrives as custom properties set inline (utils/ranks.tsx),
-// already made legible on the server: `--chat-rank-fg` is white or near-black,
-// whichever reads better on the tag, and the two name colours are the rank's
-// own darkened for the light theme and lightened for the dark one until they
-// reach 4.5:1 (Rank\RankPalette). A built-in rank left at its default carries
-// no colour of its own and takes the theme's, as the members tab always did.
+// ── Ranks do canal ──
+// A cor personalizada chega como custom properties inline (utils/ranks.tsx), já
+// ajustada no servidor (Rank\RankPalette): `--chat-rank-fg` é branco ou quase
+// preto, e as cores de nome vão até 4.5:1 no tema claro e no escuro. Rank padrão
+// sem cor própria usa a do tema.
 
 .ChatRankTag {
   display: inline-flex;
@@ -25,8 +20,7 @@
   vertical-align: middle;
   background: var(--chat-rank-bg, var(--control-bg));
   color: var(--chat-rank-fg, var(--control-color));
-  // An edge of its own, so a tag close to the surface colour — white on white,
-  // charcoal on charcoal — still reads as a tag.
+  // Borda própria, para a tag ser legível mesmo com cor perto da superfície.
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 
   i {
@@ -43,8 +37,7 @@
     color: var(--button-primary-color, #fff);
   }
 
-  // One rank down, visibly the same family: the primary as text on its own
-  // tint, like the members tab drew it before ranks existed.
+  // Um nível abaixo, da mesma família: a primária como texto sobre seu tom claro.
   &--moderator {
     background: var(--control-bg);
     color: var(--primary-color);
@@ -57,7 +50,7 @@
   }
 }
 
-// The rank without its tag: the name itself in the rank's colour.
+// Rank sem tag: só o nome na cor do rank.
 .ChatRankName,
 .ChatRankName .ChatUserLink,
 .ChatRankName .ChatUserLink:hover,
@@ -75,8 +68,8 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   }
 
-  // A dark primary as text on a dark surface fails AA, so the default moderator
-  // tag and default name colour are lifted towards white, as Browse does.
+  // Primária escura como texto em fundo escuro não passa no AA; a tag e o nome
+  // padrão de moderador são clareados, como no Browse.
   .ChatRankTag--moderator {
     color: #ec8e8e;
     background: rgba(236, 142, 142, 0.14);
@@ -106,13 +99,12 @@
   }
 }
 
-// In the author line the tag sits on the name's baseline, a step smaller than
-// the name so the name stays what the eye lands on.
+// Na linha do autor a tag fica na baseline do nome, um passo menor que ele.
 .ChatMessage-rank {
   margin-right: -2px;
 }
 
-// ── Members tab ──────────────────────────────────────────────────────────────
+// ── Aba de membros ──
 
 .ChatChannelInfo-memberRank {
   margin-left: 2px;
@@ -130,7 +122,7 @@
   }
 }
 
-// The member's ranks, under their row: a wrap of tags, each with its tick.
+// Ranks do membro, sob a linha dele.
 .ChatChannelInfo-rankPicker {
   display: flex;
   flex-wrap: wrap;
@@ -170,7 +162,7 @@
   }
 }
 
-// ── Ranks editor ─────────────────────────────────────────────────────────────
+// ── Editor de ranks ──
 
 .ChatRanks {
   &-intro {
@@ -261,7 +253,6 @@
     margin-top: @chat-space-md;
   }
 
-  // The form, above the list while it is open.
   &-editor {
     margin-bottom: @chat-space-lg;
     padding: @chat-space-md @chat-space-lg @chat-space-lg;
@@ -372,8 +363,7 @@
     overflow: hidden;
   }
 
-  // The two samples are fixed surfaces, whatever the page's theme: the point
-  // is to see the rank on both.
+  // As duas amostras têm superfície fixa, seja qual for o tema: a ideia é ver o rank nos dois.
   &-sampleLine {
     .chat-flex-row(8px);
     min-width: 0;
@@ -436,7 +426,7 @@
   }
 }
 
-// The light sample keeps its light-theme tag when the page itself is dark.
+// A amostra clara mantém a tag do tema claro com a página escura.
 [data-theme^="dark"] .ChatRanks-sampleLine--light {
   .ChatRankTag--moderator {
     color: var(--primary-color);

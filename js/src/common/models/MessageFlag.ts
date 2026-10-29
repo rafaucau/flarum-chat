@@ -4,17 +4,14 @@ import type User from 'flarum/common/models/User';
 import type Message from './Message';
 
 /**
- * A report filed against a chat message.
- *
- * The chat keeps its own rather than reusing flarum/flags: that extension's
- * `flags.post_id` is a non-nullable foreign key into `posts`, so a chat message id
- * cannot be stored there at all.
+ * Denúncia de uma mensagem do chat. Não usa o flarum/flags porque lá
+ * `flags.post_id` é uma FK obrigatória para `posts`.
  */
 export default class MessageFlag extends Model {
-  /** One of the keys MessageFlag::REASONS lists on the server. */
+  /** Uma das chaves de MessageFlag::REASONS no servidor. */
   reason = Model.attribute<string>('reason');
 
-  /** The reporter's own words. Always rendered as text, never as HTML. */
+  /** Texto do denunciante; sempre exibido como texto, nunca como HTML. */
   detail = Model.attribute<string | null>('detail');
 
   messageId = Model.attribute<number>('messageId');
@@ -23,7 +20,7 @@ export default class MessageFlag extends Model {
   resolvedAt = Model.attribute('resolvedAt', Model.transformDate);
   isResolved = Model.attribute<boolean>('isResolved');
 
-  /** Null once the reporter deletes their account — the report outlives them. */
+  /** Null se o denunciante apagou a conta; a denúncia continua. */
   user = Model.hasOne<User | null>('user');
   message = Model.hasOne<Message | null>('message');
   resolvedBy = Model.hasOne<User | null>('resolvedBy');

@@ -1,20 +1,10 @@
 import type Message from '../models/Message';
 
 /**
- * A one-line, plain-text summary of a message.
- *
- * Used by every place that shows a message inside something else: the pinned bar,
- * the reply context above the composer, the quoted line on a reply, the thread
- * indicator, search results and the bookmark list.
- *
- * All of them used `content()`, which is the *source*. A bot announcement is
- * written in Markdown, so the pinned bar read `**[an test](/d/2943)**` — the
- * markup, not the message. Reading from the rendered HTML instead means a link
- * shows its label and emphasis shows its words, which is what a preview is for.
- *
- * Plain text rather than the HTML itself, deliberately: these are single-line
- * strips, and dropping block elements into them would break the layout. It also
- * keeps them safe by construction — nothing here is ever passed to `m.trust`.
+ * Resumo de uma linha, em texto puro, para onde uma mensagem aparece dentro de
+ * outra coisa (barra de fixadas, resposta, thread, busca, favoritos). Lê o HTML
+ * renderizado, não o Markdown cru. Texto puro mantém o layout de uma linha e
+ * nunca passa por `m.trust`.
  */
 export function messagePreview(message: Message | null | undefined, limit = 200): string {
   if (!message) return '';
@@ -26,18 +16,12 @@ export function messagePreview(message: Message | null | undefined, limit = 200)
   return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
-/**
- * Tags out, text in.
- *
- * Parsed rather than regex-stripped: the browser's own parser handles entities,
- * attributes containing `>`, and malformed markup correctly, and none of it is
- * inserted into the document — `textContent` never executes anything.
- */
+// DOMParser em vez de regex: trata entidades, `>` em atributos e markup
+// quebrado, e nada é inserido no documento.
 function stripHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
 
-  // Block boundaries become spaces, or "**Title**\n\nBody" would read as
-  // "TitleBody" with the two run together.
+  // Fim de bloco vira espaço, senão "Título" e "Corpo" se colam.
   doc.body.querySelectorAll('br, p, div, li, blockquote, h1, h2, h3, h4, h5, h6').forEach((el) => {
     el.append(' ');
   });
@@ -45,13 +29,8 @@ function stripHtml(html: string): string {
   return collapse(doc.body.textContent ?? '');
 }
 
-/**
- * The fallback, for a message whose HTML has not arrived yet — an optimistic
- * local copy, or a realtime payload that omitted it.
- *
- * Only the constructs that would otherwise show as punctuation: link syntax,
- * emphasis, headings, quote markers.
- */
+// Para quando o HTML ainda não chegou (cópia otimista ou payload realtime sem
+// ele). Só remove o que apareceria como pontuação.
 function stripMarkdown(source: string): string {
   let text = source;
 

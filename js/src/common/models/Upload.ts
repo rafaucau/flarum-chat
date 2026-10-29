@@ -6,10 +6,7 @@ export default class Upload extends Model {
   mimeType = Model.attribute<string | null>('mimeType');
   size = Model.attribute<number>('size');
 
-  /**
-   * Present for images so the client can reserve layout space and avoid a
-   * reflow as attachments load.
-   */
+  /** Só em imagens, para reservar o espaço e evitar reflow ao carregar. */
   width = Model.attribute<number | null>('width');
   height = Model.attribute<number | null>('height');
 
@@ -20,9 +17,7 @@ export default class Upload extends Model {
 
   user = Model.hasOne<User | null>('user');
 
-  /**
-   * A pending upload belongs to a composer session that has not sent yet.
-   */
+  /** Pendente: anexado no composer, mensagem ainda não enviada. */
   isPending(): boolean {
     return this.messageId() === null;
   }

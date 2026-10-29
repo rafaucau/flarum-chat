@@ -1,16 +1,13 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Settings page layout: tab bar, cards, sticky save bar.
-// ─────────────────────────────────────────────────────────────────────────────
+// Layout da página de settings: abas, cards e barra de salvar fixa.
 
 @chat-admin-radius: 14px;
 @chat-admin-gap: 16px;
 
-// The primary colour pulled towards the heading colour: darker on a light
-// admin, lighter on a dark one, so a dark brand colour still reads on both.
+// A primária puxada para a cor dos títulos: mais escura no admin claro, mais
+// clara no escuro, para uma marca escura ser legível nos dois.
 @chat-admin-accent: color-mix(in srgb, var(--primary-color) 70%, var(--heading-color));
 
-// A speech bubble with its tail at the lower left: the chat's mark on the
-// active tab and on every card badge.
+// Balão de fala com a ponta embaixo à esquerda: a marca do chat na aba ativa e nos badges.
 .chat-admin-bubble(@r: 12px) {
   border-radius: @r @r @r 4px;
 }
@@ -23,18 +20,16 @@
 }
 
 .ChatAdmin {
-  // Core's .Form is a flex column with `align-items: flex-start`, which lets
-  // its children shrink to their content. Everything here takes the full
-  // width so the cards, the tab bar and the save bar share both edges.
+  // O `.Form` do core é coluna com `align-items: flex-start`; aqui tudo ocupa a
+  // largura toda para cards, abas e barra de salvar alinharem.
   .Form,
   .Form-body {
     width: 100%;
     align-items: stretch;
   }
 
-  // ── Tab bar + search ──────────────────────────────────────────────────────
-  // Sticky under the admin header: changing tabs from the foot of a long card
-  // must not mean scrolling back up first.
+  // ── Abas e busca ──
+  // Fixa sob o header do admin, para trocar de aba sem voltar ao topo.
   &-toolbar {
     position: sticky;
     top: var(--header-height);
@@ -62,8 +57,7 @@
     padding: 4px;
     border-radius: 16px;
     background: var(--control-bg);
-    // On a narrow window the tabs scroll sideways instead of wrapping into a
-    // ragged second row.
+    // Em janela estreita as abas rolam de lado em vez de quebrar linha.
     overflow-x: auto;
     scrollbar-width: none;
 
@@ -128,8 +122,8 @@
     }
   }
 
-  // On a phone only the open tab keeps its name; the others are icons with
-  // their name as tooltip and accessible label, so all four fit on one row.
+  // No celular só a aba aberta mostra o nome; as outras ficam com ícone, tooltip
+  // e label acessível, para as quatro caberem numa linha.
   @media (max-width: 640px) {
     &-tab:not(.is-active) {
       .ChatAdmin-tabLabel,
@@ -139,7 +133,7 @@
     }
   }
 
-  // How many cards the tab holds, so its size is known before it is opened.
+  // Quantos cards a aba tem.
   &-tabCount {
     min-width: 20px;
     padding: 2px 6px;
@@ -198,7 +192,7 @@
       color: var(--muted-color);
     }
 
-    // The native clear button would sit beside our own.
+    // O botão de limpar nativo ficaria ao lado do nosso.
     &::-webkit-search-cancel-button {
       display: none;
     }
@@ -236,10 +230,9 @@
     font-size: 14px;
   }
 
-  // ── Cards ─────────────────────────────────────────────────────────────────
-  // One column on a narrow window, two from 1100px. The record panels
-  // (announcer, webhooks) span the row: they hold lists, and a half-width
-  // list wraps its rows twice.
+  // ── Cards ──
+  // Uma coluna em janela estreita, duas a partir de 1100px. Os painéis com listas
+  // (anúncios, webhooks) ocupam a linha toda.
   &-grid {
     display: grid;
     width: 100%;
@@ -265,7 +258,7 @@
     &--announcer,
     &--webhooks {
       @media (min-width: 1100px) {
-        // Escaped: the LESS compiler reads a bare `1 / -1` as a division.
+        // Escapado: o LESS lê `1 / -1` como divisão.
         grid-column: ~"1 / -1";
       }
     }
@@ -311,7 +304,7 @@
     line-height: 1.3;
   }
 
-  // While searching, the tab a card lives in; a click opens that tab.
+  // Durante a busca, a aba do card; o clique a abre.
   &-sectionGroup {
     padding: 2px 9px;
     border: 1px solid var(--control-bg-shaded);
@@ -342,8 +335,8 @@
     padding: 18px 20px 20px;
   }
 
-  // Fields inside a card. Core's .Form-group is `display: flex; flex-direction:
-  // column` with its own bottom margin, which the grid gap replaces.
+  // O `.Form-group` do core é coluna com margem inferior própria, que o gap da
+  // grade substitui.
   &-fields {
     display: grid;
     grid-template-columns: 1fr;
@@ -359,7 +352,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      // A switch or a select with long help reads better full width.
+      // Switch ou select com help longo fica melhor na largura toda.
       > .Form-group:has(.Checkbox),
       > .Form-group:has(select) {
         grid-column: ~"1 / -1";
@@ -385,7 +378,7 @@
     }
   }
 
-  // A neutral explanation in place of a control that would do nothing here.
+  // Explicação neutra no lugar de um controle que não teria efeito.
   &-note {
     display: flex;
     align-items: flex-start;
@@ -404,14 +397,12 @@
       color: @chat-admin-accent;
     }
 
-    // Under the fields, as the last thing in the card.
     .ChatAdmin-fields + & {
       margin: 16px 0 0;
     }
   }
 
-  // The feature switch at the top of the webhooks card, set off from the
-  // records under it by the same rule the card header uses.
+  // Separado dos registros abaixo pela mesma linha do header do card.
   &-switch {
     margin-bottom: 16px;
     padding-bottom: 16px;
@@ -427,11 +418,9 @@
     font-size: 13px;
   }
 
-  // ── Save bar ──────────────────────────────────────────────────────────────
-  // Pinned to the bottom of the window while the form is on screen, so a
-  // change made at the top of a long tab can be saved where it was made. It
-  // says how many changes are waiting; every card above it, the webhooks
-  // switch included, is saved by it.
+  // ── Barra de salvar ──
+  // Fixa no rodapé da janela enquanto o formulário está na tela; salva todos os
+  // cards, inclusive o switch dos webhooks.
   &-controls {
     position: sticky;
     bottom: 12px;
@@ -490,10 +479,9 @@
   }
 }
 
-// On a phone core clips horizontal overflow on both <html> and <body>, which
-// turns <body> into a scroll container that never scrolls (the window does),
-// and a sticky element measured against it never sticks. Clipping <body>
-// instead keeps the iOS fix without the scroll container, on this page only.
+// No celular o core corta o overflow horizontal em <html> e <body>, o que faz do
+// <body> um container de rolagem que nunca rola, e o sticky medido contra ele não
+// gruda. Cortar só o <body> mantém a correção do iOS, só nesta página.
 @media @phone {
   body:has(.ChatAdmin) {
     overflow-x: clip;

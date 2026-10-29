@@ -6,7 +6,7 @@ export default class Webhook extends Model {
   name = Model.attribute<string>('name');
   description = Model.attribute<string | null>('description');
 
-  /** Overrides for how a delivered message is attributed in the stream. */
+  /** Sobrescrevem como a mensagem entregue é atribuída no stream. */
   username = Model.attribute<string | null>('username');
   emoji = Model.attribute<string | null>('emoji');
 
@@ -18,13 +18,13 @@ export default class Webhook extends Model {
   createdAt = Model.attribute('createdAt', Model.transformDate);
 
   /**
-   * Populated only in the response that minted it — on create and on rotate. Every
-   * other response returns null, so a key cannot be read back out of a listing.
+   * Só vem preenchida no create e no rotate; nas demais respostas é null, para
+   * a chave não poder ser lida de uma listagem.
    */
   key = Model.attribute<string | null>('key');
   url = Model.attribute<string | null>('url');
 
-  /** The admin account deliveries post as; null posts as the bot. */
+  /** Conta de admin que assina as entregas; null usa o bot. */
   userId = Model.attribute<number | null>('userId');
 
   channel = Model.hasOne<Channel | null>('channel');

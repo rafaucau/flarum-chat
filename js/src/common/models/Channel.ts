@@ -3,9 +3,7 @@ import Model from 'flarum/common/Model';
 import type User from 'flarum/common/models/User';
 import type Message from './Message';
 
-/**
- * Per-channel notification level. Mirrors Ramon\Chat\ChannelUser.
- */
+/** Espelha Ramon\Chat\ChannelUser. */
 export const enum NotificationLevel {
   Never = 0,
   Mentions = 1,
@@ -13,10 +11,8 @@ export const enum NotificationLevel {
 }
 
 /**
- * A pending ownership handover. Mirrors ChannelResource::transferState().
- *
- * `incoming` is true for the member it is offered to; `confirmed` is false
- * while the owner has yet to enter the code mailed to them.
+ * Espelha ChannelResource::transferState(). `incoming` é true para quem recebe
+ * a oferta; `confirmed` fica false até o dono digitar o código enviado por e-mail.
  */
 export interface OwnershipTransferState {
   id: number;
@@ -28,11 +24,9 @@ export interface OwnershipTransferState {
 }
 
 /**
- * One rank as the server describes it. Mirrors Ramon\Chat\Rank\RankBook.
- *
- * `builtin` names the two every channel has; their `name` and `color` are null
- * until the owner customises them, meaning the translated default and the
- * theme's colour. The three derived colours are null exactly when `color` is.
+ * Espelha Ramon\Chat\Rank\RankBook. Nos dois `builtin`, `name` e `color` ficam
+ * null até o dono personalizar (tradução padrão e cor do tema). As três cores
+ * derivadas são null exatamente quando `color` é.
  */
 export interface RankEntry {
   key: string;
@@ -43,18 +37,17 @@ export interface RankEntry {
   icon: string | null;
   showBadge: boolean;
   position: number;
-  /** Text on the tag: white or near-black, whichever reads better. */
+  /** Branco ou quase preto, o que tiver mais contraste. */
   textColor: string | null;
-  /** The colour as a name on a light surface, darkened as far as needed. */
+  /** Para nome em fundo claro, escurecida o quanto for preciso. */
   nameLight: string | null;
-  /** And on a dark one, lightened. */
+  /** Em fundo escuro, clareada. */
   nameDark: string | null;
 }
 
 /**
- * A channel's ranks in priority order, and who holds what. `assignments` maps
- * a user id to the ids of the custom ranks they hold; PHP sends an empty one
- * as `[]`.
+ * Ranks em ordem de prioridade. `assignments` mapeia id de usuário para ids de
+ * ranks personalizados; vazio, o PHP manda `[]`.
  */
 export interface RankBook {
   ranks: RankEntry[];
@@ -64,7 +57,7 @@ export interface RankBook {
 }
 
 export default class Channel extends Model {
-  // ── Identity ───────────────────────────────────────────────────────────────
+  // ── Identidade ──
   type = Model.attribute<string>('type');
   name = Model.attribute<string | null>('name');
   slug = Model.attribute<string | null>('slug');
@@ -75,52 +68,45 @@ export default class Channel extends Model {
   tagId = Model.attribute<number | null>('tagId');
 
   /**
-   * Server-computed label. Direct channels have no stored name — they are named
-   * after the other participants, from the reader's perspective — so this is the
-   * only correct thing to render.
+   * Calculado no servidor. Conversas diretas não têm nome salvo e levam o nome
+   * dos outros participantes, então é isto que se deve exibir.
    */
   displayName = Model.attribute<string>('displayName');
 
-  // ── Configuration ──────────────────────────────────────────────────────────
-  /** Invitation-only: absent from Browse, and not joinable by a non-member. */
+  // ── Configuração ──
+  /** Só por convite: fora do Browse e fechado para quem não é membro. */
   isPrivate = Model.attribute<boolean>('isPrivate');
 
-  /** 'all' or 'moderators' — who may post here. */
+  /** 'all' ou 'moderators'. */
   postPermission = Model.attribute<string>('postPermission');
 
   threadingEnabled = Model.attribute<boolean>('threadingEnabled');
 
-  /** Minimum gap between one person's messages, in seconds. 0 is off. */
+  /** Intervalo mínimo entre mensagens de uma pessoa, em segundos. 0 desliga. */
   slowModeSeconds = Model.attribute<number>('slowModeSeconds');
 
   /**
-   * Seconds this reader must still wait, as the server sees it.
-   *
-   * Sent per actor rather than derived on the client: a reload has no memory of
-   * when you last posted, and a composer that offers a send the server refuses
-   * is worse than one that shows the wait.
+   * Segundos que este leitor ainda espera. Vem do servidor porque o cliente não
+   * sabe, depois de recarregar, quando foi a última mensagem.
    */
   slowModeRemaining = Model.attribute<number>('slowModeRemaining');
   bypassesSlowMode = Model.attribute<boolean>('bypassesSlowMode');
 
   /**
-   * Longest message this channel accepts, or null to follow the forum setting.
-   *
-   * Null is "inherit", not "unlimited" — see `Channel::maxMessageLength()` on
-   * the server, which is the authority. Resolve it with
-   * `resolveMaxMessageLength()` rather than reading it raw.
+   * Null significa herdar a setting do fórum, não "sem limite"
+   * (`Channel::maxMessageLength()` no servidor). Use `resolveMaxMessageLength()`.
    */
   maxMessageLength = Model.attribute<number | null>('maxMessageLength');
 
   autoJoin = Model.attribute<boolean>('autoJoin');
 
-  /** Subscribe a user when they reply in the bound category. */
+  /** Inscreve quem responde na categoria vinculada. */
   autoJoinOnReply = Model.attribute<boolean>('autoJoinOnReply');
-  /** Announce the bound category's new discussions in the channel. */
+  /** Anuncia no canal as discussões novas da categoria vinculada. */
   postDiscussions = Model.attribute<boolean>('postDiscussions');
   allowChannelWideMentions = Model.attribute<boolean>('allowChannelWideMentions');
 
-  // ── Counters ───────────────────────────────────────────────────────────────
+  // ── Contadores ──
   messagesCount = Model.attribute<number>('messagesCount');
   userCount = Model.attribute<number>('userCount');
   lastMessageId = Model.attribute<number | null>('lastMessageId');
@@ -129,10 +115,10 @@ export default class Channel extends Model {
   archivedAt = Model.attribute('archivedAt', Model.transformDate);
   archivedDiscussionId = Model.attribute<number | null>('archivedDiscussionId');
 
-  // ── Per-actor membership state ─────────────────────────────────────────────
+  // ── Estado do usuário atual ──
   isFollowing = Model.attribute<boolean>('isFollowing');
 
-  /** A pending invitation for the reader, and who sent it. */
+  /** Convite pendente para o leitor e quem o enviou. */
   isInvited = Model.attribute<boolean>('isInvited');
   invitedById = Model.attribute<number | null>('invitedById');
   invitedByName = Model.attribute<string | null>('invitedByName');
@@ -142,67 +128,55 @@ export default class Channel extends Model {
   unreadCount = Model.attribute<number>('unreadCount');
   unreadMentionsCount = Model.attribute<number>('unreadMentionsCount');
 
-  // ── Capability flags ───────────────────────────────────────────────────────
-  // Rendered straight into `disabled`/visibility checks so the client never
-  // offers a control the server would reject.
+  // ── Permissões ──
+  // Usadas direto em `disabled` e visibilidade, para o cliente não oferecer o
+  // que o servidor recusaria.
   canPostMessage = Model.attribute<boolean>('canPostMessage');
   canEdit = Model.attribute<boolean>('canEdit');
   canJoin = Model.attribute<boolean>('canJoin');
-  /** May join without appearing in the member list — moderators only. */
+  /** Entrar sem aparecer na lista de membros; só moderadores. */
   canJoinHidden = Model.attribute<boolean>('canJoinHidden');
-  /** The actor is in this channel, but invisibly. */
+  /** Membro invisível. */
   isHiddenMember = Model.attribute<boolean>('isHiddenMember');
   canClose = Model.attribute<boolean>('canClose');
   canArchive = Model.attribute<boolean>('canArchive');
-  /** May take the channel back out of the archive. */
   canUnarchive = Model.attribute<boolean>('canUnarchive');
   canDelete = Model.attribute<boolean>('canDelete');
   canManageMembers = Model.attribute<boolean>('canManageMembers');
-  /** May promote members to moderators of this channel — its owner, or chat moderators. */
+  /** O dono ou moderadores do chat. */
   canManageModerators = Model.attribute<boolean>('canManageModerators');
-  /** May hand the channel to another member: its owner, or an administrator. */
+  /** O dono ou um administrador. */
   canTransferOwnership = Model.attribute<boolean>('canTransferOwnership');
-  /**
-   * The pending handover, as this reader may see it, or null. Filled only when
-   * participants are loaded, like `moderatorIds`.
-   */
+  /** Só preenchido quando os participantes são carregados, como `moderatorIds`. */
   ownershipTransfer = Model.attribute<OwnershipTransferState | null>('ownershipTransfer');
   creatorId = Model.attribute<number | null>('creatorId');
 
-  /** May create, edit and hand out this channel's ranks. */
   canManageRanks = Model.attribute<boolean>('canManageRanks');
 
   /**
-   * Every rank here and who holds which. Absent from the channel list, where
-   * the server leaves it off; read it through `utils/ranks`, which falls back
-   * to the rank each message carries.
+   * Ausente na listagem de canais. Leia por `utils/ranks`, que cai no rank que
+   * cada mensagem traz.
    */
   rankBook = Model.attribute<RankBook | null | undefined>('rankBook');
-  /** Members holding the channel's own moderator role; filled when participants are loaded. */
+  /** Moderadores do canal; preenchido quando os participantes são carregados. */
   moderatorIds = Model.attribute<number[]>('moderatorIds');
   canMentionChannelWide = Model.attribute<boolean>('canMentionChannelWide');
 
-  // ── Relationships ──────────────────────────────────────────────────────────
+  // ── Relações ──
   creator = Model.hasOne<User | null>('creator');
   lastMessage = Model.hasOne<Message | null>('lastMessage');
   participants = Model.hasMany<User>('participants');
 
-  /**
-   * People asked in who have not answered. Served only to whoever manages the
-   * member list, and only when the members tab includes it.
-   */
+  /** Convites sem resposta; só para quem gerencia membros e quando incluído. */
   invitedUsers = Model.hasMany<User>('invitedUsers');
 
   /**
-   * The other side of a conversation, default-included on the channel list.
-   *
-   * `participants` is only populated once something asks for it explicitly — the
-   * members tab — so the sidebar cannot read its avatars from there. Use
-   * `others()` rather than either relation directly.
+   * Incluído por padrão na listagem; `participants` só vem quando pedido (aba de
+   * membros). Use `others()` em vez das relações direto.
    */
   directParticipants = Model.hasMany<User>('directParticipants');
 
-  // ── Derived helpers ────────────────────────────────────────────────────────
+  // ── Derivados ──
 
   isDirect(): boolean {
     return this.type() === 'direct';
@@ -213,9 +187,8 @@ export default class Channel extends Model {
   }
 
   /**
-   * Everyone who can see the channel is in it, without being added. Mirrors
-   * `Channel::isForEveryone()` on the server: its member list holds only the
-   * people who run it, and its member count is not a headcount of the room.
+   * Quem vê o canal já está nele. Espelha `Channel::isForEveryone()`: a lista de
+   * membros só tem quem o administra e a contagem não é a da sala.
    */
   isForEveryone(): boolean {
     return this.isCategory() && !!this.autoJoin() && !this.isPrivate();
@@ -233,10 +206,7 @@ export default class Channel extends Model {
     return this.status() === 'archived';
   }
 
-  /**
-   * Whether a badge should be shown. Muted channels stay listed but never
-   * accrue visible pressure.
-   */
+  /** Canal silenciado continua listado, mas sem badge. */
   hasUnread(): boolean {
     return !this.isMuted() && (this.unreadCount() ?? 0) > 0;
   }
@@ -246,13 +216,8 @@ export default class Channel extends Model {
   }
 
   /**
-   * Everyone in the channel except the reader, for the avatars a direct channel
-   * shows in place of an icon.
-   *
-   * Reads the default-included `directParticipants` first and falls back to
-   * `participants`, which is present once the members tab has been opened. Both
-   * return `false` from `hasMany` when the relationship was never included, so
-   * neither can be trusted on its own.
+   * Todos menos o leitor. `hasMany` devolve `false` para relação não incluída,
+   * então tenta `directParticipants` e depois `participants`.
    */
   others(): User[] {
     const loaded = this.directParticipants() || this.participants() || [];

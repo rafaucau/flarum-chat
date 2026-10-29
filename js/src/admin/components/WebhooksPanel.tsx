@@ -16,31 +16,25 @@ interface WebhookModel {
 }
 
 /**
- * Inbound webhook administration.
- *
- * Each webhook posts into one channel with a secret key in its URL. The key is
- * returned by the API only on create and on rotate, so it is shown once here and
- * then never again, which is why the freshly minted URL is held in component
- * state and called out rather than listed with the rest of the row.
- *
- * A component rather than part of the page: the page decides where the panel
- * sits, and the panel owns the records.
+ * Administração dos webhooks de entrada. A API só devolve a chave secreta da
+ * URL no create e no rotate, por isso a URL nova fica no estado do componente
+ * e é exibida uma única vez.
  */
 export default class WebhooksPanel extends Component<ComponentAttrs> {
   private webhooks: WebhookModel[] = [];
   private channels: any[] = [];
 
-  /** Accounts a webhook may post as, besides the bot: administrators only. */
+  /** Além do bot, só administradores. */
   private admins: User[] = [];
   private loading = true;
 
-  /** URLs revealed this session, keyed by webhook id. Never re-fetchable. */
+  /** Por id do webhook; a API não as devolve de novo. */
   private revealed: Record<string, string> = {};
 
   private draftName = '';
   private draftChannel = '';
 
-  /** Empty posts as the bot; otherwise an admin's user id. */
+  /** Vazio posta como o bot; senão, id de um admin. */
   private draftAuthor = '';
   private working = false;
 
@@ -108,11 +102,7 @@ export default class WebhooksPanel extends Component<ComponentAttrs> {
     );
   }
 
-  /**
-   * Who a webhook posts as: the bot, or one of the forum's administrators.
-   * Without a choice the message has no author and the stream draws it as a
-   * deleted account.
-   */
+  // Sempre há um autor: mensagem sem autor aparece no stream como conta apagada.
   protected authorSelect(value: string, onchange: (value: string) => void): Mithril.Children {
     return (
       <select
@@ -188,7 +178,7 @@ export default class WebhooksPanel extends Component<ComponentAttrs> {
     );
   }
 
-  // ── Data ───────────────────────────────────────────────────────────────────
+  // ── Dados ──
 
   protected async load(): Promise<void> {
     try {
@@ -284,8 +274,8 @@ export default class WebhooksPanel extends Component<ComponentAttrs> {
 
       app.store.pushPayload(payload);
 
-      // Read from the raw payload, not the model: `url` is null in every other
-      // response, so pushing it would immediately overwrite what we just showed.
+      // Do payload cru, não do model: `url` vem null nas outras respostas e o
+      // store a sobrescreveria.
       const url = payload?.data?.attributes?.url;
 
       if (url) this.revealed[webhook.id()] = url;

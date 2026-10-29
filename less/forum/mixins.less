@@ -1,12 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat mixins
+// Mixins do chat
 //
-// Mirrors the naming and intent of Avocado's `mixins/avocado-utils.less` so the
-// two read as one system. Where Avocado already has a mixin (flex-center,
-// truncate, line-clamp, card, online-ring) it is re-declared here rather than
-// imported, because an extension cannot rely on the theme's LESS being on the
-// include path — the definitions are kept byte-compatible on purpose.
-// ─────────────────────────────────────────────────────────────────────────────
+// Seguem os nomes de `mixins/avocado-utils.less`. Os que o Avocado já tem são
+// redeclarados aqui, idênticos de propósito, porque a extensão não pode contar com
+// o LESS do tema no include path.
 
 .chat-flex-center() {
   display: flex;
@@ -26,8 +22,7 @@
   text-overflow: ellipsis;
 }
 
-// overflow-wrap breaks long unbroken tokens (URLs, hashes) instead of letting
-// them overflow the clamped box.
+// overflow-wrap quebra tokens longos (URLs, hashes) em vez de vazarem da caixa.
 .chat-line-clamp(@lines) {
   display: -webkit-box;
   -webkit-line-clamp: @lines;
@@ -36,7 +31,7 @@
   overflow-wrap: break-word;
 }
 
-// Green presence ring, matching Avocado's online-avatars treatment.
+// Anel verde de presença, como os avatares online do Avocado.
 .chat-online-ring(@ring: 2px) {
   box-shadow: 0 0 0 @ring var(--avocado-online);
 }
@@ -49,11 +44,9 @@
   .chat-flex-center();
   flex-shrink: 0;
 
-  // Both are needed for the glyph to actually sit in the middle. `align-items:
-  // center` centres the *line box*, and a line box inheriting the body's 1.5
-  // line-height is taller than the icon, so the glyph rides high inside it. A
-  // <button> also carries the UA's default padding, which shrinks the content box
-  // the glyph is centred within.
+  // Os dois são necessários para o glifo ficar no meio: `align-items: center`
+  // centraliza a line box, que com o line-height 1.5 herdado é mais alta que o
+  // ícone, e o <button> traz o padding padrão do navegador.
   padding: 0;
   line-height: 1;
 }
@@ -76,23 +69,17 @@
     opacity var(--avocado-t-fast);
 }
 
-// A state-changing action inside a dialog — "Close channel", "Archive channel".
-//
-// Core's plain `.Button` draws itself from `--button-bg`, which is a very light
-// grey. That is legible on the white body of a page and disappears against the
-// panels these dialogs are built from: light-grey control on a light-grey card,
-// with no edge to separate them. The buttons were there and read as disabled.
-//
-// So: an explicit surface and a real border, which is what makes a control look
-// pressable when the thing behind it is already tinted.
+// Ação que muda estado dentro de um diálogo ("Fechar canal", "Arquivar canal").
+// O `.Button` do core usa `--button-bg`, cinza claro que some contra os painéis
+// dos diálogos; superfície e borda explícitas fazem o controle parecer clicável.
 .chat-action-btn() {
   border: 1px solid var(--avocado-border-subtle);
   background: var(--body-bg);
   color: var(--avocado-text-dark);
   font-weight: 600;
 
-  // Core paints hover, focus, active and disabled from the --button-bg-*
-  // variables, all of which would undo the surface above.
+  // O core pinta hover, focus, active e disabled pelas variáveis --button-bg-*,
+  // que desfariam a superfície acima.
   &:hover:not(:disabled),
   &:focus-visible:not(:disabled) {
     background-color: var(--avocado-surface-1);
@@ -105,17 +92,11 @@
   }
 }
 
-// A destructive text control — "Delete channel".
+// Controle destrutivo em texto ("Apagar canal"), mais discreto que
+// `.chat-action-btn()` para não competir com as ações reversíveis.
 //
-// Deliberately lighter than `.chat-action-btn()`: deleting is irreversible, and
-// the restraint that suits it is a text control rather than another button
-// competing with the reversible actions beside it. It carries only what makes it
-// a control — a hit area, its own line box, and a hover the pointer can land on.
-//
-// The colour is `--error-color`. `--alert-error-color` reads like the obvious
-// token and is not one: core defines it as `#fff`, because it colours text
-// sitting *on* a red alert background. Naming it here paints the label white on
-// a white dialog — drawn, sized, clickable, and invisible.
+// A cor é `--error-color`. `--alert-error-color` parece o token certo mas é `#fff`
+// no core (texto sobre o fundo vermelho do alerta) e deixaria o label invisível.
 .chat-danger-btn() {
   display: inline-flex;
   width: auto;
@@ -151,8 +132,8 @@
     border-color var(--avocado-t-medium);
 }
 
-// A scroll container that keeps its scrollbar out of the layout on platforms
-// that support it, so message text does not shift when content overflows.
+// Reserva o espaço da scrollbar onde houver suporte, para o texto não pular
+// quando o conteúdo transborda.
 .chat-scroll-y() {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -161,19 +142,12 @@
   .chat-scrollbar();
 }
 
-// The chat's scrollbar: a thin, translucent thumb on no track.
+// Scrollbar fina e translúcida, sem trilho, aplicada por `.chat-scroll-y()` em
+// toda superfície que rola.
 //
-// Applied from `.chat-scroll-y()`, so every scrolling surface in the extension
-// — stream, sidebar, thread and pinned panels, modal bodies, the emoji grid,
-// the composer itself — gets the same one. The platform default is a wide,
-// opaque, square bar that belongs to the browser rather than to the panel it
-// sits in, and next to the chat's rounded surfaces it reads as a seam.
-//
-// Two declarations of the same thing, because no single syntax is supported
-// everywhere: `scrollbar-width`/`scrollbar-color` is the standard one (Firefox,
-// and Chromium 121+), the `::-webkit-scrollbar` pseudo-elements are what older
-// Chromium and Safari understand. A browser that supports both takes the
-// standard properties and ignores the pseudo-elements.
+// Duas sintaxes porque nenhuma vale em todo lugar: `scrollbar-width`/`scrollbar-color`
+// (Firefox, Chromium 121+) e `::-webkit-scrollbar` (Chromium antigo, Safari). Quem
+// entende as duas usa as propriedades padrão.
 .chat-scrollbar(@size: 10px) {
   scrollbar-width: thin;
   scrollbar-color: var(--chat-scrollbar-thumb) transparent;
@@ -183,16 +157,14 @@
     height: @size;
   }
 
-  // No track. A visible groove doubles the visual weight of a control whose
-  // whole job is to stay out of the way until it is needed.
+  // Sem trilho.
   &::-webkit-scrollbar-track {
     background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    // The border is transparent and clipped away from the background, which is
-    // what insets the thumb inside the gutter: it ends up ~4px wide with room
-    // on both sides, instead of a 10px slab flush against the content.
+    // Borda transparente cortada do fundo: é o que deixa o thumb com ~4px e folga
+    // dos dois lados.
     border: 3px solid transparent;
     background-clip: padding-box;
     border-radius: @chat-radius-pill;
@@ -203,15 +175,15 @@
     background-color: var(--chat-scrollbar-thumb-hover);
   }
 
-  // Chromium draws a small square where a vertical and a horizontal bar meet;
-  // left alone it is the one opaque part of the treatment.
+  // O Chromium desenha um quadrado onde as barras se encontram; seria a única
+  // parte opaca.
   &::-webkit-scrollbar-corner {
     background: transparent;
   }
 }
 
-// Visually hidden but reachable by screen readers and focusable. Used for the
-// live region that announces incoming messages.
+// Escondido visualmente, mas acessível a leitores de tela e focável. Usado na
+// live region que anuncia mensagens novas.
 .chat-sr-only() {
   position: absolute;
   width: 1px;
@@ -224,18 +196,13 @@
   border: 0;
 }
 
-// Everything the forum draws around a chat surface that fills the screen.
+// Tudo o que o fórum desenha em volta de um chat em tela cheia.
 //
-// Applied to `<body>`, because the elements involved are not all inside `#app`:
-// `huseyinfiliz/modern-footer` mounts `<footer id="modern-footer">` straight
-// onto the body from an `app.mount` extender, and it is not the only extension
-// that does. Core's `Page.bodyClass` puts its class on `#app` and so cannot
-// reach them.
+// Aplicado no `<body>` porque nem tudo fica dentro de `#app`: há extensões que
+// montam elementos direto no body, e o `Page.bodyClass` do core só alcança `#app`.
 //
-// The page also stops scrolling. A chat surface is exactly as tall as the
-// viewport and scrolls internally; a document scrollbar beside it either does
-// nothing or, worse, drags the whole layout off-screen — which is what happened
-// when a pinned message was tapped on a phone.
+// A página também para de rolar: o chat tem a altura da viewport e rola por
+// dentro, e uma scrollbar do documento ao lado arrastaria o layout no celular.
 .chat-suppress-page-chrome() {
   overflow: hidden;
 
@@ -246,8 +213,8 @@
   }
 }
 
-// Respect a user's reduced-motion preference for anything that animates on
-// message arrival — a chat that animates every row is punishing at volume.
+// Respeita reduced-motion no que anima à chegada de mensagens; animar cada linha
+// pesa com muito volume.
 .chat-motion-safe(@rules) {
   @media (prefers-reduced-motion: no-preference) {
     @rules();
