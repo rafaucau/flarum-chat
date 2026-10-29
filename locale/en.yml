@@ -87,6 +87,7 @@ ramon-chat:
     move_target_frozen: You cannot move messages into a closed or archived channel.
     move_one_channel: Messages can only be moved from one channel at a time.
     move_wider_audience: "Messages from a direct conversation, or from a private channel into an open one, cannot be moved: that would show them to people who could not read them."
+    move_conflict: "New messages arrived in that channel during the move. Nothing was moved; try again."
 
     # Webhooks
     webhook_channel_unavailable: That webhook's channel is closed or unavailable.

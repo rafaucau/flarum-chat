@@ -12,7 +12,9 @@ namespace Ramon\Chat\Tests\integration\api;
 use Carbon\Carbon;
 use Flarum\Group\Group;
 use Flarum\Testing\integration\TestCase;
+use Illuminate\Contracts\Events\Dispatcher;
 use Psr\Http\Message\ResponseInterface;
+use Ramon\Chat\Event\MessageWasMoved;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
@@ -129,5 +131,31 @@ class MoveMessagesBoundaryTest extends TestCase
 
         $this->assertSame(200, $this->move([3], self::CH_PUBLIC)->getStatusCode());
         $this->assertSame(self::CH_PUBLIC, $this->channelOf(3));
+    }
+
+    public function test_a_send_racing_the_move_gets_a_retry_answer_not_a_crash(): void
+    {
+        // Uma mensagem entra no destino no meio do move, com o número que o move ia
+        // usar: o que um envio simultâneo faz. O índice único barra a duplicata.
+        $raced = false;
+
+        $this->app()->getContainer()->make(Dispatcher::class)->listen(MessageWasMoved::class, function (MessageWasMoved $event) use (&$raced) {
+            if ($raced) {
+                return;
+            }
+
+            $raced = true;
+            $now = Carbon::now()->toDateTimeString();
+
+            $this->database()->table('chat_messages')->insert([
+                'channel_id' => self::CH_PRIVATE_TOO, 'user_id' => self::PARTNER, 'number' => (int) $event->message->number + 1,
+                'type' => 'text', 'content' => '<t>corrida</t>', 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        });
+
+        $response = $this->move([1, 4], self::CH_PRIVATE_TOO);
+
+        $this->assertSame(422, $response->getStatusCode(), (string) $response->getBody());
+        $this->assertSame(self::CH_PRIVATE, $this->channelOf(1), 'the move rolled back');
     }
 }
