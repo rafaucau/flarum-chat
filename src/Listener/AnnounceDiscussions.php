@@ -271,7 +271,12 @@ class AnnounceDiscussions
     {
         $content = (string) ($post->content ?? '');
 
-        if ($content === '') {
+        // Código não é imagem: no post, um `![x](url)` dentro de crase ou de
+        // bloco aparece como texto, e não pode virar a imagem que o navegador de
+        // todo o canal carrega.
+        $content = (string) preg_replace(['/```.*?(```|$)/s', '/~~~.*?(~~~|$)/s', '/`[^`\n]*`/', '/\[code\].*?(\[\/code\]|$)/is'], ' ', $content);
+
+        if (trim($content) === '') {
             return null;
         }
 
