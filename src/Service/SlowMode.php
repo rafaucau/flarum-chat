@@ -12,7 +12,7 @@ namespace Ramon\Chat\Service;
 use Flarum\Foundation\ValidationException;
 use Flarum\Locale\Translator;
 use Flarum\User\User;
-use Illuminate\Contracts\Cache\Store;
+use Illuminate\Contracts\Cache\Repository;
 use Ramon\Chat\Channel;
 
 /**
@@ -34,7 +34,7 @@ use Ramon\Chat\Channel;
 class SlowMode
 {
     public function __construct(
-        protected Store $cache,
+        protected Repository $cache,
         protected Translator $translator,
         protected ChannelOwnership $ownership
     ) {
@@ -68,6 +68,35 @@ class SlowMode
     }
 
     /**
+     * Reserva a vez do ator, de forma atômica, logo antes de gravar a mensagem.
+     *
+     * A checagem acima e o `noteSent` depois do commit deixavam uma janela: N
+     * envios em paralelo liam "sem espera" e passavam todos. O `add` só grava
+     * se a chave não existe, então só um deles fica com a vez.
+     *
+     * @throws ValidationException
+     */
+    public function claim(Channel $channel, User $actor): void
+    {
+        $seconds = $this->secondsFor($channel);
+
+        if ($seconds <= 0 || $this->isExempt($channel, $actor)) {
+            return;
+        }
+
+        if ($this->cache->add($this->key($channel, $actor), time() + $seconds, $seconds + 1)) {
+            return;
+        }
+
+        throw new ValidationException([
+            'content' => $this->translator->trans(
+                'ramon-chat.api.slow_mode_wait',
+                ['seconds' => max(1, $this->remainingFor($channel, $actor))]
+            ),
+        ]);
+    }
+
+    /**
      * Starts the actor's cooldown. Called after a message is accepted, never
      * before — a send that fails validation should not cost the sender their turn.
      */
@@ -94,8 +123,7 @@ class SlowMode
             return 0;
         }
 
-        // `Store::get()` takes no default, unlike the cache Repository's.
-        $until = (int) ($this->cache->get($this->key($channel, $actor)) ?? 0);
+        $until = (int) $this->cache->get($this->key($channel, $actor), 0);
 
         return max(0, $until - time());
     }

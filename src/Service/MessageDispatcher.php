@@ -100,6 +100,9 @@ class MessageDispatcher
 
         $threadWasCreated = false;
 
+        // Depois de todas as validações, para uma recusa não custar a vez.
+        $this->slowMode->claim($channel, $actor);
+
         $message = Message::query()->getConnection()->transaction(function () use (
             $channel, $actor, $content, &$thread, $replyTo, $uploadIds, $createThread, &$threadWasCreated
         ) {

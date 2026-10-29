@@ -13,7 +13,6 @@ use Flarum\Foundation\ValidationException;
 use Flarum\Locale\Translator;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
-use Illuminate\Contracts\Cache\Store;
 
 /**
  * Throttles message sends per user.
@@ -25,7 +24,7 @@ use Illuminate\Contracts\Cache\Store;
 class RateLimiter
 {
     public function __construct(
-        protected Store $cache,
+        protected ActionThrottle $throttle,
         protected SettingsRepositoryInterface $settings,
         protected Translator $translator
     ) {
@@ -48,20 +47,12 @@ class RateLimiter
             return;
         }
 
-        // Fixed one-second window. A sliding window would be more precise but
-        // needs per-request timestamp storage; for flood control the difference
-        // does not justify the extra writes.
-        $key = 'ramon-chat.rate.'.$actor->id.'.'.time();
-
-        $count = (int) $this->cache->get($key, 0);
-
-        if ($count >= $perSecond) {
+        // Janela fixa de um segundo, contada com `add` + `increment` (atômicos):
+        // ler e depois gravar deixava N envios em paralelo passarem todos.
+        if (! $this->throttle->attempt('rate.'.$actor->id, (int) ceil($perSecond), 1)) {
             throw new ValidationException([
                 'content' => $this->translator->trans('ramon-chat.api.rate_limited'),
             ]);
         }
-
-        // TTL of 2s so the key outlives its window without lingering.
-        $this->cache->put($key, $count + 1, 2);
     }
 }
