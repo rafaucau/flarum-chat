@@ -196,6 +196,10 @@ class ChannelHardeningTest extends TestCase
 
     public function test_archiving_into_a_new_discussion_needs_start_discussion(): void
     {
+        // Chat aberto a visitantes: a transcrição numa discussão que eles leem
+        // não amplia o público, então só a permissão de criar discussão decide.
+        $this->database()->table('group_permission')->insert(['group_id' => Group::GUEST_ID, 'permission' => 'ramon-chat.use']);
+
         $refused = $this->archive(self::CH_OPEN, self::MOD, ['title' => 'Not allowed']);
 
         $this->assertSame(403, $refused->getStatusCode(), (string) $refused->getBody());
