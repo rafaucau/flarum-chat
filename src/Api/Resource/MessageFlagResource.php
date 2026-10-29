@@ -27,6 +27,7 @@ use Ramon\Chat\Event\FlagsChanged;
 use Ramon\Chat\Message;
 use Ramon\Chat\MessageFlag;
 use Ramon\Chat\Notification\MessageFlaggedBlueprint;
+use Ramon\Chat\Service\ActionThrottle;
 use Tobyz\JsonApiServer\Context as OriginalContext;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
@@ -43,10 +44,14 @@ use Tobyz\JsonApiServer\Exception\ForbiddenException;
  */
 class MessageFlagResource extends AbstractDatabaseResource
 {
+    /** Denúncias que alguém fora da moderação registra por hora. */
+    public const FLAGS_PER_HOUR = 20;
+
     public function __construct(
         protected Translator $translator,
         protected NotificationSyncer $notifications,
-        protected Events $events
+        protected Events $events,
+        protected ActionThrottle $throttle
     ) {
     }
 
@@ -196,6 +201,15 @@ class MessageFlagResource extends AbstractDatabaseResource
                     if ($reason === 'other' && $detail === '') {
                         throw new ValidationException([
                             'detail' => $this->translator->trans('ramon-chat.api.flag_detail_required'),
+                        ]);
+                    }
+
+                    // Cada denúncia (ou reabertura de uma já resolvida) avisa a
+                    // moderação; sem limite, desfazer a decisão era um loop.
+                    if (! $actor->hasPermission('ramon-chat.moderate')
+                        && ! $this->throttle->attempt('flag.'.$actor->id, self::FLAGS_PER_HOUR, 3600)) {
+                        throw new ValidationException([
+                            'reason' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
                         ]);
                     }
 
