@@ -9,7 +9,8 @@ import type Message from '../../common/models/Message';
 export declare function botName(): string;
 /**
  * Arquivo enviado vence a URL digitada. Os dois são guardados: removendo o upload,
- * a URL externa volta.
+ * a URL externa volta. A URL passa pela mesma allowlist de protocolo das imagens
+ * do chat.
  */
 export declare function botAvatarUrl(): string | null;
 /**

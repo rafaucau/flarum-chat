@@ -31,7 +31,7 @@ export declare function realtimeDelivered(): boolean;
  * tem o mesmo `defaultInclude` da listagem e traz `deletedBy`, que permite à
  * lápide nomear o moderador.
  *
- * Exportado porque o moderador que exclui também precisa: `whenMessageChanged`
- * exclui o ator, então o próprio cliente não recebe o evento. Ver ChatMessage.delete().
+ * Exportado porque o moderador que exclui também precisa: o eco do
+ * `whenMessageChanged` pode chegar antes da resposta. Ver ChatMessage.delete().
  */
 export declare function refreshMessageCapabilities(id: number): void;
