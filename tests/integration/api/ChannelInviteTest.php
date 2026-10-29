@@ -442,6 +442,29 @@ class ChannelInviteTest extends TestCase
         $this->assertSame(1, $this->invites(self::CH_RESTRICTED, self::INVITEE)->count(), 'a refused accept keeps the invite for later');
     }
 
+    public function test_removal_ends_an_invitation_the_member_never_used(): void
+    {
+        // Convidado e, por outro caminho (resposta na categoria), já membro.
+        $this->assertSame(200, $this->invite(self::CH_PRIVATE, self::INVITER, self::INVITEE)->getStatusCode());
+        $this->database()->table('chat_channel_user')->insert($this->membership(self::CH_PRIVATE, self::INVITEE));
+
+        $removed = $this->send($this->request('POST', '/api/chat-channels/'.self::CH_PRIVATE.'/members/remove', [
+            'authenticatedAs' => self::OWNER,
+            'json'            => ['data' => ['attributes' => ['userId' => self::INVITEE]]],
+        ]));
+
+        $this->assertSame(200, $removed->getStatusCode(), (string) $removed->getBody());
+        $this->assertSame(0, $this->invites(self::CH_PRIVATE, self::INVITEE)->count());
+
+        // O convite antigo não serve mais de porta de volta.
+        $accepted = $this->send($this->request('POST', '/api/chat/invites/'.self::CH_PRIVATE.'/accept', [
+            'authenticatedAs' => self::INVITEE,
+        ])->withQueryParams(['id' => (string) self::CH_PRIVATE]));
+
+        $this->assertNotSame(200, $accepted->getStatusCode());
+        $this->assertFalse($this->isMember(self::CH_PRIVATE, self::INVITEE));
+    }
+
     private function invite(int $channel, int $actor, int $user): \Psr\Http\Message\ResponseInterface
     {
         return $this->send(

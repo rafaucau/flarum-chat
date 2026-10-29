@@ -410,7 +410,8 @@ return [
         ->listen(Event\ChannelModeratorChanged::class, Listener\ForgetChannelRanks::class)
         ->listen(Event\ChannelOwnershipTransferred::class, Listener\ForgetChannelRanks::class)
         ->listen(Event\UserJoinedChannel::class, Listener\ForgetChannelRanks::class)
-        ->listen(Event\UserLeftChannel::class, Listener\ForgetChannelRanks::class),
+        ->listen(Event\UserLeftChannel::class, Listener\ForgetChannelRanks::class)
+        ->listen(Event\UserLeftChannel::class, Listener\ConsumeInvites::class),
 
     // ── Console ──────────────────────────────────────────────────────────────
     (new Extend\Console())
