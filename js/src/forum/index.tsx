@@ -42,6 +42,8 @@ import ChatPageResolver from "./resolvers/ChatPageResolver";
 import bindFlagsIntegration from "./utils/flagsIntegration";
 import { loadChatUi } from "./utils/lazy";
 
+export { default as extend } from "./extend";
+
 export {
   Channel,
   Message,
@@ -132,15 +134,8 @@ const CHANNEL_POLL_INTERVAL = 15000;
 const CHANNEL_POLL_INTERVAL_PROVEN = 60000;
 
 app.initializers.add("ramon-chat", () => {
-  // Register JSON:API types before anything can request them — the store drops
-  // payloads for types it has no model for.
-  app.store.models["chat-channels"] = Channel;
-  app.store.models["chat-messages"] = Message;
-  app.store.models["chat-threads"] = Thread;
-  app.store.models["chat-uploads"] = Upload;
-  app.store.models["chat-message-flags"] = MessageFlag;
-
-  // Straight after the models and before anything mounts: the channel list, the
+  // Before anything mounts (the models come from ./extend, applied before any
+  // initializer): the channel list, the
   // open conversation, its pinned message and the drafts are already in the page
   // (see Content\PreloadChat), and reading them here is what lets the chat paint
   // finished instead of assembling itself over four round trips.
@@ -204,21 +199,8 @@ app.initializers.add("ramon-chat", () => {
   );
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  // The component that renders the alert, and the row in the user's notification
-  // preferences that lets them turn it off.
-  app.notificationComponents.chatChannelInvite = ChannelInviteNotification;
-  app.notificationComponents.chatChannelInviteDeclined =
-    ChannelInviteDeclinedNotification;
-  app.notificationComponents.chatMessageFlagged = MessageFlaggedNotification;
-  app.notificationComponents.chatModeratorPromoted =
-    ModeratorPromotedNotification;
-  app.notificationComponents.chatOwnershipTransfer =
-    OwnershipTransferNotification;
-  app.notificationComponents.chatOwnershipTransferDeclined =
-    OwnershipTransferDeclinedNotification;
-  app.notificationComponents.chatOwnershipInherited =
-    OwnershipInheritedNotification;
-
+  // The components that render the alerts come from ./extend; this is the row
+  // in the user's notification preferences that lets them turn each one off.
   extend(
     "flarum/forum/components/NotificationGrid",
     "notificationTypes",
