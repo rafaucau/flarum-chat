@@ -243,8 +243,12 @@ export default class ChatState {
    */
   private branchTargets: Record<string, true> = {};
 
-  /** Attachments staged in the composer but not yet sent. */
-  pendingUploads: Upload[] = [];
+  /**
+   * Anexos preparados e ainda não enviados, por conversa (`draftKey`). Uma lista
+   * só fazia o arquivo anexado numa DM sair na próxima mensagem de qualquer
+   * outro canal.
+   */
+  private pendingUploadsByKey: Record<string, Upload[]> = {};
 
   /**
    * Optimistic rows awaiting their server response, keyed by a client-generated
@@ -1699,7 +1703,11 @@ export default class ChatState {
     } = {},
   ): Promise<Message | null> {
     const trimmed = content.trim();
-    const uploadIds = this.pendingUploads.map((u) => Number(u.id()));
+    const uploadKey = this.draftKey(channelId, options.threadId ?? null);
+    const uploadIds = this.pendingUploadsFor(
+      channelId,
+      options.threadId ?? null,
+    ).map((u) => Number(u.id()));
 
     if (!trimmed && uploadIds.length === 0) return null;
 
@@ -1728,7 +1736,7 @@ export default class ChatState {
       const message = app.store.pushPayload<Message>(payload as any);
 
       this.upsertMessage(message);
-      this.pendingUploads = [];
+      delete this.pendingUploadsByKey[uploadKey];
       this.clearContext(channelId, options.threadId ?? null);
 
       // The sender is implicitly caught up.
@@ -1819,6 +1827,38 @@ export default class ChatState {
 
   draftKey(channelId: number, threadId: number | null = null): string {
     return threadId ? `${channelId}:${threadId}` : String(channelId);
+  }
+
+  pendingUploadsFor(
+    channelId: number,
+    threadId: number | null = null,
+  ): Upload[] {
+    return this.pendingUploadsByKey[this.draftKey(channelId, threadId)] ?? [];
+  }
+
+  addPendingUpload(
+    channelId: number,
+    threadId: number | null,
+    upload: Upload,
+  ): void {
+    const key = this.draftKey(channelId, threadId);
+
+    this.pendingUploadsByKey[key] = [
+      ...(this.pendingUploadsByKey[key] ?? []),
+      upload,
+    ];
+  }
+
+  removePendingUpload(
+    channelId: number,
+    threadId: number | null,
+    id: number,
+  ): void {
+    const key = this.draftKey(channelId, threadId);
+
+    this.pendingUploadsByKey[key] = (
+      this.pendingUploadsByKey[key] ?? []
+    ).filter((u) => Number(u.id()) !== id);
   }
 
   // ───────────────────────────────────────────────────────────────────────────

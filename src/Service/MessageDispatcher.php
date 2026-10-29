@@ -213,16 +213,21 @@ class MessageDispatcher
             return;
         }
 
+        $private = UploadPrivacy::requiredFor($channel);
+
         Upload::query()
             ->whereIn('id', $uploadIds)
             ->where('user_id', $actor->id)
             ->whereNull('message_id')
+            // Um arquivo enviado para um canal privado ou DM não vai para um
+            // canal público: o acesso ao anexo segue o da mensagem.
+            ->when(! $private, fn ($query) => $query->where('is_private', false))
             ->update([
                 'message_id' => $message->id,
                 'updated_at' => Carbon::now(),
             ]);
 
-        if (! UploadPrivacy::requiredFor($channel)) {
+        if (! $private) {
             return;
         }
 

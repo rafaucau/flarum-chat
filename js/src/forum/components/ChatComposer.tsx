@@ -7,6 +7,7 @@ import LoadingIndicator from "flarum/common/components/LoadingIndicator";
 import classList from "flarum/common/utils/classList";
 import type Mithril from "mithril";
 
+import type Upload from "../../common/models/Upload";
 import type Channel from "../../common/models/Channel";
 import type User from "flarum/common/models/User";
 import type ChatState from "../state/ChatState";
@@ -364,7 +365,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
               title={this.sendHint()}
               disabled={
                 this.sending ||
-                (!value.trim() && state.pendingUploads.length === 0)
+                (!value.trim() && this.pendingUploads().length === 0)
               }
               onclick={() => this.submit()}
             >
@@ -770,13 +771,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   protected pendingAttachments(): Mithril.Children {
-    const { state } = this.attrs;
+    const pending = this.pendingUploads();
 
-    if (state.pendingUploads.length === 0 && !this.uploading) return null;
+    if (pending.length === 0 && !this.uploading) return null;
 
     return (
       <div className="ChatComposer-pending">
-        {state.pendingUploads.map((upload) => (
+        {pending.map((upload) => (
           <div key={upload.id()} className="ChatUploads-file">
             <i className="fas fa-paperclip" aria-hidden="true" />
             <span className="ChatUploads-file-name">{upload.fileName()}</span>
@@ -1222,7 +1223,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const channelId = Number(channel.id());
     const content = state.draft(channelId, threadId ?? null);
 
-    if (!content.trim() && state.pendingUploads.length === 0) return;
+    if (!content.trim() && this.pendingUploads().length === 0) return;
 
     // Refused here rather than by the server, and without touching the draft:
     // the text stays in the box so it can be shortened instead of retyped. The
@@ -1334,6 +1335,12 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
   // ── Uploads ────────────────────────────────────────────────────────────────
 
+  protected pendingUploads(): Upload[] {
+    const { channel, state, threadId } = this.attrs;
+
+    return state.pendingUploadsFor(Number(channel.id()), threadId ?? null);
+  }
+
   protected pickFiles(): void {
     (
       this.element.querySelector(
@@ -1351,6 +1358,11 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     if (files.length === 0) return;
 
+    // Fixado agora: se a pessoa trocar de canal durante o envio, o arquivo
+    // continua na conversa para a qual foi escolhido.
+    const channelId = Number(this.attrs.channel.id());
+    const threadId = this.attrs.threadId ?? null;
+
     this.uploading = true;
     m.redraw();
 
@@ -1362,7 +1374,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         // meant for a private channel on the private disk from the start, rather
         // than on the public one and moving it on send. Sending still enforces
         // the rule — this is the hint, not the gate.
-        body.append("channelId", String(this.attrs.channel.id()));
+        body.append("channelId", String(channelId));
 
         const payload = await app.request<any>({
           method: "POST",
@@ -1372,7 +1384,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         });
 
         const upload = app.store.pushPayload<any>(payload);
-        this.attrs.state.pendingUploads.push(upload);
+        this.attrs.state.addPendingUpload(channelId, threadId, upload);
       } catch (err: any) {
         const detail = err?.response?.errors?.[0]?.detail;
 
@@ -1393,11 +1405,9 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   protected removeUpload(id: number): void {
-    const { state } = this.attrs;
+    const { channel, state, threadId } = this.attrs;
 
-    state.pendingUploads = state.pendingUploads.filter(
-      (u) => Number(u.id()) !== id,
-    );
+    state.removePendingUpload(Number(channel.id()), threadId ?? null, id);
 
     // Discard it server-side too, so a cancelled attachment does not wait for the
     // retention sweep.

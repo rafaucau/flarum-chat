@@ -126,6 +126,19 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertSame(1, (int) $this->database()->table('chat_uploads')->where('id', $upload['id'])->value('is_private'));
     }
 
+    public function test_a_private_file_is_not_bound_to_a_public_channel_message(): void
+    {
+        // O arquivo foi enviado para o canal privado; uma mensagem no público não
+        // pode levá-lo junto, ou o anexo passa a ser servido a quem lê o público.
+        $upload = $this->upload(self::MEMBER, self::CH_PRIVATE);
+
+        $this->sendMessage(self::MEMBER, self::CH_PUBLIC, [(int) $upload['id']]);
+
+        $this->assertNull($this->database()->table('chat_uploads')->where('id', $upload['id'])->value('message_id'));
+        $this->assertSame(1, (int) $this->database()->table('chat_uploads')->where('id', $upload['id'])->value('is_private'));
+        $this->assertStatus(404, $this->fetch((int) $upload['id'], self::OUTSIDER));
+    }
+
     public function test_a_private_file_is_served_to_a_member_and_to_nobody_else(): void
     {
         $upload = $this->upload(self::MEMBER, self::CH_PRIVATE);
