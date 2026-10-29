@@ -4,6 +4,7 @@ import username from 'flarum/common/helpers/username';
 import type Mithril from 'mithril';
 
 import type Message from '../../common/models/Message';
+import { safeFileUrl } from './url';
 import userLink from './userLink';
 
 /**
@@ -25,7 +26,8 @@ export function botName(): string {
 
 /**
  * Arquivo enviado vence a URL digitada. Os dois são guardados: removendo o upload,
- * a URL externa volta.
+ * a URL externa volta. A URL passa pela mesma allowlist de protocolo das imagens
+ * do chat.
  */
 export function botAvatarUrl(): string | null {
   const uploaded = app.forum.attribute<string | null>('ramon-chat.botAvatarPath');
@@ -36,7 +38,7 @@ export function botAvatarUrl(): string | null {
 
   const url = app.forum.attribute<string | null>('ramon-chat.botAvatarUrl');
 
-  return typeof url === 'string' && url.trim() !== '' ? url.trim() : null;
+  return safeFileUrl(url) || null;
 }
 
 /**
