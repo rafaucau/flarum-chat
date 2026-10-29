@@ -18,12 +18,11 @@ use Ramon\Chat\Service\ChannelOwnership;
 use Ramon\Chat\Tests\unit\QueryTestCase;
 
 /**
- * The channel moderator role and the slow-mode exemption.
+ * O cargo de moderador do canal e a isenção do modo lento.
  *
- * A channel moderator acts on the members and messages of the channel they
- * were promoted in, but does not control the channel (archive, delete,
- * promote): that stays with the owner and whoever has the global `moderate`.
- * None of this applies in "administrators" mode.
+ * O moderador age sobre membros e mensagens do canal em que foi promovido, mas
+ * não controla o canal (arquivar, apagar, promover): isso fica com o dono e com
+ * quem tem o `moderate` global. Nada disso vale no modo "administrators".
  */
 class ChannelOwnershipTest extends QueryTestCase
 {
@@ -58,8 +57,8 @@ class ChannelOwnershipTest extends QueryTestCase
     }
 
     /**
-     * A channel whose membership row for `$memberId` is already loaded, so the
-     * lookup answers from the relation instead of the database.
+     * Canal com a membership de `$memberId` já carregada, para a consulta
+     * responder pela relação em vez do banco.
      */
     protected function channel(int $memberId, bool $moderator, ?string $leftAt = null): Channel
     {
@@ -108,7 +107,7 @@ class ChannelOwnershipTest extends QueryTestCase
         $this->assertFalse($ownership->exemptFromSlowMode($member, $channel));
     }
 
-    /** The role means nothing once the person has left the channel. */
+    /** O cargo não vale mais depois que a pessoa sai do canal. */
     public function test_the_role_does_not_survive_leaving(): void
     {
         $ownership = $this->ownership();

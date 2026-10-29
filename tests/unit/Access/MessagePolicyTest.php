@@ -20,12 +20,11 @@ use Ramon\Chat\Message;
 use Ramon\Chat\Service\ChannelOwnership;
 
 /**
- * The two rules added for pinning and threading.
+ * As regras de fixar e de abrir tópico.
  *
- * Both return a definite `false` rather than abstaining, which matters: Flarum's Gate
- * applies its isAdmin() fallback only when *no* policy decides, so a policy that
- * abstains hands the decision back to a fallback that tests the ability name rather
- * than the permission name. These assertions pin that behaviour down.
+ * As duas devolvem `false` explícito em vez de se abster: o Gate do Flarum só
+ * aplica o fallback de isAdmin() quando *nenhuma* policy decide, e esse fallback
+ * testa o nome da ability, não o da permissão.
  */
 class MessagePolicyTest extends QueryTestCase
 {
@@ -41,9 +40,9 @@ class MessagePolicyTest extends QueryTestCase
         $settings = Mockery::mock(SettingsRepositoryInterface::class);
         $settings->shouldReceive('get')->andReturn(0);
 
-        // A real cache, not a mock: it is a memo with no collaborators, and a
-        // mock would have to be told the answer to every `remember()` — which is
-        // the thing under test in the branches that reach visibility.
+        // Cache de verdade, não mock: é um memo sem colaboradores, e um mock teria de
+        // receber a resposta de cada `remember()`, justamente o que está em teste nos
+        // ramos que chegam à visibilidade.
         return new MessagePolicy($settings, new VisibilityCache(), new ChannelOwnership($settings));
     }
 
@@ -93,7 +92,7 @@ class MessagePolicyTest extends QueryTestCase
         return $user;
     }
 
-    // ── createThread ───────────────────────────────────────────────────────────
+    // ── createThread ──
 
     public function test_thread_can_be_started_with_the_permission(): void
     {
@@ -113,8 +112,8 @@ class MessagePolicyTest extends QueryTestCase
     }
 
     /**
-     * The requirement: someone without the permission may still reply — that is a
-     * plain postMessage — and is only blocked from *starting* a thread.
+     * Sem a permissão a pessoa ainda responde (um postMessage comum); só não pode
+     * *iniciar* um tópico.
      */
     public function test_lacking_the_permission_does_not_affect_replying(): void
     {
@@ -134,7 +133,7 @@ class MessagePolicyTest extends QueryTestCase
         );
     }
 
-    /** Threads are one level deep. */
+    /** Tópicos têm um nível só. */
     public function test_a_message_already_in_a_thread_cannot_be_branched(): void
     {
         $this->assertFalse(
@@ -155,7 +154,7 @@ class MessagePolicyTest extends QueryTestCase
         );
     }
 
-    // ── pin ────────────────────────────────────────────────────────────────────
+    // ── pin ──
 
     public function test_pinning_requires_its_own_permission(): void
     {
@@ -169,8 +168,8 @@ class MessagePolicyTest extends QueryTestCase
     }
 
     /**
-     * Pinning is deliberately not folded into `moderate`: moderation removes and
-     * moves other people's messages, a pin decides what the channel sees first.
+     * Fixar não está dentro de `moderate` de propósito: moderar remove e move
+     * mensagens alheias, fixar decide o que o canal vê primeiro.
      */
     public function test_moderate_alone_does_not_grant_pinning(): void
     {
@@ -188,9 +187,8 @@ class MessagePolicyTest extends QueryTestCase
     }
 
     /**
-     * A thread reply is pinnable. It is absent from the channel window, but the
-     * pinned list requests `includeThreadReplies`, so the pin stays reachable — and
-     * the answer worth pinning is often the one inside the thread.
+     * Resposta de tópico pode ser fixada. Ela não aparece na janela do canal, mas a
+     * lista de fixadas pede `includeThreadReplies`, então o pin continua alcançável.
      */
     public function test_a_message_in_a_thread_can_be_pinned(): void
     {

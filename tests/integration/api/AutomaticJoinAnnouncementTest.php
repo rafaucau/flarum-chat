@@ -16,26 +16,25 @@ use Flarum\Testing\integration\TestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * The join that is a side effect rather than an arrival.
+ * A entrada que é efeito colateral, não chegada.
  *
- * `auto_join_on_reply` puts whoever replies in a category into the channel bound
- * to it. Announcing those is what made category joins go unannounced entirely for
- * a release: on a busy forum every first reply would become a system row and bury
- * the conversation. The fix was to tell the two kinds of join apart, so this
- * asserts both halves — the membership is still created, and nothing is narrated.
+ * `auto_join_on_reply` põe quem responde numa categoria no canal ligado a ela.
+ * Anunciar essas entradas enterraria a conversa num fórum movimentado (cada
+ * primeira resposta viraria uma linha de sistema), então o teste confere as
+ * duas metades: a membership é criada e nada é narrado.
  *
- * Its own class because the fixture is a different shape: a tag, a discussion and
- * a reply, none of which the access matrix needs.
+ * Classe própria porque a fixture tem outro formato: tag, discussão e resposta,
+ * que a matriz de acesso não usa.
  *
- * Separate process for the reason TagBoundChannelTest documents — the visibility
- * scoper registry is static and survives between boots.
+ * Processo separado pelo motivo descrito em TagBoundChannelTest: o registro de
+ * scopers de visibilidade é estático e sobrevive entre boots.
  */
 #[RunTestsInSeparateProcesses]
 class AutomaticJoinAnnouncementTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     private const REPLIER = 2;
@@ -68,18 +67,13 @@ class AutomaticJoinAnnouncementTest extends TestCase
             'tags' => [
                 ['id' => 1, 'name' => 'Lounge', 'slug' => 'lounge', 'position' => 0, 'is_restricted' => 0],
             ],
-            // The discussion is fixture rows, not an API call.
+            // A discussão vem de linhas da fixture, não da API: `POST /api/discussions`
+            // passa pelo `validateTagCount()` do flarum/tags, que monta `size:$min` a
+            // partir de `flarum-tags.min_*_tags`. Num banco novo esses settings são null,
+            // a regra vira `size:` e o Brick\Math responde 500.
             //
-            // Creating it through `POST /api/discussions` drags in flarum/tags'
-            // `validateTagCount()`, which builds a `size:$min` rule out of the
-            // `flarum-tags.min_*_tags` settings. On a database that has never had
-            // those written they are null, the rule becomes `size:`, and Brick\Math
-            // rejects the empty number with a 500 — a failure about tag settings,
-            // in a test about chat announcements. It reproduces only on a fresh
-            // database, which is why it passed locally and failed in CI.
-            //
-            // Only the reply below needs to be real: it is what raises `Posted`,
-            // and `Posted` is what JoinChannelsOnReply listens to.
+            // Só a resposta abaixo precisa ser real: é ela que dispara `Posted`, que o
+            // JoinChannelsOnReply escuta.
             'discussions' => [
                 [
                     'id'            => self::DISCUSSION,
@@ -164,9 +158,9 @@ class AutomaticJoinAnnouncementTest extends TestCase
 
     public function test_a_deliberate_join_in_the_same_channel_is_still_announced(): void
     {
-        // The control. Same channel, same actor, same membership table — the only
-        // difference is that this time the user asked. If both were silent the test
-        // above would pass for the wrong reason.
+        // O controle: mesmo canal, ator e tabela de memberships; a única diferença é
+        // que desta vez o usuário pediu. Se os dois fossem silenciosos, o teste acima
+        // passaria pelo motivo errado.
         $response = $this->send(
             $this->request('POST', '/api/chat-channels/'.self::CHANNEL.'/join', ['authenticatedAs' => self::REPLIER])
         );

@@ -17,12 +17,9 @@ use Psr\Http\Message\ResponseInterface;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Até onde vai quem modera um canal.
- *
- * Apagar mensagens não seguia a hierarquia que remover membros já segue: um
- * moderador do canal apagava a mensagem do dono, de admins e da moderação do
- * chat (com os anexos, sem poder desfazer). E promover ou rebaixar um membro
- * oculto denunciava quem inspeciona o canal.
+ * Até onde vai quem modera um canal: apagar mensagens segue a mesma hierarquia
+ * de remover membros (dono, admins e moderação do chat ficam fora do alcance),
+ * e promover ou rebaixar um membro oculto não pode denunciar quem inspeciona.
  */
 class ChannelModeratorLimitsTest extends TestCase
 {

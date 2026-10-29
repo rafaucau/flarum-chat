@@ -18,19 +18,17 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Channel invites, end to end.
+ * Convites de canal, de ponta a ponta.
  *
- * Being added to a channel became a question. These tests pin down the three
- * answers and what each leaves behind: inviting creates an invite and a
- * notification, and nothing else; accepting creates the membership, narrates
- * the arrival and clears the notification from the bell; declining notifies
- * the owner and the inviter, and leaves the private channel as invisible as
- * before. Whoever manages can withdraw the invite, and an invite never
- * bypasses a restricted category's permission.
+ * Ser adicionado a um canal é uma pergunta. Convidar cria o convite e uma
+ * notificação, e nada mais; aceitar cria a membership, narra a chegada e limpa
+ * a notificação do sino; recusar avisa o dono e quem convidou, e o canal
+ * privado continua invisível. Quem gerencia pode retirar o convite, e convite
+ * nunca fura a permissão de uma categoria restrita.
  *
- * Run in separate processes for the reason ChannelAccessMatrixTest documents:
- * the class enables flarum-tags, and the static registry of scopers survives
- * between boots within the same process.
+ * Processos separados pelo motivo descrito em ChannelAccessMatrixTest: a classe
+ * liga o flarum-tags, e o registro estático de scopers sobrevive entre boots
+ * no mesmo processo.
  */
 #[RunTestsInSeparateProcesses]
 class ChannelInviteTest extends TestCase
@@ -77,8 +75,8 @@ class ChannelInviteTest extends TestCase
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'viewForum'],
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.use'],
                 ['group_id' => 101, 'permission' => 'ramon-chat.moderate'],
-                // The managers can see the restricted category; the invitee
-                // cannot, which is what the last test is about.
+                // Quem gerencia vê a categoria restrita; o convidado não, que é o assunto
+                // do último teste.
                 ['group_id' => 101, 'permission' => 'tag2.viewForum'],
                 ['group_id' => 102, 'permission' => 'tag2.viewForum'],
             ],
@@ -193,8 +191,8 @@ class ChannelInviteTest extends TestCase
 
         $this->assertSame(404, $message->getStatusCode());
 
-        // The notification can be listed only because the row is visible: core
-        // hides notifications whose subject the reader cannot see.
+        // A notificação só aparece porque a linha é visível: o core esconde
+        // notificações cujo assunto o leitor não vê.
         $bell = $this->send(
             $this->request('GET', '/api/notifications', [
                 'authenticatedAs' => self::INVITEE,
@@ -292,7 +290,7 @@ class ChannelInviteTest extends TestCase
 
         $attributes = json_decode((string) $accept->getBody(), true)['data']['attributes'];
 
-        // The record as the client needs it to draw the composer at once.
+        // O registro como o cliente precisa para desenhar o composer na hora.
         $this->assertTrue($attributes['isFollowing']);
         $this->assertTrue($attributes['canPostMessage']);
         $this->assertFalse($attributes['isInvited']);

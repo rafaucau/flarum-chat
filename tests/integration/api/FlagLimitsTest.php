@@ -16,9 +16,8 @@ use Illuminate\Contracts\Cache\Repository;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Cada denúncia, ou a reabertura de uma que a moderação já resolveu, avisa a
- * moderação. Sem limite, quem denunciou desfazia a decisão quantas vezes
- * quisesse.
+ * Cada denúncia, ou a reabertura de uma já resolvida, avisa a moderação. Sem
+ * limite, quem denunciou desfaria a decisão quantas vezes quisesse.
  */
 class FlagLimitsTest extends TestCase
 {

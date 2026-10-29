@@ -19,19 +19,18 @@ use Ramon\Chat\Realtime\ChatBroadcaster;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Who a websocket push reaches.
+ * Quem recebe um push do websocket.
  *
- * Direct and untagged channels used to deliver to every live membership with no
- * further check, so a member whose `ramon-chat.use` was revoked (or who was
- * suspended, which demotes their groups) kept receiving private messages live.
+ * Canais diretos e sem tag também checam a permissão: um membro que perdeu
+ * `ramon-chat.use` (ou foi suspenso, o que rebaixa os grupos) não pode
+ * continuar recebendo mensagens privadas ao vivo.
  *
- * And a deleted channel was never announced at all, so its members kept a
- * sidebar row that answered with a 404. Its audience has to survive the
- * deletion: the visibility scope now excludes the channel, so the job may not
- * ask it.
+ * Canal apagado é anunciado, senão os membros ficam com uma linha na barra
+ * lateral que responde 404. O público precisa ser calculado antes: depois da
+ * exclusão o escopo de visibilidade já exclui o canal.
  *
- * flarum/realtime is not installed here, so the daemon is a recording stand-in
- * bound where ChatBroadcaster looks for it.
+ * O flarum/realtime não está instalado aqui, então o daemon é um substituto que
+ * grava tudo, registrado onde o ChatBroadcaster o procura.
  */
 class RealtimeAudienceTest extends TestCase
 {
@@ -41,7 +40,7 @@ class RealtimeAudienceTest extends TestCase
     private const REVOKED = 4;
     private const CHAT_GROUP = 100;
 
-    /** The stand-in daemon, with every trigger it was handed. */
+    /** O daemon substituto, com cada trigger que recebeu. */
     private ?object $recorder = null;
 
     protected function setUp(): void
@@ -65,8 +64,8 @@ class RealtimeAudienceTest extends TestCase
             'group_user' => [
                 ['user_id' => self::CHATTER, 'group_id' => self::CHAT_GROUP],
             ],
-            // The chat granted to one group only: REVOKED holds memberships but
-            // not the permission, the state a revocation or suspension leaves.
+            // O chat liberado a um grupo só: REVOKED tem memberships mas não a
+            // permissão, o estado que uma revogação ou suspensão deixa.
             'group_permission' => [
                 ['group_id' => self::CHAT_GROUP, 'permission' => 'ramon-chat.use'],
             ],
@@ -99,8 +98,8 @@ class RealtimeAudienceTest extends TestCase
 
         $this->app()->getContainer()->instance(Pusher::class, $recorder);
 
-        // The install grants the chat to members by default; taken back here so
-        // that only CHAT_GROUP holds it.
+        // A instalação libera o chat aos membros por padrão; aqui a permissão é
+        // retirada para só CHAT_GROUP tê-la.
         $this->database()->table('group_permission')
             ->where('permission', 'ramon-chat.use')
             ->where('group_id', '!=', self::CHAT_GROUP)

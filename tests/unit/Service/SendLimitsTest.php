@@ -27,10 +27,9 @@ use Ramon\Chat\Service\SlowMode;
 /**
  * Limite por segundo e modo lento sob envios em paralelo.
  *
- * Os dois liam o estado e só gravavam depois (o modo lento, só após o commit),
- * então N envios simultâneos passavam todos. Agora a vez é reservada com
- * operações atômicas do cache (`add`, `increment`): a segunda reserva na mesma
- * janela perde, mesmo antes de a primeira mensagem ser gravada.
+ * A vez é reservada com operações atômicas do cache (`add`, `increment`): ler
+ * o estado e gravar depois deixaria N envios simultâneos passarem. A segunda
+ * reserva na mesma janela perde, mesmo antes de a primeira mensagem ser gravada.
  */
 class SendLimitsTest extends TestCase
 {

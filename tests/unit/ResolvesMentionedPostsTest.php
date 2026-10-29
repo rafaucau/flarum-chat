@@ -14,13 +14,10 @@ use Ramon\Chat\Message;
 use Ramon\Chat\MessageRevision;
 
 /**
- * Regression for the post-quote crash.
- *
- * fof/move-posts registers render and unparse callbacks that do
- * `$context->mentionsPosts->find($id)` on whatever model the formatter hands
- * them. A chat message with a pasted `@"User"#p123` quote made that a fatal
- * `find()` on null, on every load of the channel page that contained it and on
- * the send request itself. These exercise exactly what those callbacks touch.
+ * Os callbacks de render e unparse do fof/move-posts chamam
+ * `$context->mentionsPosts->find($id)` em qualquer model que o formatter
+ * entregar. Numa mensagem do chat com citação `@"User"#p123`, isso não pode
+ * ser `find()` em null. Os testes exercitam só o que esses callbacks tocam.
  */
 class ResolvesMentionedPostsTest extends QueryTestCase
 {

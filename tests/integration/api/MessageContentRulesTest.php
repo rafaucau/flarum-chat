@@ -17,11 +17,9 @@ use Psr\Http\Message\ResponseInterface;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Regras de conteúdo que o envio aplica.
- *
- * O limite próprio de um canal substituía o do fórum em vez de só encurtá-lo
- * (o admin diz "um canal pode definir um limite menor"), e uma mensagem vazia
- * passava se trouxesse `uploadIds` que não eram anexos de verdade.
+ * Regras de conteúdo do envio: o limite de um canal só encurta o do fórum, e
+ * `uploadIds` que não são anexos de verdade não tornam válida uma mensagem
+ * vazia.
  */
 class MessageContentRulesTest extends TestCase
 {

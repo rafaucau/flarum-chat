@@ -29,20 +29,20 @@ use Ramon\Chat\Tests\Fixtures\FakeBucketAdapter;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * The chat's part of a flarum/gdpr export and erasure.
+ * A parte do chat na exportação e no apagamento do flarum/gdpr.
  *
- * The type is built straight from the container and driven the way
- * flarum/gdpr's processor drives it, so the bytes can be checked on disk: a
- * deleted row whose file is still in a bucket is not an erasure. Files live in
- * both places a chat file can — the private disk for a private channel's, a
- * fof/upload bucket for a public one's.
+ * O type sai direto do container e é conduzido como o processor do
+ * flarum/gdpr faz, para os bytes serem conferidos no disco: linha apagada com o
+ * arquivo ainda no bucket não é apagamento. Os arquivos ficam nos dois lugares
+ * possíveis: o disco privado (canal privado) e um bucket do fof/upload (canal
+ * público).
  */
 class GdprChatDataTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
     use ResetsVisibilityScopers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     private const MEMBER = 3;
@@ -51,7 +51,7 @@ class GdprChatDataTest extends TestCase
     private const CH_PUBLIC = 1;
     private const CH_PRIVATE = 2;
 
-    /** A 1×1 transparent PNG. */
+    /** Um PNG 1×1 transparente. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
     private static string $bucketRoot = '';
@@ -121,8 +121,8 @@ class GdprChatDataTest extends TestCase
                 ['id' => 102, 'channel_id' => self::CH_PUBLIC, 'user_id' => null, 'type' => 'bot', 'system_key' => 'discussion_started', 'content' => '<t>new discussion</t>', 'system_data' => json_encode(['title' => 'Mine', 'username' => 'member', 'userId' => self::MEMBER]), 'created_at' => $now, 'updated_at' => $now],
                 ['id' => 103, 'channel_id' => self::CH_PUBLIC, 'user_id' => null, 'type' => 'system', 'system_key' => 'user_joined', 'system_data' => json_encode(['username' => 'other']), 'created_at' => $now, 'updated_at' => $now],
             ],
-            // A rank the channel's owner gave the member, and one given to
-            // someone else that must stay out of the member's export.
+            // Um rank que o dono do canal deu ao membro, e um dado a outra pessoa, que
+            // precisa ficar fora da exportação do membro.
             'chat_channel_ranks' => [
                 ['id' => 1, 'channel_id' => self::CH_PUBLIC, 'name' => 'Veteran', 'color' => '#336699', 'show_badge' => 1, 'position' => 1, 'created_at' => $now, 'updated_at' => $now],
                 ['id' => 2, 'channel_id' => self::CH_PUBLIC, 'name' => 'Helper', 'color' => '#993366', 'show_badge' => 1, 'position' => 2, 'created_at' => $now, 'updated_at' => $now],
@@ -132,7 +132,7 @@ class GdprChatDataTest extends TestCase
                 ['rank_id' => 2, 'user_id' => self::OTHER, 'channel_id' => self::CH_PUBLIC, 'created_at' => $now],
             ],
             'chat_message_flags' => [
-                // A report the member filed, in their own words.
+                // Uma denúncia do membro, com as palavras dele.
                 ['id' => 1, 'message_id' => 100, 'user_id' => self::MEMBER, 'reason' => 'spam', 'detail' => 'my own words about it', 'created_at' => $now],
             ],
         ]);
@@ -249,7 +249,7 @@ class GdprChatDataTest extends TestCase
     }
 
     /**
-     * Uploads a file and sends it, as the member; returns the stored row.
+     * Envia um arquivo como o membro e devolve a linha gravada.
      */
     private function post(int $channelId): object
     {

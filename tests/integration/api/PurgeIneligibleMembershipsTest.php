@@ -15,18 +15,17 @@ use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
 
 /**
- * The repair migration for memberships the earlier AutoJoinUsers wrote.
+ * A migration que limpa as memberships que o AutoJoinUsers antigo gravava.
  *
- * Driven by invoking the migration's `up` directly rather than by letting the
- * harness run it: the harness migrates during setup, before there is any stale
- * state to find. Re-running is safe — the migration deletes and recounts, so it
- * converges rather than accumulating.
+ * Chama o `up` da migration direto: o harness migra no setup, antes de haver
+ * estado antigo para achar. Rodar de novo é seguro: ela apaga e reconta, então
+ * converge em vez de acumular.
  */
 class PurgeIneligibleMembershipsTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     protected function setUp(): void
@@ -57,23 +56,22 @@ class PurgeIneligibleMembershipsTest extends TestCase
                 $this->channel(2, 'opt-in', false),
             ],
             'chat_channel_user' => [
-                // What the old listener produced: everyone, on the auto-join one.
+                // O que o listener antigo gravava: todo mundo, no canal de auto-join.
                 $this->membership(1, 1),
                 $this->membership(1, 2),
                 $this->membership(1, 3),
                 $this->membership(1, 4),
 
-                // Someone who joined a channel deliberately. Not this bug, and
-                // must survive even though they cannot open it today.
+                // Alguém que entrou num canal por vontade própria. Não é este caso, e
+                // precisa sobreviver mesmo sem poder abri-lo hoje.
                 $this->membership(2, 2),
             ],
         ]);
 
-        // Enabling the extension grants `ramon-chat.use` to MEMBER, and the
-        // harness adds fixture rows on top of that rather than replacing the
-        // table — so a forum restricted to group 100 has to revoke the default
-        // the way a real admin would. Without this every account still holds the
-        // permission and there is nothing ineligible for the migration to find.
+        // Ligar a extensão dá `ramon-chat.use` a MEMBER, e o harness soma as linhas
+        // da fixture em vez de substituir a tabela; um fórum restrito ao grupo 100
+        // precisa revogar o padrão como um admin faria. Sem isso toda conta tem a
+        // permissão e não há nada inelegível para a migration achar.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'like', 'ramon-chat.%')
@@ -89,7 +87,7 @@ class PurgeIneligibleMembershipsTest extends TestCase
             'slug'       => $slug,
             'status'     => 'open',
             'auto_join'  => $autoJoin,
-            // Deliberately wrong, to prove the migration recomputes it.
+            // Errado de propósito, para provar que a migration recalcula.
             'user_count' => 99,
             'created_at' => Carbon::now()->toDateTimeString(),
             'updated_at' => Carbon::now()->toDateTimeString(),
@@ -132,9 +130,9 @@ class PurgeIneligibleMembershipsTest extends TestCase
     {
         $this->purge();
 
-        // 1 is the admin and 3 is in the permitted group. 2 is a plain member,
-        // and 4 is in the permitted group but unconfirmed, which leaves it with
-        // guest rights only.
+        // 1 é o admin e 3 está no grupo permitido. 2 é membro comum, e 4 está no
+        // grupo permitido mas sem e-mail confirmado, o que o deixa só com direitos de
+        // visitante.
         $this->assertSame([1, 3], $this->memberIds(1));
     }
 
@@ -151,8 +149,8 @@ class PurgeIneligibleMembershipsTest extends TestCase
 
         $this->assertSame(2, (int) $this->database()->table('chat_channels')->where('id', 1)->value('user_count'));
 
-        // Untouched channel keeps whatever it had — the migration does not claim
-        // to repair counts it did not disturb.
+        // Canal intocado fica com o que tinha: a migration não conserta contagens que
+        // não mexeu.
         $this->assertSame(99, (int) $this->database()->table('chat_channels')->where('id', 2)->value('user_count'));
     }
 
@@ -174,7 +172,7 @@ class PurgeIneligibleMembershipsTest extends TestCase
 
         $this->purge();
 
-        // 4 is still unconfirmed, so it goes; the rest now qualify.
+        // 4 continua não confirmado, então sai; os outros agora se qualificam.
         $this->assertSame([1, 2, 3], $this->memberIds(1));
     }
 }

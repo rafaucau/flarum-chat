@@ -23,9 +23,8 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Channel ranks: who manages them, what is accepted, who can receive them,
- * which one shows next to the name, and how much it costs to serve them on a
- * page.
+ * Ranks de canal: quem gerencia, o que é aceito, quem pode recebê-los, qual
+ * aparece ao lado do nome e quanto custa servi-los numa página.
  */
 class ChannelRanksTest extends TestCase
 {
@@ -44,7 +43,7 @@ class ChannelRanksTest extends TestCase
     private const HIDDEN = 8;
     private const GONE = 9;
 
-    /** Authors 20.. post into the busy channel for the query count. */
+    /** Os autores a partir de 20 postam no canal movimentado para a contagem de queries. */
     private const FIRST_AUTHOR = 20;
 
     private const CHANNEL = 1;
@@ -543,7 +542,7 @@ class ChannelRanksTest extends TestCase
     }
 
     /**
-     * Author id => the rank their messages carry.
+     * Id do autor => o rank que as mensagens dele levam.
      *
      * @return array<int, array<string, mixed>|null>
      */

@@ -18,11 +18,9 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 use Ramon\Chat\Webhook;
 
 /**
- * Who a webhook delivery is attributed to.
- *
- * Deliveries used to be stored as authorless text messages, which the stream
- * draws as a deleted account. With no account chosen they are bot messages; with
- * one they belong to that administrator, and nobody else may be chosen.
+ * A quem uma entrega de webhook é atribuída: sem conta escolhida vira mensagem
+ * do bot (não texto sem autor, que o stream desenha como conta apagada); com
+ * conta, pertence àquele admin, e só um admin pode ser escolhido.
  */
 class WebhookAuthorTest extends TestCase
 {
@@ -34,7 +32,7 @@ class WebhookAuthorTest extends TestCase
     private const MEMBER = 3;
     private const DEMOTED = 4;
 
-    /** Built rather than written out, so secret scanners do not read a fixture as a credential. */
+    /** Montado em partes para scanners de segredo não lerem a fixture como credencial. */
     private const KEY_BOT = 'test'.'webhook'.'bot'.'00000000000000000000000000000000000';
     private const KEY_ADMIN = 'test'.'webhook'.'adm'.'00000000000000000000000000000000000';
     private const KEY_DEMOTED = 'test'.'webhook'.'dem'.'00000000000000000000000000000000000';

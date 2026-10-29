@@ -14,13 +14,12 @@ use Ramon\Chat\Message;
 use Ramon\Chat\Thread;
 
 /**
- * The thread's reply counters.
+ * Os contadores de respostas do tópico.
  *
- * `noteReply` exists because the send path used to recount the whole thread on
- * every reply — a COUNT that grew with the thread, so the busiest threads were the
- * slowest to post in. The arithmetic is small enough to look self-evident, which is
- * exactly why it is worth pinning: if it ever drifts from what `refreshMetadata`
- * would compute, the reply count in the UI silently stops matching the messages.
+ * `noteReply` evita recontar o tópico inteiro a cada resposta (um COUNT que
+ * cresce com o tópico). A conta parece óbvia, mas se divergir do que
+ * `refreshMetadata` calcularia, o número de respostas na UI deixa de bater com
+ * as mensagens sem aviso.
  */
 class ThreadTest extends QueryTestCase
 {
@@ -77,9 +76,8 @@ class ThreadTest extends QueryTestCase
     }
 
     /**
-     * The root is the message the thread hangs off, not a reply to it —
-     * `refreshMetadata` excludes it from its COUNT, so the incremental path has to
-     * exclude it too or the two disagree by one for the thread's whole life.
+     * A raiz é a mensagem de onde o tópico sai, não uma resposta: `refreshMetadata`
+     * a exclui do COUNT, então o caminho incremental também precisa excluir.
      */
     public function test_the_root_message_is_not_a_reply(): void
     {
@@ -92,9 +90,9 @@ class ThreadTest extends QueryTestCase
     }
 
     /**
-     * A thread created from a reply may not have its root back-filled yet. There is
-     * no id to compare against, so every message counts — which is correct: with no
-     * root recorded, nothing is excluded from the recount either.
+     * Um tópico criado de uma resposta pode ainda não ter a raiz preenchida. Sem id
+     * para comparar, toda mensagem conta, o que está certo: sem raiz, a recontagem
+     * também não exclui nada.
      */
     public function test_counts_normally_when_there_is_no_root_yet(): void
     {
@@ -106,8 +104,8 @@ class ThreadTest extends QueryTestCase
     }
 
     /**
-     * The counter is read back from the database as a string on some drivers; adding
-     * to it without casting would concatenate rather than increment.
+     * Em alguns drivers o contador volta do banco como string; somar sem cast
+     * concatenaria em vez de incrementar.
      */
     public function test_a_string_counter_still_increments(): void
     {

@@ -18,11 +18,9 @@ use Psr\Http\Message\ResponseInterface;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Tetos do que um membro cria: conversas diretas, anexos e canais.
- *
- * Nenhum dos três tinha limite. Variar os participantes abria DMs sem fim na
- * barra lateral de qualquer pessoa, um loop de uploads enchia o disco, e quem
- * pode criar canais criava quantos quisesse.
+ * Tetos do que um membro cria: conversas diretas, anexos e canais. Sem eles,
+ * variar participantes abriria DMs sem fim na barra lateral de qualquer pessoa,
+ * um loop de uploads encheria o disco e canais seriam criados sem limite.
  */
 class CreationLimitsTest extends TestCase
 {

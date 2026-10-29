@@ -17,17 +17,16 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 use Ramon\Chat\Thread;
 
 /**
- * A thread's root moved into a private channel stays behind that channel.
+ * A raiz de um tópico movida para um canal privado fica atrás desse canal.
  *
- * Moving used to null the message's `thread_id` and nothing else, so the thread
- * still named the root as `original_message_id`. ThreadResource eager-loaded
- * that relation, which core's relationship buffer then skipped, and the buffer is
- * the only place MessageResource's scope applies — so the moved message came
- * back in `included` to anyone who could list the public channel's threads.
+ * Se o tópico ainda apontar para a raiz em `original_message_id`, o eager load
+ * do ThreadResource passa por fora do relationship buffer do core, único lugar
+ * onde o escopo do MessageResource se aplica, e a mensagem volta em `included`
+ * para quem lista os tópicos do canal público.
  *
- * Two halves, asserted separately: the move detaches the root and recounts the
- * thread, and the listing scopes both message relations even when a thread
- * points across channels for any other reason.
+ * Duas metades, conferidas em separado: mover desliga a raiz e reconta o
+ * tópico, e a listagem aplica o escopo às duas relações de mensagem mesmo
+ * quando um tópico aponta para outro canal por qualquer outro motivo.
  */
 class MovedThreadRootTest extends TestCase
 {
@@ -75,8 +74,8 @@ class MovedThreadRootTest extends TestCase
             ],
             'chat_threads' => [
                 ['id' => 7, 'channel_id' => self::CH_PUBLIC, 'original_message_id' => 1, 'creator_id' => 1, 'status' => 'open', 'replies_count' => 1, 'last_message_id' => 2, 'created_at' => $now, 'updated_at' => $now],
-                // Points its last reply into the private channel, the shape a stale
-                // pointer from any cause would have.
+                // A última resposta aponta para o canal privado, como faria um ponteiro
+                // desatualizado de qualquer origem.
                 ['id' => 8, 'channel_id' => self::CH_PUBLIC, 'original_message_id' => 4, 'creator_id' => 1, 'status' => 'open', 'replies_count' => 0, 'last_message_id' => 3, 'created_at' => $now, 'updated_at' => $now],
             ],
         ]);
@@ -98,7 +97,7 @@ class MovedThreadRootTest extends TestCase
         ];
     }
 
-    /** @return int[] message ids in `included` */
+    /** @return int[] ids das mensagens em `included` */
     private function includedMessageIds(): array
     {
         $response = $this->send(

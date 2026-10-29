@@ -23,13 +23,12 @@ use Ramon\Chat\Realtime\BroadcastListener;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * The state changes that reached nobody live until this pass: a rename of a
- * thread, a move of messages between channels, a channel created with members
- * already in it, and the moderation queue.
+ * Mudanças de estado que precisam chegar ao vivo: renomear tópico, mover
+ * mensagens entre canais, criar canal já com membros e a fila de moderação.
  *
- * flarum/realtime is not installed here, so its listeners are not registered:
- * the domain events are asserted on the dispatcher, and the payloads by calling
- * the listener against a recording stand-in for the daemon.
+ * O flarum/realtime não está instalado aqui, então os listeners dele não são
+ * registrados: os eventos de domínio são conferidos no dispatcher, e os
+ * payloads chamando o listener contra um substituto do daemon que grava tudo.
  */
 class LiveStateBroadcastTest extends TestCase
 {
@@ -228,8 +227,8 @@ class LiveStateBroadcastTest extends TestCase
         $this->assertSame(BroadcastListener::EVENT_FLAGS, $pushes[0]['event']);
         $this->assertEqualsCanonicalizing(['private-user=1', 'private-user='.self::MOD], $pushes[0]['channels']);
 
-        // The open count rides along, so a moderator looking at the message can
-        // mark it. A count and an id: never the message itself.
+        // A contagem em aberto vai junto para a moderação marcar a mensagem. Só uma
+        // contagem e um id, nunca a mensagem.
         $this->assertSame(['messages' => [['id' => 1, 'flagsCount' => 1]]], $pushes[0]['data']);
     }
 

@@ -20,12 +20,9 @@ use Ramon\Chat\Realtime\Job\SendChatEventJob;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A push to a channel larger than one batch of its audience.
- *
- * The job loaded every member's user and groups in one query before sending
- * anything, inside the request that sent the message. In a general channel on
- * a large forum that was hundreds of thousands of models, and the request died
- * of memory with the message already saved.
+ * Push para um canal maior que um lote do público. Carregar usuário e grupos de
+ * todos os membros numa consulta só, dentro da requisição do envio, estoura a
+ * memória num canal geral de fórum grande, com a mensagem já gravada.
  */
 class RealtimeLargeAudienceTest extends TestCase
 {
@@ -35,7 +32,7 @@ class RealtimeLargeAudienceTest extends TestCase
 
     private const FIRST_ID = 1000;
 
-    /** The stand-in daemon, with every trigger it was handed. */
+    /** O daemon substituto, com cada trigger que recebeu. */
     private ?object $recorder = null;
 
     protected function setUp(): void

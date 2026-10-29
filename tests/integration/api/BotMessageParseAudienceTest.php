@@ -20,9 +20,9 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
  * Mensagens do bot e de webhooks são lidas por todo o canal, então o texto não
  * pode ser interpretado com mais permissão do que um visitante tem.
  *
- * Com ator nulo, o flarum/mentions pula toda checagem de visibilidade: uma
- * menção a um post de discussão oculta virava link com o título e o autor, e
- * uma menção a grupo oculto mostrava o nome do grupo.
+ * Com ator nulo o flarum/mentions pula a checagem de visibilidade: uma menção a
+ * post de discussão oculta viraria link com título e autor, e uma menção a
+ * grupo oculto mostraria o nome do grupo.
  */
 class BotMessageParseAudienceTest extends TestCase
 {

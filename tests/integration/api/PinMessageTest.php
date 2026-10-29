@@ -16,18 +16,16 @@ use Flarum\Testing\integration\TestCase;
 use Ramon\Chat\Message;
 
 /**
- * Pinning, over the real API.
+ * Fixar mensagens pela API de verdade.
  *
- * The permission boundary is the reason this is an integration test rather than a
- * unit one: a policy that returns the right answer in isolation is worth little if
- * the endpoint never consults it, which is exactly the mistake the create-message
- * path made with `createThread` before it was wired up.
+ * É teste de integração por causa da permissão: uma policy certa isoladamente
+ * vale pouco se o endpoint nunca a consulta.
  */
 class PinMessageTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     protected function setUp(): void
@@ -39,9 +37,9 @@ class PinMessageTest extends TestCase
         $this->prepareDatabase([
             'users' => [
                 $this->normalUser(),
-                // `password` is NOT NULL on `users`; omitting it aborts the whole
-                // fixture before a single assertion runs. `normalUser()` supplies
-                // its own, which is why only the hand-written rows need this.
+                // `password` é NOT NULL em `users`; sem ele a fixture inteira aborta. O
+                // `normalUser()` traz o próprio, por isso só as linhas escritas à mão
+                // precisam dele.
                 ['id' => 3, 'username' => 'member', 'password' => self::PASSWORD_HASH, 'email' => 'member@machine.local', 'is_email_confirmed' => 1],
             ],
             'group_permission' => [
@@ -71,9 +69,9 @@ class PinMessageTest extends TestCase
                     'user_id'    => 2,
                     'number'     => 1,
                     'type'       => 'text',
-                    // Stored content is s9e/TextFormatter XML, not raw text — every
-                    // write path goes through `setContentAttribute`. A bare string
-                    // here renders as a 500 the moment the message is serialized.
+                    // O conteúdo gravado é XML do s9e/TextFormatter, não texto cru (toda escrita
+                    // passa por `setContentAttribute`). Uma string pura aqui vira 500 na hora de
+                    // serializar.
                     'content'    => '<t>pin me</t>',
                     'created_at' => Carbon::now()->toDateTimeString(),
                     'updated_at' => Carbon::now()->toDateTimeString(),
@@ -94,7 +92,7 @@ class PinMessageTest extends TestCase
         $this->assertTrue($body['data']['attributes']['isPinned']);
         $this->assertNotNull(Message::query()->find(1)->pinned_at);
 
-        // The same route toggles, so two calls must leave it unpinned.
+        // A mesma rota alterna, então duas chamadas deixam a mensagem desafixada.
         $this->send($this->request('POST', '/api/chat-messages/1/pin', ['authenticatedAs' => 1]));
 
         $message = Message::query()->find(1);
@@ -116,9 +114,9 @@ class PinMessageTest extends TestCase
     {
         $response = $this->send($this->request('POST', '/api/chat-messages/1/pin'));
 
-        // 400, not 401: CheckCsrfToken sits ahead of authentication in the pipeline,
-        // so a token-less guest POST never reaches the policy. What matters is that
-        // it is refused and nothing changed — the status code is Flarum's to choose.
+        // 400, não 401: o CheckCsrfToken vem antes da autenticação, então um POST de
+        // visitante sem token nem chega à policy. O que importa é a recusa sem
+        // mudança; o status é escolha do Flarum.
         $this->assertEquals(400, $response->getStatusCode());
         $this->assertNull(Message::query()->find(1)->pinned_at, 'a refused request changes nothing');
     }
@@ -145,7 +143,7 @@ class PinMessageTest extends TestCase
         $this->assertSame([1], $ids);
     }
 
-    /** The key that must never regress: a listing without the filter is unaffected. */
+    /** Uma listagem sem o filtro não é afetada. */
     public function test_unpinned_messages_still_appear_in_the_channel(): void
     {
         $response = $this->send(

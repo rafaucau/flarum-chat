@@ -15,10 +15,9 @@ use Flarum\Testing\integration\TestCase;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A lista de membros sai da leitura de um canal, não da listagem.
- *
- * Na listagem, `?include=participants` trazia todos os membros de até 50
- * canais (com os grupos de cada um) numa requisição só, sem paginação.
+ * A lista de membros sai da leitura de um canal, não da listagem: lá,
+ * `?include=participants` traria todos os membros de até 50 canais numa
+ * requisição só, sem paginação.
  */
 class ChannelListIncludesTest extends TestCase
 {

@@ -18,10 +18,9 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 /**
  * Quantas pessoas uma mensagem notifica ao nomeá-las.
  *
- * Sem teto, uma mensagem num canal aberto mandava e-mail de menção para
- * centenas de contas, e o fallback por nome fazia uma consulta por `@nome`
- * repetido. Como no Discourse: acima de 10 pessoas, nenhuma menção direta
- * notifica.
+ * Sem teto, uma mensagem num canal aberto mandaria e-mail para centenas de
+ * contas, com uma consulta por `@nome` no fallback. Como no Discourse: acima de
+ * 10 pessoas, nenhuma menção direta notifica.
  */
 class MentionLimitsTest extends TestCase
 {

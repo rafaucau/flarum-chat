@@ -31,18 +31,18 @@ use Ramon\Chat\Tests\Fixtures\FakeBucketAdapter;
 use Ramon\Chat\Upload;
 
 /**
- * fof/upload used as a storage driver, and only as one.
+ * fof/upload como driver de armazenamento, e só isso.
  *
- * What is pinned here: the adapter writes the bytes under a server-generated
- * name and the row learns where they went; an adapter that is not Flysystem
- * (Imgur) is refused rather than half-used; and an adapter that fails is a
- * StorageFailed, which the controller turns into a refused upload.
+ * O adapter grava os bytes com nome gerado no servidor e a linha guarda onde
+ * foram parar; adapter que não é Flysystem (Imgur) é recusado em vez de usado
+ * pela metade; e falha do adapter vira StorageFailed, que o controller
+ * transforma em upload recusado.
  */
 class FofUploadStoreTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
-    /** A 1×1 transparent PNG. */
+    /** Um PNG 1×1 transparente. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
     protected string $root;
@@ -201,8 +201,7 @@ class FofUploadStoreTest extends TestCase
     }
 
     /**
-     * A store whose HTTP client answers from the given queue and records what
-     * was asked of it.
+     * Store cujo cliente HTTP responde pela fila dada e registra o que foi pedido.
      *
      * @param  Response[]  $responses
      * @param  array<int, array{request: \Psr\Http\Message\RequestInterface, options: array<string, mixed>}>  $history

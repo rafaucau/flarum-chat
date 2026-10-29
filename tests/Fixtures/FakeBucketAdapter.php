@@ -13,19 +13,19 @@ use FoF\Upload\Adapters\Flysystem;
 use FoF\Upload\File;
 
 /**
- * A fof/upload adapter that behaves like a bucket on a CDN: Flysystem underneath,
- * a URL on a host of its own. The bytes land in whatever directory the wrapped
- * Flysystem adapter points at, so a test can look at them on disk.
+ * Adapter do fof/upload que se comporta como um bucket num CDN: Flysystem por
+ * baixo e URL num host próprio. Os bytes caem no diretório do adapter
+ * Flysystem embrulhado, para o teste conferir no disco.
  *
- * Only loaded by tests that have already checked fof/upload is installed.
+ * Só é carregado por testes que já checaram que o fof/upload está instalado.
  */
 class FakeBucketAdapter extends Flysystem
 {
     public const HOST = 'https://bucket.chat.test';
 
     /**
-     * When set, every write is refused the way a backend outage is reported:
-     * `upload()` answers false.
+     * Quando ligado, recusa toda escrita como uma queda do backend é reportada:
+     * `upload()` responde false.
      */
     public bool $refuse = false;
 

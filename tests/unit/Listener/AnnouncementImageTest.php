@@ -13,11 +13,9 @@ use PHPUnit\Framework\TestCase;
 use Ramon\Chat\Listener\AnnounceDiscussions;
 
 /**
- * A imagem do anúncio de uma discussão nova.
- *
- * Era tirada do texto-fonte do post mesmo dentro de código, onde o post mostra
- * só texto: uma URL qualquer virava a imagem que o navegador de todo o canal
- * carregava.
+ * A imagem do anúncio de uma discussão nova. URL dentro de código não conta:
+ * o post mostra só texto ali, e a imagem seria carregada pelo navegador de todo
+ * o canal.
  */
 class AnnouncementImageTest extends TestCase
 {

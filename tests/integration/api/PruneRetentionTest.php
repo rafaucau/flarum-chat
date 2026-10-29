@@ -19,9 +19,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 /**
  * O que a retenção noturna (`chat:prune`, 90 dias por padrão) apaga.
  *
- * Ela apagava tudo o que passou do prazo: fixadas, raízes de tópicos ainda
- * vivos e mensagens com denúncia aberta (que levavam a denúncia junto). E
- * deixava tópicos e contadores de não lidas apontando para o que sumiu.
+ * Fixadas, raízes de tópicos ainda vivos e mensagens com denúncia aberta ficam.
+ * Tópicos e contadores de não lidas não podem apontar para o que sumiu.
  */
 class PruneRetentionTest extends TestCase
 {

@@ -27,22 +27,20 @@ use Ramon\Chat\Notification\ChatMentionBlueprint;
 use Symfony\Component\Mime\Email;
 
 /**
- * The rendered body of the mention email.
+ * O corpo renderizado do e-mail de menção.
  *
- * The template used to hand its locale string to the post formatter, which is the
- * pipeline for user content, not for our own chrome. The core Escaper printed every
- * raw tag as text, Autolink turned the bare href into a link of its own, and only
- * the `**bold**` survived — and only on forums with flarum/markdown enabled. The
- * result reached inboxes as literal `<p>` and `<a href="...">`.
+ * A string de locale não pode passar pelo formatter de posts, que é o pipeline
+ * de conteúdo do usuário: o Escaper imprimiria as tags como texto e o e-mail
+ * chegaria com `<p>` e `<a href="...">` literais.
  *
- * These assertions pin the shape of the output rather than the exact wording, so a
- * copy change does not break them but a regression in the mechanism does.
+ * As asserções fixam a forma da saída, não o texto exato, para uma mudança de
+ * redação não quebrá-las mas uma regressão no mecanismo sim.
  */
 class MentionEmailTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     protected function setUp(): void
@@ -55,8 +53,8 @@ class MentionEmailTest extends TestCase
             'users' => [
                 $this->normalUser(),
                 ['id' => 3, 'username' => 'Ramon', 'password' => self::PASSWORD_HASH, 'email' => 'ramon@machine.local', 'is_email_confirmed' => 1],
-                // The display name is the one user-controlled value that lands in an
-                // HTML context, so one account carries a hostile one.
+                // O nome de exibição é o único valor do usuário que cai num contexto HTML,
+                // então uma conta carrega um nome hostil.
                 ['id' => 4, 'username' => '<script>alert(1)</script>', 'password' => self::PASSWORD_HASH, 'email' => 'xss@machine.local', 'is_email_confirmed' => 1],
             ],
             'group_permission' => [
@@ -95,8 +93,8 @@ class MentionEmailTest extends TestCase
     }
 
     /**
-     * Renders the HTML view the way NotificationMailer does, including the shared
-     * view data the layout depends on.
+     * Renderiza a view HTML como o NotificationMailer faz, com os dados
+     * compartilhados de que o layout depende.
      */
     private function renderHtml(int $messageId): string
     {
@@ -112,10 +110,10 @@ class MentionEmailTest extends TestCase
     {
         $container = $this->app()->getContainer();
 
-        // `Extend\Locales` hooks `$container->resolving(LocaleManager::class, …)`, and
-        // the harness resolves the manager before extension extenders run, so the
-        // callback never fires and every ramon-chat key would render as its own id.
-        // Loading the catalogue by hand is what lets these assertions see real copy.
+        // `Extend\Locales` engancha `$container->resolving(LocaleManager::class, …)`,
+        // e o harness resolve o manager antes dos extenders das extensões; o callback
+        // nunca dispara e toda chave do ramon-chat sairia como o próprio id. Carregar
+        // o catálogo à mão deixa as asserções verem o texto real.
         $locales = $container->make(LocaleManager::class);
         $locales->clearCache();
         $locales->addTranslations('en', dirname(__DIR__, 3).'/locale/en.yml');
@@ -182,35 +180,25 @@ class MentionEmailTest extends TestCase
     }
 
     /**
-     * Core hands email views a translator that swaps every parameter for an
-     * opaque marker, so that a display name cannot be parsed as markup by the
-     * formatter that renders the body around it. What puts the values back moved
-     * in core 2.0.0-rc.8: it used to be `MailFormatter::convert()`, which only
-     * covered strings a template chose to route through the formatter, and is
-     * now `MutateEmail` acting on the finished message — deliberately, so that a
-     * template which never calls the formatter is covered too. These templates
-     * are exactly that kind: the locale string carries their markup and they
-     * escape their own values (see the comment in `emails/html/mentioned`).
+     * O core entrega às views de e-mail um tradutor que troca cada parâmetro por um
+     * marcador opaco, para um nome de exibição não ser lido como markup. Desde o
+     * core 2.0.0-rc.8 quem devolve os valores é o `MutateEmail`, sobre a mensagem
+     * pronta, então a view renderizada ainda tem o marcador. A garantia mora na
+     * mensagem de saída: nada com cara de `flarumsafevalue…` pode chegar ao corpo
+     * entregue ao Symfony.
      *
-     * So the guarantee is no longer one a rendered view can carry on its own,
-     * and asserting it there fails on rc.8 for output that reaches the inbox
-     * perfectly well — the marker is supposed to still be present at that point.
-     * The message on its way out is where the guarantee lives now, and where it
-     * has to be pinned: whatever the templates render, nothing shaped like
-     * `flarumsafevalue…` may be in the body Symfony is handed.
-     *
-     * Dispatching `MessageSending` is what the mailer does; core listens for it
-     * in `MailServiceProvider::boot()`. Asserted on both variants and on the
-     * hostile account, because the leak this guards against is in how values
-     * reach the translator, not in any one string.
+     * Despachar `MessageSending` é o que o mailer faz; o core escuta em
+     * `MailServiceProvider::boot()`. Conferido nas duas variantes e na conta hostil,
+     * porque o vazamento estaria em como os valores chegam ao tradutor, não numa
+     * string específica.
      */
     #[DataProvider('renderedBodies')]
     public function test_no_substitution_marker_survives_into_the_sent_message(string $variant, int $messageId): void
     {
         $rendered = $this->render($variant, $messageId);
 
-        // The marker is expected here on a core that marks — this assertion is
-        // about what happens to it next, not about whether it was ever created.
+        // Aqui o marcador é esperado num core que marca: a asserção é sobre o que
+        // acontece com ele depois, não sobre ele ter sido criado.
         $email = new Email();
 
         $variant === 'html'
@@ -227,12 +215,10 @@ class MentionEmailTest extends TestCase
     }
 
     /**
-     * The value a marker stands for has to come back, not merely disappear.
+     * O valor que o marcador representa precisa voltar, não só sumir.
      *
-     * Without this, a restore step that dropped markers instead of decoding them
-     * would satisfy the assertion above while mailing a sentence with a hole in
-     * it — which is the failure the marker exists to prevent, arrived at from the
-     * other side.
+     * Sem isto, um passo de restauração que descartasse os marcadores passaria na
+     * asserção acima mandando uma frase com um buraco.
      */
     public function test_the_recipient_name_reaches_the_sent_message(): void
     {
@@ -258,9 +244,8 @@ class MentionEmailTest extends TestCase
     }
 
     /**
-     * The plain-text alternative is the half nothing covered, and it is where a
-     * leaked marker is most visible: there is no markup for a reader to blame it
-     * on, just the wrong word in the sentence.
+     * A alternativa em texto puro é onde um marcador vazado mais aparece: não há
+     * markup para culpar, só a palavra errada na frase.
      */
     public function test_the_plain_body_names_the_author_and_the_channel(): void
     {
@@ -271,18 +256,15 @@ class MentionEmailTest extends TestCase
     }
 
     /**
-     * A hostile display name reaches the plain body inert.
+     * Um nome de exibição hostil chega inerte ao corpo em texto puro.
      *
-     * Core's plain layout runs the slot through `strip_tags()` and then Blade's
-     * escaping braces, so the tags are removed rather than escaped and the name
-     * arrives as its text alone. That is core's doing, not this template's —
-     * which is the point of asserting it here: this view hands the name over raw,
-     * on the understanding that the layout neutralises it, and a change to either
-     * side of that arrangement should fail loudly.
+     * O layout plain do core passa o slot por `strip_tags()` e depois pelas chaves
+     * de escape do Blade, então as tags são removidas e o nome chega só como texto.
+     * Isso é do core, não deste template, que entrega o nome cru contando com o
+     * layout; uma mudança em qualquer dos lados tem que falhar.
      *
-     * The inner text is asserted as well as the absence of the tag. Without it
-     * the test would still pass if substitution stopped happening altogether and
-     * the name never appeared at all.
+     * O texto interno também é conferido, senão o teste passaria se a substituição
+     * parasse e o nome nem aparecesse.
      */
     public function test_a_hostile_display_name_is_inert_in_the_plain_body(): void
     {

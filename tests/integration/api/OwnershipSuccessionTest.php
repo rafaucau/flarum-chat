@@ -19,12 +19,12 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * When the owner leaves, the longest-serving moderator takes over.
+ * Quando o dono sai, assume o moderador mais antigo.
  *
- * Longest in the role (`moderator_since`), then by channel join date, and only
- * among those who can own channels. With none, the channel is left without an
- * owner, and an administrator can still hand it over. The departed owner's
- * pending transfer is cancelled. In "administrators" mode nothing changes.
+ * Mais tempo no cargo (`moderator_since`), depois data de entrada no canal, só
+ * entre quem pode ter canais. Sem ninguém, o canal fica sem dono e um admin
+ * ainda pode passá-lo adiante. A transferência pendente do dono que saiu é
+ * cancelada. No modo "administrators" nada muda.
  */
 class OwnershipSuccessionTest extends TestCase
 {
@@ -56,7 +56,7 @@ class OwnershipSuccessionTest extends TestCase
     }
 
     /**
-     * @param  array<int, array{0: bool, 1: string|null, 2: string}>  $roles  user => [moderator, moderator_since, joined_at]
+     * @param  array<int, array{0: bool, 1: string|null, 2: string}>  $roles  usuário => [moderador, moderator_since, joined_at]
      */
     private function seed(array $roles, string $mode = 'members'): void
     {
@@ -126,10 +126,10 @@ class OwnershipSuccessionTest extends TestCase
 
         $this->app();
 
-        // A fresh install grants `manageOwnChannels` to every member (migration
-        // 2026_09_11_000000), which would make the fixtures' plain members able to
-        // own channels. These tests need them not to, so the grant goes once the
-        // app has seeded the database.
+        // Uma instalação nova dá `manageOwnChannels` a todo membro (migration
+        // 2026_09_11_000000), o que deixaria os membros comuns das fixtures ter
+        // canais. Estes testes precisam que não, então a permissão sai depois que o
+        // app populou o banco.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.manageOwnChannels')

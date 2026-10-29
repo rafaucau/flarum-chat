@@ -8,20 +8,19 @@
  */
 
 /*
- * Prepares the throwaway database the integration suite runs against.
+ * Prepara o banco descartável em que a suíte de integração roda.
  *
- * Run once before the suite:
+ * Rode uma vez antes da suíte:
  *
  *     composer install
  *     php tests/integration/setup.php
  *     vendor/bin/phpunit --testsuite integration
  *
- * The database it points at is dropped and rebuilt on every run, so it must not be
- * the forum's own. Connection details come from the DB_DRIVER / DB_HOST / DB_PORT /
- * DB_DATABASE / DB_USERNAME / DB_PASSWORD / DB_PREFIX environment variables and
- * default to SQLite, so an unattended run needs no arguments. The resulting config
- * is written to FLARUM_TEST_TMP_DIR_LOCAL (tests/integration/tmp in the core's
- * reusable workflow) or, failing that, under vendor/flarum/testing.
+ * O banco é apagado e recriado a cada execução, então não pode ser o do fórum.
+ * A conexão vem de DB_DRIVER / DB_HOST / DB_PORT / DB_DATABASE / DB_USERNAME /
+ * DB_PASSWORD / DB_PREFIX e cai em SQLite por padrão, sem precisar de
+ * argumentos. A config vai para FLARUM_TEST_TMP_DIR_LOCAL (tests/integration/tmp
+ * no workflow reutilizável do core) ou, sem ele, para vendor/flarum/testing.
  */
 
 use Flarum\Testing\integration\Setup\SetupScript;

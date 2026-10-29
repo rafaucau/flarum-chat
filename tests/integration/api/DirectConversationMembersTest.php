@@ -19,9 +19,9 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 /**
  * Quem pode mudar os participantes de uma conversa direta.
  *
- * Como no Discourse: uma conversa a dois que já tem mensagens é dos dois, então
- * quem a abriu não chama uma terceira pessoa (que leria todo o histórico) nem
- * tira a outra. Grupos e conversas ainda vazias continuam abertos ao criador.
+ * Como no Discourse: uma conversa a dois com mensagens é dos dois, então quem a
+ * abriu não chama uma terceira pessoa (que leria o histórico) nem tira a outra.
+ * Grupos e conversas ainda vazias continuam abertos ao criador.
  */
 class DirectConversationMembersTest extends TestCase
 {

@@ -15,12 +15,9 @@ use Flarum\Testing\integration\TestCase;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A member count that gives away who is watching.
- *
- * Joining hidden keeps a moderator out of the member list and out of
- * `user_count`. Any recount — and a member deleting their own message is one —
- * counted every live membership, hidden ones included, so the number on the
- * channel card rose above the list by exactly the number of observers.
+ * Entrar oculto tira o moderador da lista e do `user_count`. Uma recontagem
+ * (apagar a própria mensagem dispara uma) não pode contar memberships ocultas,
+ * senão o número no card denuncia quantos observadores há.
  */
 class HiddenMemberCountTest extends TestCase
 {

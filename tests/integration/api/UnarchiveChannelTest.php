@@ -20,15 +20,12 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Taking a channel back out of the archive, and the state machine around it.
+ * Tirar um canal do arquivo, e a máquina de estados em volta.
  *
- * The bug this grew from: the status endpoint accepted "open" and "closed" on
- * an archived channel, which left the archive by status alone and kept the
- * archive stamps, so the archive action never came back for that channel.
- * Now the status endpoint refuses an archive, unarchiving clears the stamps,
- * and a channel that has been through it can be archived again.
- *
- * Also the promotion response, whose `moderatorIds` used to come back empty.
+ * O endpoint de status recusa canal arquivado (sair do arquivo só pelo status
+ * deixaria os carimbos e a ação de arquivar não voltaria), desarquivar limpa os
+ * carimbos, e um canal que passou por isso pode ser arquivado de novo. Inclui a
+ * resposta da promoção, que precisa trazer `moderatorIds`.
  */
 class UnarchiveChannelTest extends TestCase
 {
@@ -181,8 +178,7 @@ class UnarchiveChannelTest extends TestCase
     }
 
     /**
-     * The user's own sequence: out of the archive, open, closed, and archived
-     * again.
+     * O ciclo completo: fora do arquivo, aberto, fechado e arquivado de novo.
      */
     public function test_a_channel_can_go_round_the_whole_cycle(): void
     {
@@ -219,7 +215,7 @@ class UnarchiveChannelTest extends TestCase
             json_decode((string) $response->getBody(), true)['data']['attributes']['moderatorIds']
         );
 
-        // Promoting again changes nothing, and announces nothing.
+        // Promover de novo não muda nada nem anuncia nada.
         $this->assertSame(200, $promote()->getStatusCode());
 
         $this->assertCount(1, $this->dispatched);

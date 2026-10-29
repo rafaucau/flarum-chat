@@ -17,10 +17,9 @@ use Ramon\Chat\MessageMention;
 use Ramon\Chat\Service\UnreadTracker;
 
 /**
- * Two paths that used to reach around the query builder: the group-mention
- * expansion read `group_user` through a raw connection, and the per-channel
- * sequence concatenated the table prefix into its subquery by hand. Both now go
- * through Eloquent / the grammar, and these pin the behaviour they must keep.
+ * A expansão de menção a grupo (que lê `group_user`) e a sequência por canal
+ * (que usa o prefixo de tabela numa subquery) passam pelo Eloquent e pela
+ * grammar. Estes testes fixam o comportamento que precisam manter.
  */
 class GroupMentionAndNumberingTest extends TestCase
 {
@@ -37,7 +36,7 @@ class GroupMentionAndNumberingTest extends TestCase
                 ['id' => 3, 'username' => 'mod_one', 'email' => 'mod1@machine.local', 'password' => 'x', 'is_email_confirmed' => 1],
                 ['id' => 4, 'username' => 'mod_two', 'email' => 'mod2@machine.local', 'password' => 'x', 'is_email_confirmed' => 1],
                 ['id' => 5, 'username' => 'bystander', 'email' => 'by@machine.local', 'password' => 'x', 'is_email_confirmed' => 1],
-                // A moderator who never joined the channel.
+                // Um moderador que nunca entrou no canal.
                 ['id' => 6, 'username' => 'mod_away', 'email' => 'mod3@machine.local', 'password' => 'x', 'is_email_confirmed' => 1],
             ],
             'groups' => [
@@ -78,14 +77,14 @@ class GroupMentionAndNumberingTest extends TestCase
 
         $ids = $app->getContainer()->make(UnreadTracker::class)->mentionedUserIds($message);
 
-        // Not 6: a group mention reaches the group's members in this channel,
-        // not the group forum-wide.
+        // O 6 não: menção a grupo alcança os membros do grupo neste canal, não o
+        // grupo no fórum todo.
         $this->assertSame([4], $ids);
     }
 
     /**
-     * Rows a mention of a hidden group, or of members, could have left behind
-     * before the resolver refused them still expand to nobody.
+     * Linhas de menção a grupo oculto ou a membros, que o resolver já recusa,
+     * continuam não expandindo para ninguém.
      */
     public function test_hidden_and_everyone_groups_never_expand(): void
     {
@@ -100,9 +99,9 @@ class GroupMentionAndNumberingTest extends TestCase
     {
         $this->app();
 
-        // Eloquent boots a model once per process, but every test builds a fresh
-        // app with a fresh event dispatcher, so the `creating` hook registered by
-        // an earlier test is gone. Re-boot so this one is wired to the current app.
+        // O Eloquent faz o boot de um model uma vez por processo, mas cada teste
+        // sobe um app com dispatcher novo, então o hook `creating` de um teste
+        // anterior sumiu. O re-boot liga este ao app atual.
         Message::clearBootedModels();
 
         $inFirst = new Message();

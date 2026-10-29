@@ -17,14 +17,13 @@ use Mockery;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Base for tests that touch an Eloquent model or build a query.
+ * Base dos testes que tocam um model Eloquent ou montam uma query.
  *
- * An in-memory SQLite connection is registered as the resolver rather than mocking
- * one. Eloquent reaches for the connection in more places than is obvious — casting
- * an attribute to a date goes through `getConnection()->getQueryGrammar()` for the
- * date format — so a partial mock fails in ways that look like a bug in the code
- * under test. No schema is created and nothing is executed: the queries are compiled
- * to SQL and asserted on.
+ * Registra uma conexão SQLite em memória como resolver em vez de mock: o
+ * Eloquent usa a conexão em lugares pouco óbvios (o cast de data passa por
+ * `getConnection()->getQueryGrammar()`), e um mock parcial falha como se fosse
+ * bug do código testado. Nenhum schema é criado: as queries só são compiladas
+ * para SQL e conferidas.
  */
 abstract class QueryTestCase extends TestCase
 {
@@ -46,8 +45,8 @@ abstract class QueryTestCase extends TestCase
             'prefix'   => '',
         ]);
 
-        // Makes this the resolver every model uses, which is what the date casts and
-        // the query grammar need.
+        // Vira o resolver de todo model, que é o que os casts de data e a grammar
+        // precisam.
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
 
@@ -70,8 +69,8 @@ abstract class QueryTestCase extends TestCase
     }
 
     /**
-     * Normalises whitespace so an assertion is about the predicate, not about how
-     * the grammar happened to space it.
+     * Normaliza espaços para a asserção tratar do predicado, não de como a grammar
+     * espaçou o SQL.
      */
     protected function sql(Builder $query): string
     {

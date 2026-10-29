@@ -23,16 +23,13 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * The channel-level findings of the October 2026 audit, one test per hole.
+ * Brechas no nível do canal, um teste por brecha, no modo "members", em que
+ * uma conta comum abre e conduz um canal. O dono aqui tem só `createChannel` e
+ * `manageOwnChannels`; cada asserção é sobre algo que essa conta, ou outra
+ * igual, não pode fazer.
  *
- * Each of these was reproduced against a live forum running in "members" mode,
- * where an ordinary account may open and run a channel. That is the setup here:
- * the owner holds `createChannel` and `manageOwnChannels` and nothing else, and
- * every assertion is about what that account, or one like it, could do that it
- * should not have been able to.
- *
- * In separate processes for the reason ChannelAccessMatrixTest documents: tags
- * is enabled, and the static scoper registry survives boots within a process.
+ * Processos separados pelo motivo descrito em ChannelAccessMatrixTest: tags está
+ * ligado, e o registro estático de scopers sobrevive entre boots no processo.
  */
 #[RunTestsInSeparateProcesses]
 class ChannelHardeningTest extends TestCase
@@ -59,7 +56,7 @@ class ChannelHardeningTest extends TestCase
     private const D_PRIVATE = 12;
     private const D_HIDDEN = 13;
 
-    /** The first id of the crowd of users the invitation budget is spent on. */
+    /** O primeiro id da leva de usuários em que o orçamento de convites é gasto. */
     private const CROWD = 100;
 
     protected function setUp(): void
@@ -150,8 +147,8 @@ class ChannelHardeningTest extends TestCase
 
         $this->flushCache();
 
-        // The installer grants members both of these. Withdrawn so the plain chat
-        // moderator is someone who could not have posted the transcript by hand.
+        // O instalador dá as duas aos membros. Retiradas para o moderador do chat ser
+        // alguém que não poderia ter postado a transcrição à mão.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->whereIn('permission', ['startDiscussion', 'discussion.reply'])
@@ -159,8 +156,8 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F1: a new discussion is announced only where the channel's weakest reader
-     * could already open it.
+     * Uma discussão nova só é anunciada onde o leitor mais restrito do canal já a
+     * abriria.
      */
     public function test_only_discussions_the_whole_audience_can_see_are_announced(): void
     {
@@ -176,7 +173,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F2: archiving publishes, so it is held to publishing's rules.
+     * Arquivar publica, então segue as regras de publicar.
      */
     public function test_a_private_channel_is_not_archived_by_a_moderator(): void
     {
@@ -227,7 +224,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F5: the room hears about a real arrival or departure, once.
+     * A sala fica sabendo de uma entrada ou saída real, uma vez.
      */
     public function test_joining_twice_and_leaving_twice_announce_once_each(): void
     {
@@ -259,7 +256,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F6: only category channels are created through the resource.
+     * Pelo resource só se criam canais de categoria.
      */
     public function test_a_direct_or_unknown_channel_type_is_refused(): void
     {
@@ -273,8 +270,8 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F7 and F1's fields: switches that reach past the room are not the
-     * creator's to turn on, and a category is chosen among the visible ones.
+     * Chaves que alcançam além da sala não cabem ao criador ligar, e a categoria é
+     * escolhida entre as visíveis.
      */
     public function test_an_owner_cannot_turn_on_the_audience_switches(): void
     {
@@ -319,7 +316,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F10: preferences are not a way in.
+     * Preferências não são porta de entrada.
      */
     public function test_notification_preferences_need_a_membership(): void
     {
@@ -335,7 +332,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F15: an owner cannot find, nor evict, an inspector they are not meant to see.
+     * O dono não acha nem expulsa um inspetor que não deveria ver.
      */
     public function test_an_owner_cannot_remove_a_hidden_member(): void
     {
@@ -370,7 +367,7 @@ class ChannelHardeningTest extends TestCase
     }
 
     /*
-     * F17: invitations are a budget, and a refusal holds for a while.
+     * Convites têm orçamento, e uma recusa vale por um tempo.
      */
     public function test_a_declined_invitation_is_not_repeated_straight_away(): void
     {
@@ -433,7 +430,7 @@ class ChannelHardeningTest extends TestCase
     /** @param array<string, mixed> $attributes */
     private function archive(int $channel, int $as, array $attributes): ResponseInterface
     {
-        // Archiving is the step after closing; ChannelPolicy refuses an open room.
+        // Arquivar é o passo depois de fechar; a ChannelPolicy recusa sala aberta.
         $this->database()->table('chat_channels')->where('id', $channel)->update(['status' => 'closed']);
 
         return $this->send(
@@ -526,8 +523,8 @@ class ChannelHardeningTest extends TestCase
             'type'                        => 'category',
             'name'                        => $slug,
             'slug'                        => $slug,
-            // Archiving is offered once a channel is closed; the lounge stays open
-            // because an announcement needs somewhere to land.
+            // Arquivar só aparece com o canal fechado; o lounge fica aberto porque o
+            // anúncio precisa de um lugar para cair.
             'status'                      => $id === self::CH_LOUNGE || $id === self::CH_OPEN ? 'open' : 'closed',
             'tag_id'                      => $tagId,
             'is_private'                  => $private ? 1 : 0,

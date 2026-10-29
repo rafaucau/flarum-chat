@@ -16,37 +16,30 @@ use Flarum\Testing\integration\TestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * Category channels bound to a tag, with flarum/tags actually enabled.
+ * Canais de categoria ligados a uma tag, com o flarum/tags ligado de verdade.
  *
- * This is the branch of ScopeChannelVisibility that no test ever reached: the
- * suite ran with ramon-chat alone, so the `tags` table did not exist and the
- * tag-bound branch was skipped entirely. That is what let a `class_exists()`
- * probe stand in for "is flarum/tags enabled" — true whenever the package sits
- * in vendor/, which said nothing about whether its migrations had run.
+ * Confere os dois sentidos: as permissões herdadas da tag restringem o canal, e
+ * um arquivamento cai na categoria ligada.
  *
- * Both directions are asserted here: that inherited tag permissions actually
- * restrict a channel, and that an archive lands in the bound category.
- *
- * Runs in its own process because `ScopeVisibilityTrait::$visibilityScopers` is a
- * static registry that is appended to on every boot and never cleared. A sibling
- * test class that enables ramon-chat alone leaves its scoper behind, and that
- * scoper — built when tags was unavailable — omits the tag-bound branch, ANDing
- * every tag-bound channel back out of the results. The leak is the harness's, not
- * the forum's: a real request boots one app.
+ * Roda em processo próprio porque `ScopeVisibilityTrait::$visibilityScopers` é
+ * um registro estático que cresce a cada boot e nunca é limpo. Uma classe irmã
+ * que liga só o ramon-chat deixa um scoper montado sem tags, sem o ramo de tag,
+ * que tiraria todo canal ligado a tag dos resultados. O vazamento é do harness:
+ * uma requisição real sobe um app só.
  */
 #[RunTestsInSeparateProcesses]
 class TagBoundChannelTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Order matters: tags has to be enabled before the chat reads from it.
+        // A ordem importa: tags precisa estar ligado antes de o chat ler dele.
         $this->extension('flarum-tags', 'ramon-chat');
 
         $this->prepareDatabase([
@@ -63,8 +56,8 @@ class TagBoundChannelTest extends TestCase
             'group_permission' => [
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'viewForum'],
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.use'],
-                // The restricted tag opens only to group 100, which is what the
-                // bound channel is expected to inherit.
+                // A tag restrita abre só para o grupo 100, que é o que o canal ligado deve
+                // herdar.
                 ['group_id' => 100, 'permission' => 'tag2.viewForum'],
             ],
             'tags' => [
@@ -110,9 +103,8 @@ class TagBoundChannelTest extends TestCase
 
     public function test_listing_channels_does_not_error_when_tags_is_enabled(): void
     {
-        // The regression this guards: the tag-bound branch builds a subquery
-        // against `tags`, and reaching it at all used to depend on a probe that
-        // could be true with no such table.
+        // O ramo de tag monta uma subquery em `tags`, então só pode ser alcançado
+        // quando a extensão está ligada de fato, não só presente no vendor/.
         $this->assertNotEmpty($this->visibleChannelIds(1));
     }
 
@@ -133,8 +125,8 @@ class TagBoundChannelTest extends TestCase
 
     public function test_archiving_files_the_discussion_under_the_bound_tag(): void
     {
-        // ChannelPolicy::archive refuses an open channel — archiving is the step
-        // after closing, not an alternative to it.
+        // ChannelPolicy::archive recusa canal aberto: arquivar é o passo depois de
+        // fechar, não uma alternativa.
         $this->database()->table('chat_channels')->where('id', 1)->update(['status' => 'closed']);
 
         $response = $this->send(
@@ -150,10 +142,8 @@ class TagBoundChannelTest extends TestCase
 
         $this->assertNotNull($discussionId, 'the channel records the discussion it archived into');
 
-        // The assertion that `method_exists($discussion, 'tags')` silently broke:
-        // flarum/tags registers the relation through resolveRelationUsing(), so
-        // the guard was false even with tags enabled and every archive landed
-        // under no category at all.
+        // O flarum/tags registra a relação por resolveRelationUsing(), então
+        // `method_exists($discussion, 'tags')` é falso mesmo com tags ligado.
         $this->assertSame(
             [1],
             $this->database()->table('discussion_tag')

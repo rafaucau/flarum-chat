@@ -29,12 +29,12 @@ use Ramon\Chat\Realtime\Job\SendChatEventJob;
 use Ramon\Chat\Realtime\QueueKind;
 
 /**
- * Whether a realtime push may leave the request.
+ * Se um push em tempo real pode sair da requisição.
  *
- * Pinned here: `sync` and `database` queues (wrapped in core's RoutingQueue or
- * not) always deliver inline, whatever `ramon-chat.queue_realtime` says and
- * however large the audience, because under `database` the worker runs once a
- * minute. Only another driver (a continuous worker) receives the job.
+ * Filas `sync` e `database` (dentro ou não do RoutingQueue do core) sempre
+ * entregam inline, seja qual for `ramon-chat.queue_realtime` e o tamanho do
+ * público: no `database` o worker roda uma vez por minuto. Só outro driver (um
+ * worker contínuo) recebe o job.
  */
 class QueueKindTest extends TestCase
 {

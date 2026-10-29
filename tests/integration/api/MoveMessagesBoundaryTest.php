@@ -19,10 +19,9 @@ use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
  * Até onde mover mensagens pode levá-las.
  *
  * Como no Discourse, mover não amplia o público: nada sai de uma conversa
- * direta, e o que é de um canal privado não vai para um aberto (os anexos
- * seguem a mensagem e passariam a ser servidos a quem lê o destino). E uma
- * mudança parte de um canal só, para uma seleção esquecida em outro canal não
- * ir junto.
+ * direta, e o que é de um canal privado não vai para um aberto (os anexos vão
+ * junto e seriam servidos a quem lê o destino). Uma mudança parte de um canal
+ * só, para uma seleção esquecida em outro canal não ir junto.
  */
 class MoveMessagesBoundaryTest extends TestCase
 {

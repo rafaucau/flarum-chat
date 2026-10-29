@@ -18,13 +18,12 @@ use Ramon\Chat\Service\UnreadTracker;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Unread counters after a delete or a move, kept by targeted updates.
+ * Contadores de não lidas após apagar ou mover, mantidos por updates pontuais.
  *
- * The listener used to recount every membership of the channel from source, two
- * COUNTs per member per event. It now adjusts only the members still counting
- * the message, by one. These pin that the shortcut lands exactly where the full
- * recount would: every live, unmuted membership is compared with
- * `UnreadTracker::recalculate()` after the change.
+ * Só os membros que ainda contam a mensagem são ajustados, em um, em vez de
+ * recontar o canal inteiro. Os testes conferem que o atalho chega exatamente
+ * onde a recontagem completa chegaria: cada membership ativa e não silenciada é
+ * comparada com `UnreadTracker::recalculate()`.
  */
 class UnreadCountersOnDeleteTest extends TestCase
 {
@@ -69,7 +68,7 @@ class UnreadCountersOnDeleteTest extends TestCase
                 $this->membership(1, self::MUTED, null, muted: true),
                 $this->membership(1, 1, 3),
                 $this->membership(2, 1, null),
-                // Read up to an id below the message that will move in.
+                // Leu até um id abaixo da mensagem que vai ser movida para cá.
                 $this->membership(2, self::BEHIND, null),
             ],
             'chat_messages' => [
@@ -113,10 +112,9 @@ class UnreadCountersOnDeleteTest extends TestCase
     }
 
     /**
-     * Brings every counter to what the full recount says, so the test starts
-     * from the state the send path would have left. The muted member's unread
-     * count stays at zero, as recordNewMessage() leaves it; only mentions reach
-     * a muted membership.
+     * Leva cada contador ao valor da recontagem completa, o estado que o envio
+     * deixaria. A membership silenciada fica com zero, como recordNewMessage()
+     * deixa; só menções chegam a ela.
      */
     private function seedCounters(UnreadTracker $tracker): void
     {

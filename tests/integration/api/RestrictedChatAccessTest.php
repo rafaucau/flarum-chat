@@ -16,16 +16,14 @@ use Flarum\Testing\integration\TestCase;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A forum that runs the chat for one group only.
+ * Um fórum que libera o chat a um grupo só.
  *
- * Reported from an install that had granted `ramon-chat.use` to a staff group:
- * the header button was drawn for everyone, `/chat` served, and the badge
- * offered five channels nobody outside the group could open. Three separate
- * causes, one visible symptom, and each is asserted below.
+ * Com `ramon-chat.use` dado só a um grupo, o botão do cabeçalho, a rota `/chat`
+ * e o badge de canais não podem aparecer para quem está fora dele. São três
+ * causas distintas, cada uma conferida abaixo.
  *
- * Note what the fixture does *not* do: it never grants `ramon-chat.use` to
- * MEMBER. The extension seeds that on install and a forum is free to revoke it,
- * which is the state being reproduced here.
+ * A fixture *não* dá `ramon-chat.use` a MEMBER: a extensão faz isso na
+ * instalação e o fórum pode revogar, que é o estado reproduzido aqui.
  */
 class RestrictedChatAccessTest extends TestCase
 {
@@ -33,15 +31,14 @@ class RestrictedChatAccessTest extends TestCase
 
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     /**
-     * fof/upload loads the actor's files in an `after` hook on the forum's
-     * Show endpoint, and that hook is registered again by every app the suite
-     * boots with fof-upload enabled. Run after those tests, one forum request
-     * here repeats the load once per earlier boot. An artefact of sharing one
-     * process between apps, not of the chat: a forum boots once.
+     * O fof/upload carrega os arquivos do ator num hook `after` do endpoint Show
+     * do fórum, e cada app que a suíte sobe com fof-upload registra o hook de novo.
+     * Depois desses testes, uma requisição aqui repete a carga uma vez por boot
+     * anterior. É artefato de compartilhar o processo, não do chat.
      */
     protected function allowedRepeatedQueries(): array
     {
@@ -77,18 +74,16 @@ class RestrictedChatAccessTest extends TestCase
     }
 
     /**
-     * Revokes the chat grants the extension seeds on install.
+     * Revoga as permissões de chat que a extensão dá na instalação.
      *
-     * Not optional, and not a detail of the fixture. Enabling the extension runs
-     * `2026_07_29_000013`, which grants `ramon-chat.use` to MEMBER — and every
-     * confirmed account belongs to MEMBER implicitly. The harness's
-     * `populateDatabase()` adds fixture rows with `updateOrInsert` rather than
-     * replacing the table, so listing group 100 above does not displace that
-     * grant: without this, every user in the fixture still holds the permission
-     * and none of the gates below are being exercised at all.
+     * Não é opcional: ligar a extensão roda `2026_07_29_000013`, que dá
+     * `ramon-chat.use` a MEMBER, e toda conta confirmada é MEMBER implicitamente.
+     * O `populateDatabase()` do harness usa `updateOrInsert` em vez de substituir a
+     * tabela, então listar o grupo 100 acima não tira essa permissão; sem isto,
+     * nenhum dos gates abaixo é exercitado.
      *
-     * This is also what a forum restricted to one group actually does — the
-     * admin revokes the default and adds their group. The fixture models that.
+     * É também o que um fórum restrito a um grupo faz: o admin revoga o padrão e
+     * adiciona o grupo dele.
      */
     private function closeChatToMembers(): void
     {
@@ -111,9 +106,8 @@ class RestrictedChatAccessTest extends TestCase
 
     public function test_the_header_button_is_not_offered_to_a_member_without_the_permission(): void
     {
-        // What the button is drawn from. It used to be read through the Gate with
-        // no policy behind it, so the answer came from the fallback — and from any
-        // other extension's global `can()` catch-all.
+        // A base do botão. Passa pela policy, não pelo fallback do Gate, que também
+        // responderia ao catch-all global `can()` de outras extensões.
         $this->assertFalse($this->canUseChat(2));
     }
 
@@ -159,13 +153,13 @@ class RestrictedChatAccessTest extends TestCase
             ->map(static fn ($id) => (int) $id)
             ->all();
 
-        // Nobody but the creator gets a row: who is in a channel for everyone is
-        // derived from who can see it.
+        // Ninguém além do criador ganha linha: quem está num canal para todos sai de
+        // quem pode vê-lo.
         $this->assertSame([1], $joined);
 
-        // 3 is in the permitted group. 2 is a plain member: an earlier listener
-        // added every row in `users`, which put a channel they could not open in
-        // their sidebar and their unread badge.
+        // 3 está no grupo permitido. 2 é membro comum e não pode ganhar linha num
+        // canal que não abre, senão ele aparece na barra lateral e no badge de não
+        // lidas.
         $this->assertContains($channelId, $this->followedBy(3));
         $this->assertNotContains($channelId, $this->followedBy(2));
     }
@@ -190,9 +184,8 @@ class RestrictedChatAccessTest extends TestCase
 
     public function test_a_stale_membership_does_not_feed_the_badge(): void
     {
-        // The state an install is left in by the earlier listener: rows that
-        // outlived the permission that wrote them. They cannot be reached, so
-        // they must not be counted either.
+        // Linhas que sobreviveram à permissão que as gravou: não são alcançáveis,
+        // então também não podem ser contadas.
         $this->database()->table('chat_channels')->insert([
             'id'         => 50,
             'type'       => 'category',
@@ -225,10 +218,10 @@ class RestrictedChatAccessTest extends TestCase
 
     public function test_a_membership_in_an_unreachable_channel_does_not_feed_the_badge(): void
     {
-        // The case a blanket "may this actor use the chat at all" guard misses:
-        // user 3 holds the permission, so the gate says yes, but the channel
-        // itself is gone. Counting through Channel::whereVisibleTo() is what
-        // catches it — the same shape flarum/messages uses for `messageCount`.
+        // O caso que um guard geral "este ator pode usar o chat" não pega: o usuário
+        // 3 tem a permissão, então o gate diz sim, mas o canal em si sumiu. Contar
+        // por Channel::whereVisibleTo() pega isso, no mesmo formato que o
+        // flarum/messages usa para `messageCount`.
         $this->database()->table('chat_channels')->insert([
             'id'         => 60,
             'type'       => 'category',
