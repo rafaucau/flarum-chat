@@ -26,6 +26,7 @@ ramon-chat:
     archive_empty: This channel was archived with no messages.
     archive_private_channel: Only an administrator can archive a private channel into a discussion.
     archive_discussion_wider: This channel's category is restricted, so it can only be archived into a discussion in that category.
+    archive_audience_wider: Guests can read that discussion but cannot use the chat, so archiving there would publish the conversation to people who could never see it.
     archive_needs_approval: Your posts need approval here, so this channel cannot be archived by you.
     archive_too_large: "This channel has more than {max} messages. Ask an administrator to archive it."
     invite_rate_limited: You have sent too many invitations recently. Try again later.

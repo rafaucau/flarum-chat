@@ -235,6 +235,20 @@ class UnarchiveChannelTest extends TestCase
         $this->assertFalse($this->dispatched[1]->isModerator);
     }
 
+    public function test_a_members_only_chat_is_not_archived_where_guests_read(): void
+    {
+        $archive = fn () => $this->send($this->request('POST', '/api/chat-channels/'.self::CH_CLOSED.'/archive', [
+            'authenticatedAs' => self::OWNER,
+            'json'            => ['data' => ['attributes' => ['title' => 'Transcrição']]],
+        ]));
+
+        // Visitantes leem o fórum, mas o chat é só para membros.
+        $refused = $archive();
+
+        $this->assertSame(422, $refused->getStatusCode(), (string) $refused->getBody());
+        $this->assertSame('closed', $this->row(self::CH_CLOSED)->status);
+    }
+
     private function action(int $channel, string $action, int $as): ResponseInterface
     {
         return $this->send($this->request('POST', '/api/chat-channels/'.$channel.'/'.$action, [

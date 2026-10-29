@@ -23,6 +23,7 @@ ramon-chat:
     archive_empty: Este canal foi arquivado sem mensagens.
     archive_private_channel: Só um administrador pode arquivar um canal privado em uma discussão.
     archive_discussion_wider: A categoria deste canal é restrita, então ele só pode ser arquivado em uma discussão dessa categoria.
+    archive_audience_wider: Visitantes leem essa discussão mas não usam o chat, então arquivar ali publicaria a conversa para quem nunca pôde vê-la.
     archive_needs_approval: Suas postagens exigem aprovação aqui, então você não pode arquivar este canal.
     archive_too_large: "Este canal tem mais de {max} mensagens. Peça a um administrador para arquivá-lo."
     invite_rate_limited: Você enviou convites demais recentemente. Tente de novo mais tarde.

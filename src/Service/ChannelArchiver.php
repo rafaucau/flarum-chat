@@ -18,6 +18,7 @@ use Flarum\Post\CommentPost;
 use Flarum\Post\Exception\FloodingException;
 use Flarum\Post\Post;
 use Flarum\Post\PostCreationThrottler;
+use Flarum\User\Guest;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher as Events;
 use Ramon\Chat\Channel;
@@ -241,6 +242,17 @@ class ChannelArchiver
             $actor->assertCan('startDiscussion');
         }
 
+        // O chat fechado a visitantes não vira, arquivado, uma discussão que
+        // visitantes leem: a transcrição levaria a conversa a quem nunca pôde
+        // entrar nela.
+        $guest = new Guest();
+
+        if (! $guest->hasPermission('ramon-chat.use') && $this->guestReads($guest, $existing, $tag)) {
+            throw new ValidationException([
+                'channel' => $this->translator->trans('ramon-chat.api.archive_audience_wider'),
+            ]);
+        }
+
         if (! $actor->can('postWithoutThrottle')
             && Post::query()
                 ->where('user_id', $actor->id)
@@ -260,6 +272,23 @@ class ChannelArchiver
                 'channel' => $this->translator->trans('ramon-chat.api.archive_too_large', ['max' => self::MAX_MESSAGES]),
             ]);
         }
+    }
+
+    protected function guestReads(Guest $guest, ?Discussion $existing, ?object $tag): bool
+    {
+        if (! $guest->hasPermission('viewForum')) {
+            return false;
+        }
+
+        if ($existing !== null) {
+            return Discussion::query()->whereVisibleTo($guest)->whereKey($existing->id)->exists();
+        }
+
+        if ($tag !== null) {
+            return \Flarum\Tags\Tag::query()->whereVisibleTo($guest)->whereKey($tag->id)->exists();
+        }
+
+        return true;
     }
 
     /**
