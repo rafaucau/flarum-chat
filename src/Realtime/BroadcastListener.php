@@ -48,24 +48,21 @@ use Ramon\Chat\Thread;
 use Ramon\Chat\Upload;
 
 /**
- * Translates domain events into websocket payloads.
- *
- * Registered only when flarum/realtime is enabled (see the Conditional in
- * extend.php), but every path is still null-safe so a half-configured realtime
- * install degrades to polling rather than erroring.
+ * Traduz eventos de domínio em payloads de websocket. Só é registrado com
+ * flarum/realtime ligado, mas tudo é null-safe para uma instalação incompleta cair
+ * no polling em vez de dar erro.
  */
 class BroadcastListener
 {
     /**
-     * Event names the client binds to. Prefixed so they cannot collide with
-     * core's or another extension's events on the same private channel.
+     * Nomes que o cliente escuta. O prefixo evita colisão com eventos do core ou de
+     * outras extensões no mesmo canal privado.
      */
     public const EVENT_MESSAGE = 'ramonChat.message';
     public const EVENT_MESSAGE_CHANGED = 'ramonChat.messageChanged';
 
     /**
-     * Distinct from `messageChanged`, which carries a row that still exists. A
-     * purge leaves nothing to redraw — the client removes the row instead.
+     * Separado de `messageChanged`: não há linha para redesenhar, o cliente a remove.
      */
     public const EVENT_MESSAGE_PURGED = 'ramonChat.messagePurged';
 
@@ -74,37 +71,32 @@ class BroadcastListener
     public const EVENT_CHANNEL = 'ramonChat.channel';
 
     /**
-     * Who is in, invited to, or out of a channel. Delivered to the person the
-     * change is about, so their other tabs follow, and to the channel's members
-     * when the change is one the room can see.
+     * Entradas, convites e saídas. Vai para a pessoa envolvida (as outras abas dela
+     * acompanham) e para os membros quando a sala enxerga a mudança.
      */
     public const EVENT_MEMBERSHIP = 'ramonChat.membership';
 
     /**
-     * Messages that left one channel for another. Ids only: the side that
-     * loses them drops the rows, the side that gains them reads them through
-     * the API, which is what decides whether each reader may have them.
+     * Mensagens movidas entre canais. Só ids: a origem remove as linhas, o destino
+     * as lê pela API, que decide o que cada leitor pode ver.
      */
     public const EVENT_MESSAGES_MOVED = 'ramonChat.messagesMoved';
 
     /**
-     * The moderation queue moved. Carries nothing; see FlagsChanged.
+     * A fila de moderação mudou. Ver FlagsChanged.
      */
     public const EVENT_FLAGS = 'ramonChat.flags';
 
     /**
-     * A channel's rank book changed. Carries the whole book: it is channel
-     * configuration every member may read, small, and the same for all of them,
-     * so each author line and an open members tab redraw without a fetch.
+     * Os cargos do canal mudaram. Leva a lista inteira (pequena, legível por todo
+     * membro e igual para todos), para o cliente redesenhar sem fetch.
      */
     public const EVENT_RANKS = 'ramonChat.ranks';
 
     /**
-     * Members at which a channel-wide push goes to the queue whatever the
-     * forum's setting: a busy channel can hold thousands of rows, and
-     * resolving that audience is not work for the request that created it.
-     * Only on a continuously worked queue: under `sync` or `database` it runs
-     * inline like any other push (see QueueKind).
+     * A partir de quantos membros o push vai para a fila, seja qual for a
+     * configuração. Só com worker contínuo; em `sync` e `database` roda inline
+     * (QueueKind).
      */
     public const LARGE_AUDIENCE = 500;
 
@@ -148,12 +140,8 @@ class BroadcastListener
     }
 
     /**
-     * A message removed outright.
-     *
-     * Not excluded from the actor's own client, unlike the sends: the moderator
-     * has already dropped the row from their stream, and a second removal is a
-     * no-op — whereas excluding them leaves a moderator's other tab still
-     * showing a message that no longer exists anywhere.
+     * O ator não é excluído: remover de novo não faz nada, e assim as outras abas
+     * dele também tiram a mensagem.
      */
     public function whenMessagePurged(MessageWasPurged $event): void
     {
@@ -164,8 +152,7 @@ class BroadcastListener
                 'id'        => $event->messageId,
                 'channelId' => (int) $event->channel->id,
 
-                // So a thread panel open on this message can drop it too, and
-                // the indicator under the root can be recounted.
+                // Para o painel da thread remover também e recontar a raiz.
                 'threadId'  => $event->threadId,
             ],
             null
@@ -212,12 +199,9 @@ class BroadcastListener
                 'title'             => $event->thread->title,
                 'repliesCount'      => (int) $event->thread->replies_count,
 
-                // How far the count above already reaches. Creating a thread
-                // broadcasts twice — this event and the message that opened it —
-                // and the recipient has no other way to tell that the two
-                // describe the same reply. Without it the client counted the
-                // message once from here and once again on arrival, and every
-                // new thread announced two replies to everyone but its author.
+                // Até onde a contagem já chega. Criar uma thread gera este evento
+                // e o da mensagem; o cliente usa isto para não contar a resposta
+                // duas vezes.
                 'lastMessageId'     => $event->thread->last_message_id,
             ],
             $event->actor?->id
@@ -233,54 +217,35 @@ class BroadcastListener
                 'channelId' => (int) $event->channel->id,
                 'status'    => $event->channel->status,
 
-                // Settings that change what the client may draw. `postPermission`
-                // in particular decides whether the composer appears at all, and
-                // an admin flipping it should take effect without every member
-                // reloading the page.
-                //
-                // What is deliberately *not* here is `canPostMessage`: that answer
-                // differs per user — a moderator may post in a channel a member may
-                // not — and one broadcast payload cannot carry a different value
-                // for each recipient. The client refetches its own record instead,
-                // so the server stays the only thing deciding who may post.
+                // Configurações que mudam o que o cliente desenha, sem recarregar.
+                // `canPostMessage` fica de fora porque varia por usuário; o cliente
+                // busca o próprio registro de novo.
                 'postPermission' => $event->channel->post_permission,
                 'isPrivate'      => (bool) $event->channel->is_private,
                 'threadingEnabled' => (bool) $event->channel->threading_enabled,
 
-                // Same reasoning as `postPermission`: turning slow mode on
-                // changes whether the composer accepts the next message, and a
-                // rule everyone is now bound by should not wait for each of them
-                // to reload. Its per-user half — `slowModeRemaining`, which
-                // holders of `bypassSlowMode` read as zero — is refetched by the
-                // client for the same reason `canPostMessage` is.
+                // A parte por usuário (`slowModeRemaining`) o cliente busca de
+                // novo, como `canPostMessage`.
                 'slowModeSeconds' => (int) $event->channel->slow_mode_seconds,
                 'name'           => $event->channel->name,
                 'emoji'          => $event->channel->emoji,
                 'description'    => $event->channel->description,
                 'imageUrl'       => $event->channel->imageUrl(),
 
-                // Always sent, so leaving the archive clears them on every
-                // screen the way archiving set them.
+                // Sempre enviados, para sair do arquivo limpar em toda tela.
                 'archivedAt'           => $event->channel->archived_at?->toIso8601String(),
                 'archivedDiscussionId' => $event->channel->archived_discussion_id,
             ],
-            // Not excluded: the actor's own client has already applied the change
-            // optimistically, and pushing it again is harmless — whereas excluding
-            // them would leave a moderator with two browser tabs out of step.
+            // Sem excluir o ator: repetir é inofensivo e mantém as abas dele em
+            // sincronia.
             null
         );
     }
 
     /**
-     * A channel that has just come into existence, for whoever it already
-     * holds besides its creator: the other side of a direct conversation.
-     * Without it the channel appeared only on their next fetch of the list.
-     * A channel for everyone holds nobody else yet — its members have no row
-     * until they read it — and reaches them through that same fetch.
-     *
-     * Ids only. Each recipient reads the channel through the API, which decides
-     * what of it they may see; the audience itself already went through the
-     * visibility scope in SendChatEventJob.
+     * Canal novo, para quem já está nele além do criador (o outro lado de uma
+     * conversa direta). Só ids: cada um lê o canal pela API, que decide o que ele
+     * pode ver.
      */
     public function whenChannelCreated(ChannelWasCreated $event): void
     {
@@ -298,12 +263,8 @@ class BroadcastListener
     }
 
     /**
-     * A move, told to both rooms it touched.
-     *
-     * The rooms the messages left hear which rows to drop, and the new counts
-     * of the threads they left. The room they went to hears which rows to read.
-     * Neither side hears the other's id: the destination may be a channel the
-     * source's members cannot see, and the reverse.
+     * Avisa as duas salas. Nenhum lado recebe o id do outro: o destino pode ser um
+     * canal que os membros da origem não veem, e vice-versa.
      */
     public function whenMessagesMoved(MessagesWereMoved $event): void
     {
@@ -337,7 +298,7 @@ class BroadcastListener
                     'channelId'     => (int) $sourceId,
                     'movedOut'      => $messageIds,
 
-                    // So a thread panel open on one of these can drop it too.
+                    // Para o painel de thread aberto remover também.
                     'threadIds'     => array_intersect_key($event->threadIds, array_flip($messageIds)),
                     'threads'       => $threads[(int) $sourceId] ?? [],
                     'messagesCount' => (int) $source->messages_count,
@@ -353,9 +314,8 @@ class BroadcastListener
                 'channelId'     => (int) $event->target->id,
                 'movedIn'       => $movedIn,
 
-                // The move rewrote each row, so its `updated_at` is at least
-                // this. Narrowing the read to it keeps rows that were already
-                // in the destination, inside the same id range, out of it.
+                // A mudança regravou cada linha; filtrar por este `updated_at`
+                // deixa de fora as que já estavam no destino.
                 'movedAt'       => Carbon::now()->subSecond()->getTimestamp(),
                 'messagesCount' => (int) $event->target->messages_count,
             ],
@@ -364,9 +324,8 @@ class BroadcastListener
     }
 
     /**
-     * Someone made or unmade a moderator of a channel. The room hears it, as
-     * the role shows in the member list anyone in the room can open, and the
-     * person it is about refetches what they may now do there.
+     * A sala ouve porque o papel aparece na lista de membros; o envolvido busca de
+     * novo o que pode fazer.
      */
     public function whenModeratorChanged(ChannelModeratorChanged $event): void
     {
@@ -382,10 +341,8 @@ class BroadcastListener
     }
 
     /**
-     * The channel changed hands. The whole room hears it, because the owner
-     * badge moves in every open members tab, and both people involved re-read
-     * what they may now do there. `previousOwnerId` is what tells the old
-     * owner the push concerns them too.
+     * A sala toda ouve, porque o selo de dono muda. `previousOwnerId` avisa o dono
+     * anterior que o push também é com ele.
      */
     public function whenOwnershipTransferred(ChannelOwnershipTransferred $event): void
     {
@@ -402,8 +359,7 @@ class BroadcastListener
     }
 
     /**
-     * A handover offered, after the code: the member it is offered to, and
-     * whoever started it, so an open members tab on either side re-reads it.
+     * Transferência oferecida: avisa quem recebe e quem iniciou.
      */
     public function whenTransferRequested(OwnershipTransferRequested $event): void
     {
@@ -411,8 +367,7 @@ class BroadcastListener
     }
 
     /**
-     * A handover withdrawn, declined or replaced. Both parties hear it; the
-     * room never knew it was happening.
+     * Transferência retirada, recusada ou substituída: só as duas partes ouvem.
      */
     public function whenTransferEnded(OwnershipTransferEnded $event): void
     {
@@ -434,12 +389,8 @@ class BroadcastListener
     }
 
     /**
-     * The queue moved; every moderator recounts their own badge, and redraws the
-     * mark on any of these messages they already have on screen.
-     *
-     * Ids and open-report counts only, the same numbers `flagsCount` serves a
-     * moderator, and never the message: a moderator who cannot read the channel
-     * receives an id their client has nothing to apply to.
+     * Cada moderador reconta o próprio contador. Só ids e contagens, nunca a
+     * mensagem: quem não lê o canal recebe um id sem nada a aplicar.
      */
     public function whenFlagsChanged(FlagsChanged $event): void
     {
@@ -462,14 +413,9 @@ class BroadcastListener
     }
 
     /**
-     * A channel removed. Ids and scalars only: the row is gone from every
-     * member's sidebar, so there is nothing left to describe — without the push
-     * the stale row stayed clickable and answered with a 404.
-     *
-     * The audience is still resolvable: deletion stamps `deleted_at` and leaves
-     * the memberships in place, and SendChatEventJob skips the visibility scope
-     * (which now excludes the channel) for a deleted channel, checking only that
-     * each member may still use the chat at all.
+     * Canal removido: só ids, para a sidebar tirar a linha. A audiência ainda se
+     * resolve porque as filiações ficam, e o SendChatEventJob pula o scope de
+     * visibilidade para canal apagado.
      */
     public function whenChannelDeleted(ChannelWasDeleted $event): void
     {
@@ -486,9 +432,8 @@ class BroadcastListener
     }
 
     /**
-     * Archiving freezes the channel for good, so members' composers have to go
-     * the moment it happens, the same way closing does. Carries where the
-     * transcript went, which is what the frozen notice links to.
+     * Arquivar congela o canal, então o composer some na hora. Leva a discussão da
+     * transcrição, para onde o aviso aponta.
      */
     public function whenChannelArchived(ChannelWasArchived $event): void
     {
@@ -512,7 +457,7 @@ class BroadcastListener
 
     public function whenJoined(UserJoinedChannel $event): void
     {
-        // A hidden arrival is not the room's to know; the member's own tabs are.
+        // Entrada oculta: só as abas do próprio membro sabem.
         $this->membership($event->channel, $event->user, 'joined', $event->actor, tellMembers: ! $event->hidden);
 
         if (! $event->hidden && $this->holdsRank($event->channel, $event->user)) {
@@ -530,9 +475,7 @@ class BroadcastListener
     }
 
     /**
-     * A rank created, edited, deleted or reordered, or a member's ranks set.
-     * Not excluded from the actor: their editor already redrew from the
-     * response, but their other tabs have not.
+     * Sem excluir o ator: o editor dele já redesenhou, as outras abas não.
      */
     public function whenRanksChanged(ChannelRanksChanged $event): void
     {
@@ -554,8 +497,7 @@ class BroadcastListener
     }
 
     /**
-     * Whether a member coming or going changes the rank book: only someone
-     * shown with a rank does. The owner shows one whether present or not.
+     * Só muda os cargos quem aparece com um. O dono aparece estando ou não.
      */
     protected function holdsRank(Channel $channel, User $user): bool
     {
@@ -569,8 +511,8 @@ class BroadcastListener
 
     public function whenInviteDeclined(InviteWasDeclined $event): void
     {
-        // The inviter is the actor here so their members tab hears the answer;
-        // the refusal itself reaches them as a notification.
+        // O convidador entra como ator para a aba de membros dele ouvir; a recusa
+        // em si chega como notificação.
         $this->membership($event->channel, $event->user, 'invite_declined', $event->inviter, tellMembers: false);
     }
 
@@ -580,20 +522,11 @@ class BroadcastListener
     }
 
     /**
-     * One membership change, addressed to everyone it concerns.
+     * A pessoa envolvida sempre ouve; o ator também, se for outro. A sala só ouve
+     * entradas e saídas, nunca convites. Só ids e nomes: o cliente busca o canal
+     * pela API, onde o scope decide o que ele pode ver.
      *
-     * The person it is about always hears it: that is what keeps a second tab,
-     * or the drawer on another page, in step with the sidebar that acted. The
-     * actor hears it too when they are somebody else, so a members tab that
-     * just sent an invite sees it answered. The room as a whole hears only the
-     * changes it can see anyway (arrivals and departures), and never the
-     * invitations, which are between the managers and the person asked.
-     *
-     * The payload carries ids and display names only; the client refetches the
-     * channel through the API when it needs the row, and the visibility scope
-     * decides there whether it may have it.
-     *
-     * @param  array<string, mixed>  $extra  Scalars a particular action adds.
+     * @param  array<string, mixed>  $extra  Escalares que uma ação específica acrescenta.
      */
     protected function membership(
         Channel $channel,
@@ -629,24 +562,15 @@ class BroadcastListener
     }
 
     /**
-     * The wire form of a message.
-     *
-     * Content is included rather than sent as a bare id: chat is high-volume and
-     * a fetch per message would multiply request count by the message rate. It is
-     * safe to inline because SendChatEventJob filters recipients through the same
-     * visibility scope the API would apply before it triggers anything.
-     *
-     * `contentHtml` is deliberately omitted for deleted messages so a tombstone
-     * cannot be reconstructed from a push payload.
+     * A mensagem no fio. O conteúdo vai junto, não só o id, para não gerar um
+     * fetch por mensagem; é seguro porque o SendChatEventJob filtra a audiência
+     * pelo mesmo scope da API. Apagada não leva `contentHtml`.
      *
      * @return array<string, mixed>
      */
     /**
-     * Rendered content, or escaped plain text when a formatter callback threw.
-     *
-     * The broadcast runs inside the send request, after the row is stored, so
-     * an exception here reached the sender as a 500 for a message that had in
-     * fact been saved, and nobody else received it live at all.
+     * Conteúdo renderizado, ou texto escapado se o formatter lançar: isto roda na
+     * request de envio, com a linha já gravada, e não pode virar 500.
      */
     protected function contentHtml(Message $message): string
     {
@@ -675,55 +599,32 @@ class BroadcastListener
             'type'        => $message->type,
             'systemKey'   => $message->system_key,
 
-            // The placeholders the system string is built from. Omitting these was
-            // not a partial payload but a broken one: a system message renders by
-            // interpolating this data into a translation, so the pushed copy showed
-            // "{undefined} started a discussion: {undefined}" while the same row
-            // fetched from the API read correctly. Anyone in the channel at the
-            // moment it was posted saw the broken form.
+            // Os placeholders que a tradução da mensagem de sistema interpola.
             'systemData'  => $message->system_data,
             'contentHtml' => $deleted || $message->isSystem() ? null : $this->contentHtml($message),
             'createdAt'   => $message->created_at?->toIso8601String(),
             'editedAt'    => $message->edited_at?->toIso8601String(),
             'isDeleted'   => $deleted,
 
-            // Who removed it. Without these the author of a message a moderator
-            // deleted was told only that it "was deleted" — the same wording
-            // their own deletion produces — and learned it had been moderated
-            // only by reloading, where the API supplies the field.
-            //
-            // Derived exactly as MessageResource does, from the column rather
-            // than from the relation: a deletion by the author is not a
-            // moderation, whoever is looking.
+            // Igual ao MessageResource, pela coluna: apagar a própria mensagem não
+            // é moderação.
             'isModeratorDeleted' => $deleted
                 && $message->deleted_by_id !== null
                 && (int) $message->deleted_by_id !== (int) $message->user_id,
 
-            // Never sent. The tombstone and who made it are for the author and
-            // the moderators, the only ones the API shows a deleted message to,
-            // but this one payload goes to every member — so naming the moderator
-            // here told the whole channel who removed whose message. Live, the
-            // tombstone reads "removed by a moderator"; the named form arrives
-            // with the next fetch, where MessageResource decides who may see it.
-            // The key stays so the client's payload shape does not change.
+            // Nunca enviado: o payload vai a todos os membros, e quem apagou só o
+            // autor e a moderação veem (MessageResource). A chave fica para não
+            // mudar o formato que o cliente lê.
             'deletedById' => null,
 
             'isPinned'    => $message->isPinned(),
             'pinnedAt'    => $message->pinned_at?->toIso8601String(),
 
-            // Attachments have to travel with the payload. The recipient builds the
-            // message from this alone — nothing re-fetches it — so a message whose
-            // uploads were omitted rendered as an empty row on every screen but the
-            // sender's, where the API response had supplied them.
+            // O cliente monta a linha só com este payload, sem novo fetch, então
+            // anexos, menções e autor precisam vir junto.
             'uploads'     => $deleted ? [] : $this->uploadsPayload($message),
 
-            // Who the message is addressed to. Carried for the same reason the
-            // uploads are: the recipient builds the row from this payload alone.
-            //
-            // Without it a message arriving live could not be recognised as a
-            // mention — the highlight never appeared, and the notification sound
-            // had no way to honour a channel set to "mentions only", so it chimed
-            // on every message in every channel the user belonged to.
+            // Usado no destaque e no som de canais em "só menções".
             'mentionedUsers'      => $deleted ? [] : $message->mentions
                 ->where('type', 'user')
                 ->pluck('user_id')
@@ -734,19 +635,10 @@ class BroadcastListener
             'mentionsChannelWide' => ! $deleted
                 && $message->mentions->contains(fn ($mention) => $mention->isChannelWide()),
 
-            // The author, inlined for the same reason the uploads are.
-            //
-            // `userId` alone is only a *reference*: the client resolves it against
-            // whatever it already has in its local store, and a recipient who has
-            // never seen that person — a fresh page, a first message from someone
-            // new — resolves it to nothing and draws the row as "[deleted]".
-            // Sending the few fields the row actually uses costs a fraction of the
-            // message body and removes the failure entirely.
+            // `userId` só resolve se o autor já estiver no store do cliente.
             'user'        => $this->userPayload($message),
 
-            // The author's rank here, for the same reason: the row is drawn from
-            // this payload, and a recipient who has not loaded the channel's rank
-            // book has nothing else to read it from.
+            // O cargo também: quem não carregou os cargos do canal não teria de onde ler.
             'authorRank'  => $message->user_id !== null && $message->channel !== null
                 ? $this->ranks->forUser($message->channel, (int) $message->user_id)
                 : null,
@@ -760,9 +652,8 @@ class BroadcastListener
     {
         $user = $message->relationLoaded('user') ? $message->user : $message->user()->first();
 
-        // `instanceof` rather than a null check: the relation is typed as a bare
-        // Model on the way out, and a bot message has no author at all, so this
-        // is both the null guard and the narrowing the rest of the method needs.
+        // `instanceof` serve de checagem de null e de narrowing: a relação vem
+        // tipada como Model.
         if (! $user instanceof User) {
             return null;
         }
@@ -778,14 +669,8 @@ class BroadcastListener
     }
 
     /**
-     * The author's groups, for the badges drawn on their avatar.
-     *
-     * Hidden groups are dropped rather than filtered per recipient: one payload
-     * goes to every member of the channel, so anything in it is readable by all of
-     * them, and core only shows a hidden group to an actor holding
-     * `viewHiddenGroups`. A moderator who does hold it therefore sees the hidden
-     * badge appear on the next load rather than the instant the message lands —
-     * the alternative is broadcasting group membership the recipient may not see.
+     * Grupos do autor, para os badges. Grupos ocultos ficam de fora: o payload é
+     * o mesmo para todos, e o core só os mostra a quem tem `viewHiddenGroups`.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -811,8 +696,7 @@ class BroadcastListener
      */
     protected function uploadsPayload(Message $message): array
     {
-        // `uploads` may not be loaded — the send path sets other relations
-        // explicitly but not this one.
+        // O envio carrega outras relações, mas não `uploads`.
         $uploads = $message->relationLoaded('uploads')
             ? $message->uploads
             : $message->uploads()->get();
@@ -823,8 +707,7 @@ class BroadcastListener
                 'fileName'  => $upload->file_name,
                 'mimeType'  => $upload->mime_type,
                 'size'      => (int) $upload->size,
-                // Carried so the client can reserve layout space and avoid the row
-                // reflowing as the image loads.
+                // Para o cliente reservar espaço e a linha não pular ao carregar.
                 'width'     => $upload->width,
                 'height'    => $upload->height,
                 'url'       => $upload->url(),

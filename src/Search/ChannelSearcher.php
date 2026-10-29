@@ -15,10 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Channel;
 
 /**
- * Flarum 2 has no JSON:API resource filters — `AbstractDatabaseResource::filters()`
- * is final and throws, directing extensions to the search driver instead. Every
- * `filter[...]` the client sends therefore has to arrive through a searcher and
- * its registered FilterInterface implementations.
+ * No Flarum 2 o resource JSON:API não tem filtros (`filters()` é final e lança),
+ * então todo `filter[...]` do cliente passa por um searcher e seus filtros.
  */
 class ChannelSearcher extends AbstractSearcher
 {

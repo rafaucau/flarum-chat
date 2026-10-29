@@ -19,58 +19,13 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Realtime\Job\SendChatEventJob;
 
 /**
- * Delivers chat events over flarum/realtime's websocket.
+ * Entrega eventos do chat pelo websocket do flarum/realtime. Nunca usa o canal
+ * `public`, que todo cliente conectado (até visitante) assina: cada payload vai
+ * para os `private-user=<id>` de quem pode ver o canal.
  *
- * ## Why this never uses the `public` channel
- *
- * flarum/realtime exposes exactly two channel shapes: `public`, which every
- * connected client (including guests) is subscribed to, and `private-user=<id>`,
- * one per authenticated user. There is no per-chat-channel Pusher channel.
- *
- * Chat channels are permission-scoped — a category channel inherits its tag's
- * `viewForum`, direct channels are participants-only, and the whole feature sits
- * behind `ramon-chat.use`. Broadcasting a chat message on `public` would
- * therefore hand every message in every restricted channel to every connected
- * browser, regardless of permissions. So every chat payload is addressed to
- * specific users' private channels instead.
- *
- * ## Why nothing here talks to the daemon, and why it still runs now
- *
- * The HTTP call to the websocket daemon, and the queries that resolve who should
- * receive the event, both live in SendChatEventJob. But the job is *run*, not
- * enqueued, unless the forum asks otherwise.
- *
- * flarum/realtime enqueues its own pushes, and chat followed that for one
- * release. It is the wrong trade here. Flarum's database queue driver schedules
- * its worker `everyMinute()` with `--stop-when-empty`
- * (Flarum\Queue\QueueServiceProvider::registerSchedule), so on the queue path a
- * chat message can wait a full minute for delivery. A minute is nothing for the
- * "someone replied to your discussion" push that shape was designed for, and it
- * is not a chat.
- *
- * So the default is immediate, and `ramon-chat.queue_realtime` moves it back
- * onto the queue for the forums that need it: one whose web process cannot reach
- * the daemon, or one large enough that the fan-out belongs off the request. That
- * setting is only sane alongside a continuously running worker, so it is
- * ignored (and the push runs inline) while the queue is `sync` or `database`;
- * see QueueKind.
- *
- * ## Who receives a message
- *
- * The audience is the channel's active members — *not* intersected with who is
- * currently connected. Pusher's channel-list API is eventually consistent, so
- * using it to pick recipients drops messages at random; triggering on an
- * unsubscribed channel is free by comparison. See
- * SendChatEventJob::channelMembers().
- *
- * Restricting to members is deliberate: a non-member reading a public channel
- * picks up new messages on their next fetch rather than by push, which is the
- * correct trade — they have not opted into the channel.
- *
- * For tag-bound category channels the visibility scope is re-checked on top of
- * membership, because a membership row outlives a permission change: someone who
- * joined before the category was restricted still holds a row they can no longer
- * read through.
+ * O job roda na hora por padrão: na fila `database` do Flarum o worker roda uma
+ * vez por minuto, e chat não espera um minuto. `ramon-chat.queue_realtime` manda
+ * para a fila, mas só vale com worker contínuo (QueueKind).
  */
 class ChatBroadcaster
 {
@@ -84,12 +39,12 @@ class ChatBroadcaster
     }
 
     /**
-     * Sends an event to every eligible member of a channel.
+     * Envia para todo membro elegível do canal.
      *
      * @param  array<string, mixed>  $payload
-     * @param  int|null  $exceptUserId  The actor, who already knows what happened.
-     * @param  bool  $queue  Off the request whatever the setting says, for an
-     *                       audience too large to resolve inside it.
+     * @param  int|null  $exceptUserId  O ator, que já sabe o que aconteceu.
+     * @param  bool  $queue  Fora da request independentemente da configuração,
+     *                       para audiências grandes demais.
      */
     public function toChannelMembers(
         Channel $channel,
@@ -107,7 +62,7 @@ class ChatBroadcaster
     }
 
     /**
-     * Sends an event to one user's private channel.
+     * Envia para o canal privado de um usuário.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -121,7 +76,7 @@ class ChatBroadcaster
     }
 
     /**
-     * Sends an event to everyone holding `ramon-chat.moderate`.
+     * Envia para todos com `ramon-chat.moderate`.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -136,14 +91,9 @@ class ChatBroadcaster
     }
 
     /**
-     * Running the job must never be able to fail the action that caused the
-     * event: the message is already committed, and a client that misses the push
-     * reconciles through the API. A daemon that is down would otherwise turn
-     * every send into a 500.
-     *
-     * Nothing happens at all without a Pusher binding — PresenceBroadcaster is
-     * wired unconditionally, so on a forum with no realtime this is what keeps
-     * every keystroke from running a job that would resolve to a no-op.
+     * Nunca derruba a ação que gerou o evento: a mensagem já foi gravada e o
+     * cliente reconcilia pela API. Sem binding do Pusher não faz nada, o que poupa
+     * cada tecla digitada num fórum sem realtime.
      */
     protected function dispatch(SendChatEventJob $job, bool $queue = false): void
     {
@@ -152,10 +102,7 @@ class ChatBroadcaster
         }
 
         try {
-            // Only a continuously worked queue may take the push. Under `sync`
-            // the job would run inline anyway, and under `database` it would
-            // wait for the once-a-minute worker, so a stale switch or a large
-            // audience never delays a message there.
+            // Só fila com worker contínuo; em `sync` e `database` roda aqui.
             if (($queue || $this->settings->get('ramon-chat.queue_realtime'))
                 && QueueKind::defers($this->queue)) {
                 $this->queue->push($job);
@@ -163,13 +110,8 @@ class ChatBroadcaster
                 return;
             }
 
-            // `dispatchNow`, not `dispatchSync`. They read alike and are not: on a
-            // ShouldQueue job `dispatchSync` re-dispatches to the queue named
-            // 'sync', and Flarum's QueueFactory::connection() ignores the name it
-            // is given and hands back the one configured connection. On a forum
-            // using the database driver that quietly puts the job back on the
-            // queue the setting above exists to avoid. `dispatchNow` runs it in
-            // this process, full stop.
+            // `dispatchNow`, não `dispatchSync`: o QueueFactory do Flarum ignora o
+            // nome 'sync' e devolveria o job para a fila configurada.
             $this->bus->dispatchNow($job);
         } catch (\Throwable $e) {
             $this->log->warning('[ramon/chat] realtime dispatch failed: '.$e->getMessage());

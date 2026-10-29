@@ -15,7 +15,9 @@ use Ramon\Chat\Service\ChannelOwnership;
 use Ramon\Chat\Thread;
 
 /**
- * @see ChannelPolicy for why these methods return `?bool` rather than `bool`.
+ * Permissões sobre threads.
+ *
+ * @see ChannelPolicy sobre por que os métodos retornam `?bool` e não `bool`.
  */
 class ThreadPolicy extends AbstractPolicy
 {
@@ -26,15 +28,9 @@ class ThreadPolicy extends AbstractPolicy
     }
 
     /**
-     * Answered from the thread in hand wherever possible, and memoised either way
-     * — the same shape as MessagePolicy::view, and for the same reason: the thread
-     * list resolves capability fields per row, and asking the database whether a
-     * row you are holding exists is one `EXISTS` per thread on every draw.
-     *
-     * A thread is visible when its channel is and it is not deleted. Channel
-     * visibility is one memoised answer for the whole list.
-     *
-     * The query stays the fallback for a thread whose channel is not loaded.
+     * Como MessagePolicy::view: respondido a partir da thread em mãos e
+     * memoizado, para não rodar um `EXISTS` por linha. Sem o canal carregado, cai
+     * na query.
      */
     public function view(User $actor, Thread $thread): ?bool
     {
@@ -72,8 +68,7 @@ class ThreadPolicy extends AbstractPolicy
     }
 
     /**
-     * The thread's creator may retitle it; moderators may retitle any thread, and
-     * so may whoever moderates the channel it lives in.
+     * Renomeia o criador da thread, a moderação do chat ou quem modera o canal.
      */
     public function rename(User $actor, Thread $thread): ?bool
     {
@@ -95,7 +90,7 @@ class ThreadPolicy extends AbstractPolicy
     }
 
     /**
-     * Forum-wide `moderate`, or owning or moderating the thread's channel.
+     * `moderate` no fórum, ou ser dono ou moderador do canal da thread.
      */
     protected function moderates(User $actor, Thread $thread): bool
     {

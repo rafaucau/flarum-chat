@@ -22,40 +22,29 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelUser;
 
 /**
- * Delivers one chat event to the websocket daemon.
- *
- * A job because flarum/realtime models its own pushes as jobs — see
- * Flarum\Realtime\Push\EventSubscriber — and because it keeps the fan-out and
- * the audience query in one testable place rather than in the listener. But
- * whether it is *queued* or run immediately is ChatBroadcaster's call, and it
- * runs immediately by default: read the note there before changing it.
- *
- * Resolving the audience lives here rather than at the call site so that the
- * queued path, when a forum chooses it, moves the per-member visibility query
- * for tag-bound channels off the request along with the HTTP calls.
+ * Entrega um evento do chat ao daemon de websocket, resolvendo a audiência. Se
+ * vai para a fila ou roda na hora é decisão do ChatBroadcaster (padrão: na hora).
  */
 class SendChatEventJob extends AbstractJob
 {
     /**
-     * One attempt. A websocket push is only worth delivering while it is still
-     * current: by the time a retry ran, every client will have reconciled the
-     * message through the API anyway, and a duplicate push is noise.
+     * Uma tentativa: quando o retry rodasse, os clientes já teriam reconciliado
+     * pela API.
      */
     public int $tries = 1;
 
     /**
-     * Members a channel push is resolved for at a time. Each batch loads its own
-     * users and groups and is sent before the next is read, so a channel the
-     * size of the forum costs the memory of one batch rather than of all of it.
+     * Membros resolvidos por vez, para um canal do tamanho do fórum custar a
+     * memória de um lote só.
      */
     public const AUDIENCE_BATCH = 500;
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  int|null  $channelId     Fan out to this channel's members.
-     * @param  int|null  $userId        Or deliver to exactly this one user.
-     * @param  int|null  $exceptUserId  The actor, who already knows what happened.
-     * @param  bool  $moderators        Or deliver to everyone holding `ramon-chat.moderate`.
+     * @param  int|null  $channelId     Distribui aos membros deste canal.
+     * @param  int|null  $userId        Ou entrega só a este usuário.
+     * @param  int|null  $exceptUserId  O ator, que já sabe o que aconteceu.
+     * @param  bool  $moderators        Ou entrega a todos com `ramon-chat.moderate`.
      */
     public function __construct(
         protected string $event,
@@ -92,28 +81,26 @@ class SendChatEventJob extends AbstractJob
     }
 
     /**
-     * @param  Collection<int, int>  $recipients  User ids.
+     * @param  Collection<int, int>  $recipients  Ids de usuários.
      */
     protected function send(Pusher $pusher, LoggerInterface $log, Collection $recipients): void
     {
-        // Pusher caps a multi-channel trigger at 100 channels per call.
+        // O Pusher limita o trigger a 100 canais por chamada.
         foreach ($recipients->chunk(100) as $chunk) {
             $channels = $chunk->map(fn (int $id) => 'private-user='.$id)->values()->all();
 
             try {
                 $pusher->trigger($channels, $this->event, $this->payload);
             } catch (\Throwable $e) {
-                // Logged rather than rethrown: the message is already committed,
-                // and every client reconciles through the API regardless. Failing
-                // the job would only fill the failed-jobs table with events that
-                // are stale by the time anyone reads it.
+                // Loga sem relançar: a mensagem já foi gravada e o cliente
+                // reconcilia pela API.
                 $log->warning('[ramon/chat] realtime trigger failed: '.$e->getMessage());
             }
         }
     }
 
     /**
-     * Hands the channel's eligible members to $send, AUDIENCE_BATCH at a time.
+     * Passa os membros elegíveis a $send, AUDIENCE_BATCH por vez.
      *
      * @param  callable(Collection<int, int>): void  $send
      */
@@ -125,64 +112,39 @@ class SendChatEventJob extends AbstractJob
             return;
         }
 
-        // Deliberately NOT filtered by who is currently connected.
-        //
-        // Pusher's channel-list API is eventually consistent: a client that just
-        // subscribed may not appear yet, and one that just dropped may still be
-        // listed. Intersecting the audience with it therefore loses messages at
-        // random — which is exactly the "realtime works most of the time" symptom.
-        //
-        // Triggering on a channel nobody is subscribed to is free: the daemon
-        // discards it. Paying for that is strictly better than a race, and it also
-        // removes an HTTP round-trip to the daemon per broadcast.
-        //
-        // Read a batch at a time: plucking the whole membership and loading every
-        // user behind it held a general channel's entire audience in memory at
-        // once, inside the request that sent the message.
+        // Não filtra por quem está conectado: a lista de canais do Pusher é
+        // eventualmente consistente e perderia mensagens; disparar para canal sem
+        // assinante é de graça.
         $memberships = ChannelUser::query()
             ->where('channel_id', $channel->id)
             ->whereNull('left_at')
             ->when($this->exceptUserId !== null, fn ($q) => $q->where('user_id', '!=', $this->exceptUserId))
             ->select(['id', 'user_id']);
 
-        // Decided once per distinct permission set rather than once per member,
-        // and shared across batches. This runs inside the request that sent the
-        // message, so every query is latency the sender waits on, and the answer
-        // is the same for everyone whose permissions are the same. See
-        // PermissionSetVisibility.
+        // Uma resposta por conjunto de permissões, compartilhada entre lotes: isto
+        // roda na request de quem enviou.
         $visibility = new PermissionSetVisibility();
 
-        // For a direct or untagged channel, membership plus the chat gate *is*
-        // the visibility rule. A deleted channel is excluded by the scope itself,
-        // so asking it would drop everyone — and the one thing still sent about a
-        // deleted channel is that it is gone, which its former members must hear.
+        // Em canal direto ou sem tag, filiação mais o gate do chat já é a regra. O
+        // scope exclui canal apagado, e o aviso de que ele sumiu precisa chegar.
         $gateOnly = $channel->isDirect() || $channel->tag_id === null || $channel->deleted_at !== null;
         $channelId = (int) $channel->id;
 
         $memberships->chunkById(self::AUDIENCE_BATCH, function ($batch) use ($send, $visibility, $gateOnly, $channelId) {
-            // `groups` eager-loaded because `permissionGroupIds()` reads it, and
-            // this runs inside the send request — leaving it lazy put the
-            // per-member query back in by another door.
-            //
-            // `whereKey` rather than `whereIn('id', ...)`: the two do the same
-            // thing, but `whereIn` is reached through Eloquent's mixin onto the
-            // query builder and comes back typed as that builder, which loses the
-            // model type and turns the collection below into one of anonymous rows.
+            // `groups` em eager load porque `permissionGroupIds()` o lê. `whereKey`
+            // e não `whereIn`, que pelo mixin volta tipado como o builder base e
+            // perde o tipo do model.
             $users = User::query()
                 ->whereKey($batch->pluck('user_id')->map(fn ($id) => (int) $id)->all())
                 ->with('groups')
                 ->get();
 
-            // Every audience passes the chat gate first. A membership row outlives
-            // the permission behind it: a member whose `ramon-chat.use` was
-            // revoked, or who was suspended (flarum/suspend demotes their groups),
-            // still holds the row, and a direct channel's private messages kept
-            // reaching them.
+            // Todos passam pelo gate do chat: a filiação sobrevive à perda de
+            // `ramon-chat.use` ou à suspensão.
             $users = $users->filter(fn (User $user) => $visibility->usesChat($user));
 
-            // A tag-bound channel inherits the tag's `viewForum`, and a membership
-            // row outlives a permission change — so someone who joined before the
-            // category was restricted must not keep receiving pushes.
+            // Canal com tag herda o `viewForum`, e quem entrou antes da categoria
+            // ficar restrita não pode continuar recebendo.
             if (! $gateOnly) {
                 $users = $users->filter(fn (User $user) => $visibility->channelVisible($user, $channelId));
             }
@@ -196,8 +158,8 @@ class SendChatEventJob extends AbstractJob
     }
 
     /**
-     * A push addressed to one person, still behind the chat gate: the
-     * membership and invitation events it carries are chat data too.
+     * Push para uma pessoa, ainda atrás do gate: eventos de filiação e convite
+     * também são dados do chat.
      *
      * @return Collection<int, int>
      */
@@ -213,15 +175,9 @@ class SendChatEventJob extends AbstractJob
     }
 
     /**
-     * Everyone who works the moderation queue.
-     *
-     * Narrowed in SQL to the groups granted `ramon-chat.moderate`, plus the
-     * administrators, who hold every permission without being listed; then
-     * asked of each user, which is what honours flarum/suspend's demotion.
-     *
-     * A forum that grants the permission to every member has no moderators to
-     * single out, and pushing to every account would be a broadcast in all but
-     * name. Nothing is sent there; the badge catches up on the next page load.
+     * Quem cuida da fila de moderação: os grupos com `ramon-chat.moderate` mais os
+     * admins, conferidos usuário a usuário (respeita a suspensão). Se a permissão
+     * é de todos os membros, nada é enviado; o contador atualiza no próximo load.
      *
      * @return Collection<int, int>
      */
@@ -249,8 +205,8 @@ class SendChatEventJob extends AbstractJob
     }
 
     /**
-     * Null when flarum/realtime is not installed or not booted, which is what
-     * makes the job safe to run in an install that has since disabled it.
+     * Null sem flarum/realtime, para o job rodar sem erro se a extensão foi
+     * desligada depois.
      */
     protected function pusher(Container $container): ?Pusher
     {

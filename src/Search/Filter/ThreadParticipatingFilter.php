@@ -14,8 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[participating]=1` — backs the "My Threads" link at the top of the chat
- * sidebar.
+ * `filter[participating]=1`: o link "Minhas threads" da sidebar.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -58,8 +57,7 @@ class ThreadParticipatingFilter implements FilterInterface
                 ->from('chat_thread_user')
                 ->whereColumn('chat_thread_user.thread_id', 'chat_threads.id')
                 ->where('chat_thread_user.user_id', $actor->id)
-                // Level 0 means the user deliberately stopped tracking, so the
-                // thread drops out of "My Threads".
+                // Nível 0: o usuário deixou de acompanhar.
                 ->where('chat_thread_user.notification_level', '>', 0);
         };
 

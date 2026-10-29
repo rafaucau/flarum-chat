@@ -15,16 +15,13 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Thread;
 
 /**
- * Threads inherit their channel's visibility.
+ * Threads herdam a visibilidade do canal.
  */
 class ScopeThreadVisibility
 {
     /**
-     * The row-level half of the scope, for a thread already loaded.
-     *
-     * Written twice — as SQL below, in PHP here — and the two must stay in step;
-     * they share this file for that reason. See ScopeMessageVisibility, which
-     * carries the same pair for the same reason.
+     * A mesma regra do SQL abaixo, em PHP, para uma thread já carregada. As duas
+     * precisam andar juntas.
      */
     public static function rowVisibleTo(Thread $thread, bool $channelVisible): bool
     {

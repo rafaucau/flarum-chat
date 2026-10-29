@@ -14,13 +14,10 @@ use Illuminate\Queue\DatabaseQueue;
 use Illuminate\Queue\SyncQueue;
 
 /**
- * What kind of queue the forum runs, as far as a realtime push cares.
- *
- * Read the way Flarum\Queue\QueueServiceProvider reads it: the routing wrapper
- * core puts around an async driver is unwrapped first. `sync` runs a pushed job
- * inline anyway, and `database` is worked by `schedule:run` once a minute, so
- * only a continuously worked queue (fof/redis and the like) can take a chat
- * push without delaying it.
+ * Tipo de fila do fórum, do ponto de vista do push realtime. Desembrulha o
+ * RoutingQueue do core primeiro. `sync` roda inline e `database` só roda uma vez
+ * por minuto pelo `schedule:run`; só uma fila com worker contínuo (fof/redis etc.)
+ * recebe o push sem atrasar.
  */
 final class QueueKind
 {
@@ -48,7 +45,7 @@ final class QueueKind
     }
 
     /**
-     * Whether a push may leave the request without arriving late.
+     * Se o push pode sair da request sem chegar atrasado.
      */
     public static function defers(mixed $queue): bool
     {

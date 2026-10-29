@@ -15,23 +15,15 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * An in-memory account holding exactly a given set of permissions, used to ask
- * "could the least-privileged reader of this place see that?".
- *
- * Copying something from one audience into another — a new discussion into a
- * channel — is only safe when everyone who can read the destination could
- * already read the source. Listing every reader is not possible for a public
- * room, so the question is asked of the weakest reader instead: a confirmed
- * member with no groups beyond what the destination itself demands.
- *
- * The probe has id 0, so every "is this yours" branch of a visibility scope
- * (the author of an unapproved post, a recipient of a private discussion) finds
- * nothing, and no groups, so it is never an administrator. It is never saved.
+ * Conta em memória com exatamente as permissões dadas, para perguntar se o leitor
+ * menos privilegiado de um lugar veria algo. Copiar uma discussão para um canal só
+ * é seguro se ele já a via. Id 0 e sem grupos: nada é "dele" e nunca é admin.
+ * Nunca é salva.
  */
 final class AudienceProbe extends User
 {
     /**
-     * @param  string[]  $extra  Permissions on top of what guests and members hold.
+     * @param  string[]  $extra  Permissões além das de visitantes e membros.
      */
     public static function memberWith(array $extra = []): self
     {
@@ -46,8 +38,7 @@ final class AudienceProbe extends User
         $probe->is_email_confirmed = true;
         $probe->setRelation('groups', new Collection());
 
-        // Preset so `getPermissions()` never derives them from groups: the point
-        // is that this account holds what it is given and nothing else.
+        // Preenchido para `getPermissions()` não derivar nada dos grupos.
         $probe->permissions = array_values(array_unique(array_merge($base, $extra)));
 
         return $probe;

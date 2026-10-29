@@ -16,23 +16,9 @@ use Ramon\Chat\Access\ScopeChannelVisibility;
 use Ramon\Chat\Channel;
 
 /**
- * `filter[chatChannel]=7` on the user search — only people in that channel.
- *
- * The composer's `@` autocomplete uses it. Without it the suggestions came from
- * the whole forum, which is wrong twice over: mentioning someone who is not in the
- * channel notifies them about a conversation they cannot open, and in a private
- * channel it offered a list of people who cannot even see that the channel exists.
- *
- * ## Why the channel is re-checked here
- *
- * The filter is reachable by anyone who can search users, with any channel id. If
- * it simply joined on membership, `filter[chatChannel]=<any id>` would become a way
- * to enumerate the membership of a private channel from the outside. So the channel
- * is loaded through `whereVisibleTo` first, and an id the actor cannot see yields
- * an empty result rather than a leak.
- *
- * Hidden memberships are excluded for the same reason they are hidden everywhere
- * else: a lurking moderator should not be suggested as a participant.
+ * `filter[chatChannel]=7` na busca de usuários: só quem está no canal (autocomplete
+ * do `@`). O canal passa por `whereVisibleTo` antes, senão qualquer id serviria para
+ * listar membros de um canal privado. Membros ocultos ficam de fora.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -58,8 +44,7 @@ class UserChatChannelFilter implements FilterInterface
             ->find($channelId);
 
         if ($channel === null || ! ScopeChannelVisibility::readsContents($actor, $channel)) {
-            // Fail closed: an unreadable channel narrows the search to nothing
-            // rather than falling back to every user on the forum.
+            // Falha fechado: nada, em vez de todo o fórum.
             $state->getQuery()->whereRaw('1 = 0');
 
             return;

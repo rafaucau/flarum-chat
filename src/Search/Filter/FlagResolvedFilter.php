@@ -14,10 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[resolved]=1` — reports a moderator has already dealt with.
- *
- * Absent, the queue shows only what is still open: the resolved ones are history,
- * worth keeping and not worth putting in front of someone every time they look.
+ * `filter[resolved]=1`: inclui as denúncias já resolvidas. Com `0`, só as abertas.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -44,14 +41,9 @@ class FlagResolvedFilter implements FilterInterface
             $wanted = ! $wanted;
         }
 
-        // `resolved=1` widens rather than narrows: a moderator asking to see the
-        // handled ones wants the whole history, not only the closed half of it.
-        // Narrowing would leave them looking at a list with the open work missing.
-        //
-        // Which is why the *client* always sends this, `0` or `1`, and the searcher
-        // applies no default of its own. A default in `getQuery()` could not be
-        // undone here — filters run after it — so the alternative was a bare
-        // listing that quietly disagreed with the filtered one.
+        // `resolved=1` amplia, não estreita: mostra o histórico inteiro. O cliente
+        // sempre manda `0` ou `1`; um padrão no searcher não poderia ser desfeito
+        // aqui, porque os filtros rodam depois.
         if ($wanted) {
             return;
         }

@@ -15,26 +15,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\MessageFlag;
 
 /**
- * Backs the moderation queue's listing and its one filter.
- *
- * Flarum 2 has no resource-level filters — `AbstractDatabaseResource::filters()`
- * is final and throws — so every `filter[x]` a client sends has to arrive through
- * a searcher. Without one the API rejects the parameter outright, which is what a
- * plain `?resolved=1` ran into.
- *
- * The authorisation is repeated here rather than left to the resource's `scope()`.
- * `Endpoint\Index` builds its query from the searcher and **discards** the scoped
- * one entirely (see Index::setUp), so a searcher that trusted `scope()` would be
- * an unguarded listing — MessageSearcher repeats `whereVisibleTo` for the same
- * reason.
+ * Listagem da fila de moderação. A autorização se repete aqui porque o
+ * `Endpoint\Index` monta a query a partir do searcher e descarta a do `scope()`
+ * do resource.
  */
 class MessageFlagSearcher extends AbstractSearcher
 {
     public function getQuery(User $actor): Builder
     {
-        // Built as statements rather than one chain: `select`, `whereRaw` and
-        // friends are typed as returning the lower-level query builder, and this
-        // method owes its caller an Eloquent one.
+        // Em comandos separados: `select` e `whereRaw` são tipados como retornando
+        // o query builder base, e o método deve um Builder do Eloquent.
         $query = MessageFlag::query();
         $query->select('chat_message_flags.*');
 
@@ -44,9 +34,8 @@ class MessageFlagSearcher extends AbstractSearcher
             return $query;
         }
 
-        // The queue inherits message visibility rather than defining its own: it
-        // must never show a report about something the actor could not have read
-        // in the channel it was posted in.
+        // Herda a visibilidade da mensagem: a fila nunca mostra denúncia sobre algo
+        // que o ator não poderia ler no canal.
         $query->whereHas('message', function (Builder $sub) use ($actor) {
             // @phpstan-ignore method.notFound (Flarum model scope)
             $sub->whereVisibleTo($actor);

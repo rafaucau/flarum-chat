@@ -16,23 +16,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Channel;
 
 /**
- * Restricts channel queries to what the actor may see.
- *
- * Category channels inherit their bound tag's `viewForum` permission, which is
- * what makes "a channel on the #lounge category is automatically TL3+ only"
- * work without a parallel permission system. Direct channels are visible only
- * to their participants.
+ * Restringe as queries de canais ao que o ator pode ver. Canais de categoria
+ * herdam o `viewForum` da tag vinculada, sem um sistema de permissões paralelo;
+ * canais diretos só aparecem para os participantes.
  */
 class ScopeChannelVisibility
 {
     /**
-     * Whether this channel is inside the actor's visible set, memoised.
-     *
-     * Deliberately *not* `$actor->can('view', $channel)`. That answer goes through
-     * the Gate, which applies its `isAdmin() || hasPermission()` fallback whenever
-     * a policy abstains — so an administrator is told they can view a channel the
-     * scope excludes. Anything reasoning about what the *scope* would return has to
-     * ask the scope, or it grants access the query never would.
+     * Memoizado. Não usa `$actor->can('view', $channel)`: o fallback de admin do
+     * Gate diria que o admin vê um canal que o scope exclui.
      */
     public static function visibleTo(User $actor, Channel $channel, VisibilityCache $cache): bool
     {
@@ -50,11 +42,7 @@ class ScopeChannelVisibility
 
     public function __invoke(User $actor, Builder $query): void
     {
-        // The global gate. Without it there is nothing to scope.
-        //
-        // One right, not two. A separate `ramon-chat.view` briefly let guests read
-        // public channels; it has been withdrawn, so participating and reading are
-        // the same permission again.
+        // Gate global: ler e participar são a mesma permissão.
         if (! $actor->can('useChat')) {
             $query->whereRaw('1 = 0');
 
@@ -63,17 +51,12 @@ class ScopeChannelVisibility
 
         $query->whereNull('chat_channels.deleted_at');
 
-        // Not `class_exists(Tag::class)`: the class is autoloaded whenever the
-        // package sits in vendor/, which says nothing about whether its migrations
-        // ran. A forum that pulled flarum/tags in as a dependency and never enabled
-        // it has the class and no `tags` table, and the subquery below then fails
-        // the whole channel listing with a 500.
+        // Não `class_exists(Tag::class)`: a classe existe em vendor/ mesmo com a
+        // extensão desligada e sem a tabela `tags`, e a subquery daria 500.
         $tagsAvailable = $this->extensions->isEnabled('flarum-tags');
 
         $query->where(function (Builder $query) use ($actor, $tagsAvailable) {
-            // Direct channels: participants only, and only while they have not
-            // left. Guests can never be participants, so this branch is a no-op
-            // for them.
+            // Canais diretos: só participantes que não saíram.
             if ($actor->exists) {
                 $query->orWhere(function (Builder $query) use ($actor) {
                     $query
@@ -88,7 +71,7 @@ class ScopeChannelVisibility
                 });
             }
 
-            // Forum-wide category channels (no bound tag).
+            // Canais de categoria sem tag.
             $query->orWhere(function (Builder $query) use ($actor) {
                 $query
                     ->where('chat_channels.type', 'category')
@@ -97,9 +80,8 @@ class ScopeChannelVisibility
                 $this->restrictPrivate($query, $actor);
             });
 
-            // Tag-bound category channels. When flarum/tags is unavailable these
-            // stay hidden rather than becoming public — failing closed is the
-            // only safe direction for an inherited-permission model.
+            // Canais vinculados a tag. Sem flarum/tags ficam ocultos, não
+            // públicos: com permissão herdada, só falhar fechado é seguro.
             if ($tagsAvailable) {
                 $query->orWhere(function (Builder $query) use ($actor) {
                     $query
@@ -112,8 +94,7 @@ class ScopeChannelVisibility
                                 ->select('tags.id');
                         });
 
-                    // Composes with the tag check rather than replacing it: a
-                    // private channel on a restricted category is restricted twice.
+                    // Soma-se à checagem da tag, não a substitui.
                     $this->restrictPrivate($query, $actor);
                 });
             }
@@ -121,28 +102,12 @@ class ScopeChannelVisibility
     }
 
     /**
-     * Narrows a category-channel branch so private channels reach members only.
-     *
-     * A public channel passes straight through. A private one requires a live
-     * membership row, which is what makes it invitation-only: it cannot be found in
-     * Browse, cannot be joined from there, and its name is never shown to anyone who
-     * was not added.
-     *
-     * Two grants lift that, and both are exemptions from the membership test rather
-     * than from the channel's own rules — someone holding either still cannot post
-     * without joining first (see ChannelPolicy::postMessage):
-     *
-     *  - `accessPrivateChannels`, the dedicated right. It exists so that opening
-     *    private channels to a group — a staff group, a team, a paid tier — costs
-     *    one permission rather than the whole of `moderate`.
-     *  - `moderate`, which keeps it because a private channel a moderator cannot
-     *    see is one they cannot moderate. The same trade Flarum makes for private
-     *    discussions.
+     * Canal privado só para membros (ou convidados). `accessPrivateChannels`,
+     * `moderate` e `inspectChannels` dispensam a filiação para ver, não para
+     * postar (ChannelPolicy::postMessage).
      */
     protected function restrictPrivate(Builder $query, User $actor): void
     {
-        // `inspectChannels` too: observing a room unnoticed starts with being
-        // able to find it, and a private channel is the one most worth a look.
         if (self::bypassesPrivacy($actor)) {
             return;
         }
@@ -150,8 +115,6 @@ class ScopeChannelVisibility
         $query->where(function (Builder $query) use ($actor) {
             $query->where('chat_channels.is_private', false);
 
-            // A guest has no membership to find, so the branch is simply skipped
-            // and every private channel stays hidden from them.
             if (! $actor->exists) {
                 return;
             }
@@ -164,13 +127,9 @@ class ScopeChannelVisibility
                     ->whereNull('chat_channel_user.left_at');
             });
 
-            // A pending invitation opens the row, and only the row: the invitee
-            // sees what they are being asked into (name, description, member
-            // count), the notification about it can be listed (core hides a
-            // notification whose subject the reader cannot see), and Browse can
-            // offer the answer. The channel's contents stay behind
-            // `restrictContents()`, which requires the membership accepting
-            // creates.
+            // Convite pendente abre só a linha: o convidado vê para onde foi
+            // chamado e o core lista a notificação. O conteúdo fica atrás de
+            // `restrictContents()`.
             $query->orWhereExists(function ($sub) use ($actor) {
                 $sub->selectRaw(1)
                     ->from('chat_channel_invites')
@@ -181,14 +140,8 @@ class ScopeChannelVisibility
     }
 
     /**
-     * Whether the actor may read what is *in* the channel, as opposed to that
-     * the channel exists.
-     *
-     * The two differ only for a private channel with a pending invitation: its
-     * row is visible so the invitation can be answered, but its messages,
-     * threads and attachments are not until the invitation is accepted. The PHP
-     * form of the rule; `restrictContents()` is the SQL form, and the two must
-     * stay in step.
+     * Se o ator lê o que há dentro do canal. Só difere de ver o canal no privado
+     * com convite pendente. Forma PHP de `restrictContents()`; as duas andam juntas.
      */
     public static function readsContents(User $actor, Channel $channel): bool
     {
@@ -204,9 +157,7 @@ class ScopeChannelVisibility
     }
 
     /**
-     * Narrows a query over `chat_channels` to the channels whose contents the
-     * actor may read. Applied by the message and thread scopes on top of
-     * `whereVisibleTo`.
+     * Aplicado pelos scopes de mensagem e thread sobre `whereVisibleTo`.
      */
     public static function restrictContents(Builder $query, User $actor): void
     {
@@ -232,7 +183,7 @@ class ScopeChannelVisibility
     }
 
     /**
-     * The three grants that see every private channel, members or not.
+     * As três permissões que veem todo canal privado.
      */
     protected static function bypassesPrivacy(User $actor): bool
     {

@@ -24,32 +24,15 @@ use Illuminate\Support\Str;
 use Ramon\Chat\Upload;
 
 /**
- * Public attachments written through fof/upload's storage adapters.
- *
- * fof/upload is used as a driver and nothing more. Its adapters know how to put
- * bytes on S3, Qiniu or a CDN-fronted local directory and how to name the URL
- * that results, which is the part worth borrowing. Everything else stays the
- * chat's: the permission is `ramon-chat.upload`, the mime allow-list and size
- * limit are the chat's own, and no `fof_upload_files` row is ever written.
- *
- * That last point is load-bearing. fof/upload treats a file with no post as
- * abandoned, and its cleanup command deletes those. A chat attachment never has
- * a post, so a row there would put every chat file on fof's delete list. The
- * `File` passed to the adapter is built in memory, used, and dropped unsaved.
- *
- * Only Flysystem-backed adapters are accepted. Imgur (the one adapter that is
- * not) re-encodes and re-hosts the image under its own terms and cannot delete
- * by path, which breaks every delete path the chat relies on.
- *
- * This is the only class that names anything in the FoF namespace. It is built
- * by UploadStorage, which first checks that fof/upload is installed and
- * enabled, so a forum without it never loads these classes.
+ * Anexos públicos gravados pelos adapters do fof/upload, usado só como driver:
+ * permissão, mimes e limites são do chat. Nunca grava `fof_upload_files`, porque
+ * o cleanup do fof apaga arquivos sem post. Só adapters Flysystem (o Imgur não
+ * apaga por path). Única classe que toca o namespace FoF.
  */
 class FofUploadStore implements UploadStore
 {
     /**
-     * Seconds. Generous for a bucket, short enough that a request serving a
-     * private file, or the job moving one, gives up rather than hangs.
+     * Segundos: curto o bastante para a request ou o job desistir em vez de travar.
      */
     public const CONNECT_TIMEOUT = 5;
     public const TIMEOUT = 30;
@@ -61,8 +44,7 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * Whether fof/upload's classes are present at all. Enabled or not is
-     * UploadStorage's question.
+     * Só se as classes existem; se a extensão está ligada é com o UploadStorage.
      */
     public static function supported(): bool
     {
@@ -70,8 +52,7 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The adapters an admin may pick for chat attachments: every one fof/upload
-     * reports as usable, minus Imgur.
+     * Adapters que o admin pode escolher: os disponíveis no fof/upload, menos Imgur.
      *
      * @return string[]
      */
@@ -90,8 +71,8 @@ class FofUploadStore implements UploadStore
         $adapter = $this->adapterFor((string) $upload->mime_type);
 
         $file = $this->file($upload);
-        // Server generated, like the local store's: the client's filename never
-        // reaches a path. The adapter prefixes it with a date and a timestamp.
+        // Gerado no servidor: o nome do cliente nunca vira path. O adapter
+        // acrescenta data e timestamp.
         $file->base_name = Str::random(28).'.'.$extension;
 
         try {
@@ -114,23 +95,17 @@ class FofUploadStore implements UploadStore
     {
         $adapter = $this->adapterOf($upload);
 
-        // Flysystem's delete is quiet about a missing file and returns false only
-        // when the backend refused.
+        // O Flysystem não reclama de arquivo ausente; false só quando o backend
+        // recusou.
         if ($adapter->delete($this->file($upload)) === false) {
             throw new StorageFailed("fof/upload adapter {$adapter->adapterKey} could not delete {$upload->path}.");
         }
     }
 
     /**
-     * Fetched the way fof/upload fetches its own files — off disk for the local
-     * adapter, over HTTP from the public URL for everything else — but not with
-     * fof/upload's downloader, whose HTTP client has no timeout: one slow bucket
-     * would hold a request, or a queue worker, for as long as it liked.
-     *
-     * The URL is the row's, so it is only fetched when its host is the one the
-     * adapter would name for the same path today. A row edited to point at an
-     * internal address is refused before any connection is made. Only a 200
-     * counts; an error page from the bucket must not be served as the file.
+     * Do disco no adapter local, por HTTP nos demais, sem o downloader do
+     * fof/upload (o cliente dele não tem timeout). A URL vem da linha, então só é
+     * buscada se o host bate com o que o adapter geraria hoje: barra SSRF.
      */
     public function readStream(Upload $upload)
     {
@@ -153,8 +128,8 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * fof/upload's local adapter writes under `public/assets/files`. Read from
-     * there directly, confined to that directory: the path comes from the row.
+     * O adapter local grava em `public/assets/files`. A leitura fica confinada ao
+     * diretório porque o path vem da linha.
      *
      * @return resource|null
      */
@@ -181,9 +156,8 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The row's URL, if it is http(s) on the host the file's adapter would
-     * generate for the same path now. Asking the adapter is what makes the
-     * check independent of the row: its host comes from the admin's settings.
+     * A URL da linha, se for http(s) no host que o adapter geraria hoje. O host
+     * esperado vem das configurações do admin, não da linha.
      */
     protected function trustedUrl(Upload $upload): ?string
     {
@@ -201,9 +175,8 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The URL the file's adapter names for its path. `generateUrl` is protected
-     * on fof/upload's Flysystem base, so it is called from that scope; it reads
-     * only settings and the path, and writes nothing but the File it is given.
+     * `generateUrl` é protected na base Flysystem do fof/upload, por isso o
+     * Closure::bind. Só lê configurações e o path, e só escreve no File dado.
      */
     protected function generatedUrl(Upload $upload): string
     {
@@ -222,10 +195,9 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * Downloads into a temporary stream. Bounded three ways: connecting, the
-     * whole transfer, and size — the file is a copy of one the chat wrote, so a
-     * body much larger than the recorded size is not it. Redirects are not
-     * followed, since they would lead off the host just checked.
+     * Baixa para um stream temporário, com limite de conexão, de tempo e de tamanho
+     * (bem maior que o registrado não é o arquivo). Sem redirects, que sairiam do
+     * host checado. Só 200 conta.
      *
      * @return resource|null
      */
@@ -253,16 +225,15 @@ class FofUploadStore implements UploadStore
             return null;
         }
 
-        // Checked again once it is in: the progress callback is how cURL aborts
-        // early, and not every handler calls it.
+        // De novo no fim: nem todo handler chama o callback de progresso.
         if ($response->getStatusCode() !== 200 || ($response->getBody()->getSize() ?? 0) > $limit) {
             $sink->close();
 
             return null;
         }
 
-        // Wrapped rather than detached: the wrapper keeps the PSR stream alive,
-        // which would otherwise close the handle when it went out of scope.
+        // Wrapper, não detach: mantém vivo o stream PSR, que fecharia o handle ao
+        // sair do escopo.
         try {
             $body = $response->getBody();
             $body->rewind();
@@ -279,8 +250,8 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The adapter a new file goes to: the one picked in the chat's settings, or,
-     * when none is, the one fof/upload's own mime mapping names for this type.
+     * Para arquivo novo: o adapter escolhido no chat ou, sem escolha, o do
+     * mapeamento de mimes do fof/upload.
      */
     protected function adapterFor(string $mime): Flysystem
     {
@@ -298,9 +269,8 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The adapter an existing file was written with. The recorded key, not the
-     * current settings: an admin who switches adapter must not strand every file
-     * written before the switch.
+     * Para arquivo existente: a chave gravada, não a configuração atual, para a
+     * troca de adapter não deixar os antigos órfãos.
      */
     protected function adapterOf(Upload $upload): Flysystem
     {
@@ -329,8 +299,7 @@ class FofUploadStore implements UploadStore
     }
 
     /**
-     * The in-memory record the adapter API is shaped around. Never saved; see
-     * the class note for why.
+     * Registro em memória que a API do adapter exige. Nunca é salvo.
      */
     protected function file(Upload $upload): File
     {

@@ -15,19 +15,9 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[updatedSince]=1754400000` — messages touched since a known point.
- *
- * The polling fallback's other cursor, `greaterThan`, only ever reaches forward
- * from the newest id, so it can carry a message that *arrived* but never one that
- * *changed*: a reaction, an edit, a deletion or a pin lands on a row the poll has
- * already passed, and none of them appeared until the page was reloaded. This
- * filter is what lets the poll ask the second question.
- *
- * The bound is inclusive because `updated_at` is stored to the second. An
- * exclusive `>` would drop any change made in the same second as the client's
- * cursor but after its request ran — and dropping it is permanent, since nothing
- * would ever ask for that second again. The cost of being inclusive is re-reading
- * the boundary row on each poll, which is one row.
+ * `filter[updatedSince]=1754400000`: mensagens alteradas desde um ponto. O polling
+ * usa junto com `greaterThan`, que só traz as novas, para pegar edições, reações e
+ * fixações. O limite é inclusivo porque `updated_at` tem precisão de segundo.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -46,9 +36,8 @@ class MessageChangedFilter implements FilterInterface
             return;
         }
 
-        // Explicitly UTC: the column is written from Carbon::now() under Flarum's
-        // UTC default, and letting the timezone come from php.ini would shift the
-        // comparison by whatever the host happens to be configured for.
+        // UTC explícito: a coluna é gravada em UTC, e o fuso do php.ini deslocaria
+        // a comparação.
         $state->getQuery()->where(
             'chat_messages.updated_at',
             $negate ? '<' : '>=',

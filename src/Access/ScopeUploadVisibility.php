@@ -14,14 +14,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Message;
 
 /**
- * An upload is visible when its message is. Unattached uploads are visible only
- * to their uploader, which is what keeps a pending composer attachment private
- * until the message is sent.
- *
- * Registered as a model scope rather than written into UploadResource alone,
- * because two doors now open onto the same files: the JSON:API resource and
- * ServeUploadController, which streams a private channel's attachments. One rule
- * in one place is what keeps the two from drifting apart.
+ * Upload é visível quando a mensagem dele é. Sem mensagem, só o autor vê: é o
+ * anexo pendente no composer. Fica como scope do model porque o UploadResource e
+ * o ServeUploadController servem os mesmos arquivos e precisam da mesma regra.
  */
 class ScopeUploadVisibility
 {
