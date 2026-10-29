@@ -13,6 +13,7 @@ use Flarum\Foundation\ValidationException;
 use Flarum\Locale\Translator;
 use Flarum\Post\Exception\FloodingException;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Flarum\User\Guest;
 use Illuminate\Contracts\Events\Dispatcher as Events;
 use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -112,8 +113,10 @@ class WebhookDeliveryController implements RequestHandlerInterface
         // made deliveries render as a deleted account.
         $author = $webhook->author();
 
+        // Quem chama só tem a chave: o texto é interpretado como visitante, nunca
+        // com as permissões do admin escolhido como autor.
         $message = $author !== null
-            ? Message::build($channel, $author, $text)
+            ? Message::build($channel, $author, $text, parseAs: new Guest())
             : Message::buildBot($channel, null, $text);
 
         $message->webhook_id = $webhook->id;

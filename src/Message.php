@@ -16,6 +16,7 @@ use Flarum\Formatter\Formattable;
 use Flarum\Formatter\HasFormattedContent;
 use Flarum\Foundation\EventGeneratorTrait;
 use Flarum\Post\Post;
+use Flarum\User\Guest;
 use Flarum\User\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -161,7 +162,8 @@ class Message extends AbstractModel implements Formattable
         ?User $user,
         string $content,
         ?Thread $thread = null,
-        ?Message $replyTo = null
+        ?Message $replyTo = null,
+        ?User $parseAs = null
     ): static {
         $message = new static();
 
@@ -173,8 +175,10 @@ class Message extends AbstractModel implements Formattable
         $message->created_at = Carbon::now();
 
         // Assigned via the mutator so the formatter parses it with the author as
-        // the acting user (mentions, permissions inside the formatter pipeline).
-        $message->setContentAttribute($content, $user);
+        // the acting user (mentions, permissions inside the formatter pipeline),
+        // unless the text is someone else's: an announced excerpt or a webhook
+        // delivery is parsed as `$parseAs` instead.
+        $message->setContentAttribute($content, $parseAs ?? $user);
 
         return $message;
     }
@@ -199,10 +203,11 @@ class Message extends AbstractModel implements Formattable
      * and mentions render identically; the only difference is that the author is
      * drawn from settings instead of a user record.
      *
-     * `$actor` is who the formatter parses as. Passing null means the content is
-     * parsed as a guest would write it, which is deliberate: the bot must not
+     * The content is parsed as a guest, which is deliberate: the bot must not
      * inherit a member's permissions inside the formatter pipeline just because
-     * their action is what triggered the post.
+     * their action is what triggered the post. Not a null actor: flarum/mentions
+     * reads null as "no restriction" and would resolve mentions of hidden posts
+     * and groups into links every reader of the channel sees.
      *
      * @param  array<string, mixed>  $data  Structured detail kept alongside the
      *                                      prose, so the message stays queryable
@@ -220,7 +225,7 @@ class Message extends AbstractModel implements Formattable
         $message->system_data = $data;
         $message->created_at = Carbon::now();
 
-        $message->setContentAttribute($content, null);
+        $message->setContentAttribute($content, new Guest());
 
         return $message;
     }

@@ -13,6 +13,7 @@ use Flarum\Discussion\Discussion;
 use Flarum\Post\Event\Posted;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\Tags\Tag;
+use Flarum\User\Guest;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher as Events;
 use Ramon\Chat\Access\AudienceProbe;
@@ -113,7 +114,7 @@ class AnnounceDiscussions
             $announcer = $this->announcer();
 
             $message = $announcer !== null
-                ? Message::build($channel, $announcer, $body)
+                ? Message::build($channel, $announcer, $body, parseAs: new Guest())
                 : Message::buildBot(
                     $channel,
                     'discussion_started',
