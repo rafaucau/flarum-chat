@@ -9,6 +9,8 @@
 
 namespace Ramon\Chat\Tests\integration;
 
+use Flarum\Discussion\Discussion;
+use Flarum\Post\Post;
 use Ramon\Chat\Channel;
 use Ramon\Chat\Message;
 use Ramon\Chat\Thread;
@@ -26,13 +28,16 @@ use Ramon\Chat\Upload;
  * the upload scope alone binds tens of thousands of parameters, and SQLite
  * answers "too many SQL variables" to a query that in production carries twenty.
  *
- * Clearing before the boot leaves exactly the set a real forum has.
+ * Clearing before the boot leaves exactly the set a real forum has. Discussion
+ * and Post too: core registers theirs on every boot as well, and once
+ * flarum/mentions is on, the notification count nests post scopes inside
+ * discussion scopes and grows the same way.
  */
 trait ResetsVisibilityScopers
 {
     protected function resetVisibilityScopers(): void
     {
-        foreach ([Channel::class, Message::class, Thread::class, Upload::class] as $model) {
+        foreach ([Channel::class, Message::class, Thread::class, Upload::class, Discussion::class, Post::class] as $model) {
             $property = new \ReflectionProperty($model, 'visibilityScopers');
             $property->setValue(null, []);
         }

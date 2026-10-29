@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Flarum\Group\Group;
 use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
+use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
  * A forum that runs the chat for one group only.
@@ -28,6 +29,8 @@ use Flarum\Testing\integration\TestCase;
  */
 class RestrictedChatAccessTest extends TestCase
 {
+    use ResetsVisibilityScopers;
+
     use RetrievesAuthorizedUsers;
 
     /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
@@ -48,6 +51,8 @@ class RestrictedChatAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->resetVisibilityScopers();
 
         $this->extension('ramon-chat');
 
