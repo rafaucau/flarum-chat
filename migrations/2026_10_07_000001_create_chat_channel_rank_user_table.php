@@ -26,7 +26,9 @@ return [
             $table->unsignedInteger('channel_id');
             $table->dateTime('created_at')->nullable();
 
-            $table->unique(['channel_id', 'user_id', 'rank_id']);
+            // Nome explícito: o automático passa de 64 caracteres com prefixo de
+            // tabela, e o MySQL/MariaDB recusa a migration.
+            $table->unique(['channel_id', 'user_id', 'rank_id'], 'chat_rank_user_unique');
             $table->index(['rank_id']);
             $table->index(['user_id']);
 
