@@ -7,12 +7,10 @@ import type { RankBook, RankEntry } from '../../common/models/Channel';
 import type Message from '../../common/models/Message';
 
 /**
- * Channel ranks on the client: which rank each person displays, and how to
- * draw it.
- *
- * Priority mirrors Ramon\Chat\Rank\RankBook: owner, moderator, then the owner's
- * ranks in the owner's order. Pure functions, no state: this module ends up in
- * more than one chunk, and state here would be one copy per chunk.
+ * Ranks de canal no cliente: qual rank cada pessoa exibe e como desenhá-lo.
+ * Prioridade igual a Ramon\Chat\Rank\RankBook: dono, moderador, depois os ranks
+ * do dono na ordem dele. Só funções puras: este módulo vai para mais de um chunk,
+ * e estado aqui seria uma cópia por chunk.
  */
 
 export const ICON_PATTERN = /^(?:fa[srb]?|fa-(?:solid|regular|brands)) fa-[a-z0-9-]{1,48}$/;
@@ -39,7 +37,7 @@ export function displayedRank(book: RankBook, userId: number): RankEntry | null 
   return key === null ? null : (book.ranks.find((entry) => entry.key === key) ?? null);
 }
 
-/** The custom ranks a member holds, as their ids. */
+/** Ids dos ranks custom de um membro. */
 export function heldRankIds(book: RankBook, userId: number): number[] {
   return ((book.assignments as Record<string, number[]>)?.[String(userId)] ?? []).map(Number);
 }
@@ -52,11 +50,8 @@ export function bookFor(channelId: number | string): RankBook | null {
 }
 
 /**
- * The rank before a message's author.
- *
- * The channel's book wins when it is loaded: realtime keeps it current, so a
- * rank renamed or taken away a moment ago is already right there. Without it,
- * the rank the server attached to the message when it was read.
+ * Rank antes do autor da mensagem. O livro do canal vence quando carregado, pois
+ * o realtime o mantém atual; senão, o rank que o servidor anexou à mensagem.
  */
 export function messageRank(message: Message): RankEntry | null {
   if (message.isBot() || message.isSystem()) return null;
@@ -72,7 +67,7 @@ export function messageRank(message: Message): RankEntry | null {
   return message.authorRank() ?? null;
 }
 
-/** The label: what the owner typed, or the translated default of a built-in. */
+/** Rótulo: o que o dono digitou, ou a tradução padrão de um rank embutido. */
 export function rankName(rank: RankEntry): string {
   if (rank.name) return rank.name;
 
@@ -92,8 +87,8 @@ export function validIcon(icon: string | null | undefined): string | null {
 }
 
 /**
- * The tag. A custom colour comes in as custom properties the stylesheet reads;
- * a built-in left at its default has none, and its class picks the theme's.
+ * A tag. Cor custom chega como custom properties lidas pelo LESS; rank embutido
+ * na cor padrão não tem nenhuma e a classe usa a do tema.
  */
 export function rankTag(rank: RankEntry, className = ''): Mithril.Children {
   const custom = Boolean(rank.color);
@@ -123,8 +118,8 @@ export function rankTag(rank: RankEntry, className = ''): Mithril.Children {
 }
 
 /**
- * Attributes for the element around a name drawn in the rank's colour: the
- * rank without its tag. Empty for a rank shown as a tag, and for none.
+ * Atributos do elemento em volta de um nome na cor do rank (rank sem tag). Vazio
+ * para rank exibido como tag, ou sem rank.
  */
 export function rankNameAttrs(rank: RankEntry | null): {
   className?: string;

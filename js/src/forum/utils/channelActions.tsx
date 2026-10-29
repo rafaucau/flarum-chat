@@ -7,56 +7,40 @@ import { loadChannelFormModal } from './lazy';
 import { loadChannelInfoModal } from './lazy';
 
 /**
- * One thing the actor can do to a channel from its header.
- *
- * A description rather than a rendered control, because the two surfaces that
- * offer these draw them differently: the channel header has room for a row of
- * icon buttons, the drawer's single bar does not and puts them behind a `⋯`
- * menu, where each one needs a label. Returning descriptors is what lets both
- * render the same set without either of them owning it.
+ * Uma ação do ator sobre o canal, a partir do header. Descritor em vez de controle
+ * renderizado: o header do canal desenha botões de ícone e a gaveta os põe num menu
+ * `⋯` com rótulo, e as duas superfícies usam o mesmo conjunto.
  */
 export interface ChannelAction {
   key: string;
   icon: string;
-  /** Already translated: it is a button title in one surface and its text in the other. */
+  /** Já traduzido: é o title do botão numa superfície e o texto na outra. */
   label: string;
-  /** Drawn pressed — the pinned panel is a toggle, not a command. */
+  /** Desenhado pressionado: o painel de fixadas é um toggle. */
   active?: boolean;
   loading?: boolean;
   onclick: () => void;
 }
 
 /**
- * Channels with a join or leave request in flight, by id.
- *
- * Module-level because the request outlives the control that started it: the
- * drawer's menu closes on click, so a spinner held on the component would be
- * unmounted before the request landed. Keyed by channel rather than a single
- * flag so two channels acted on in quick succession do not disable each other.
- *
- * Only ever holds ids for the length of an HTTP request, so nothing actor-scoped
- * accumulates here.
+ * Canais com join/leave em andamento, por id. No módulo porque o request dura mais
+ * que o controle: o menu da gaveta fecha no clique. Por canal para dois canais
+ * seguidos não se bloquearem. Só guarda ids durante o request.
  */
 const inFlight = new Set<string>();
 
 export interface ChannelActionOptions {
   /**
-   * The surface has no route of its own — the drawer.
-   *
-   * An action that would navigate opens in place instead. Routing from the
-   * drawer does not merely move the reader: ChatPage closes the drawer on
-   * arrival, so "search in this channel" threw them out of the window they were
-   * searching from and into full screen.
+   * A superfície não tem rota própria (a gaveta). Ações que navegariam abrem no
+   * lugar: o ChatPage fecha a gaveta ao chegar, tirando o leitor da janela.
    */
   embedded?: boolean;
 }
 
 /**
- * Everything the actor may do to this channel, in the order both surfaces show
- * them.
- *
- * Every entry is gated on a server-computed flag, so a control is absent rather
- * than present-and-rejected — see ChannelPolicy.
+ * Tudo o que o ator pode fazer no canal, na ordem das duas superfícies. Cada item
+ * depende de uma flag calculada no servidor (ver ChannelPolicy), então o controle
+ * some em vez de ser recusado.
  */
 export function channelActions(channel: Channel, state: ChatState, options: ChannelActionOptions = {}): ChannelAction[] {
   const trans = (key: string) => app.translator.trans(`ramon-chat.forum.channel.${key}`, {}, true) as string;
@@ -64,8 +48,8 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
   const busy = inFlight.has(String(channel.id()));
   const actions: ChannelAction[] = [];
 
-  // The settings form, which needs the edit permission — unlike the info modal
-  // behind the title, which every member can open.
+  // O formulário de configurações exige permissão de edição; o modal de info do
+  // título qualquer membro abre.
   if (channel.canEdit() && channel.isCategory()) {
     actions.push({
       key: 'edit',
@@ -86,9 +70,8 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
     },
   });
 
-  // The channel's threads, where the channel has them. On the page this is
-  // the threads section scoped to the channel; in the drawer it is an overlay
-  // like the pinned list, for the same reason search is one.
+  // Tópicos do canal, quando houver. Na página é a seção de tópicos filtrada; na
+  // gaveta é uma sobreposição, como a busca.
   if (channel.threadingEnabled()) {
     actions.push({
       key: 'threads',
@@ -108,8 +91,7 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
     key: 'search',
     icon: 'fas fa-magnifying-glass',
     label: trans('search_in_channel'),
-    // In the drawer it is a toggle over the conversation, so it is drawn pressed
-    // while open — the same treatment the pinned list gets there.
+    // Na gaveta é um toggle sobre a conversa, desenhado pressionado enquanto aberto.
     active: options.embedded ? state.showSearch : undefined,
     onclick: options.embedded
       ? () => {
@@ -119,8 +101,8 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
       : () => m.route.set(app.route('chat.search', { channel: channel.id() })),
   });
 
-  // Leaving is offered only for a channel you are actually in. A direct channel
-  // keeps its history, so leaving one is not destructive.
+  // Sair só para quem está no canal. Canal direto mantém o histórico, então sair
+  // não é destrutivo.
   if (channel.isFollowing()) {
     actions.push({
       key: 'leave',
@@ -133,8 +115,7 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
     return actions;
   }
 
-  // An open invitation. Accepting is joining, so it takes the join's place
-  // rather than sitting beside it; declining is the other half of the answer.
+  // Convite aberto: aceitar é entrar, então toma o lugar do join.
   if (channel.isInvited()) {
     actions.push({
       key: 'acceptInvite',
@@ -155,11 +136,9 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
     return actions;
   }
 
-  // Getting back into a channel you left. Two entries rather than one, because
-  // they are different acts: an ordinary join puts you in the member list and the
-  // count, a hidden one does not — which is what lets a moderator read a room
-  // without their arrival changing how people talk in it. The hidden option is
-  // drawn only when the server says the actor holds it.
+  // Voltar a um canal que você deixou. Duas entradas: o join comum entra na lista de
+  // membros e na contagem, o oculto não, para um moderador observar sem mudar o
+  // ambiente. O oculto só aparece se o servidor diz que o ator pode.
   if (channel.canJoin()) {
     actions.push({
       key: 'join',
@@ -184,8 +163,8 @@ export function channelActions(channel: Channel, state: ChatState, options: Chan
 }
 
 /**
- * The channel's details — notification level, member list, and the state actions
- * the actor is allowed. Available to every member, unlike the settings form.
+ * Detalhes do canal: nível de notificação, membros e ações de estado permitidas.
+ * Disponível a todo membro, ao contrário do formulário de configurações.
  */
 export function openChannelInfo(channel: Channel): void {
   app.modal.show(loadChannelInfoModal, { channel });
@@ -206,16 +185,14 @@ async function joinChannel(channel: Channel, state: ChatState, hidden: boolean):
       body: { data: { attributes: { hidden } } },
     });
 
-    // The endpoint answers with the channel as the member now sees it, flags
-    // included. Pushing it is what makes the composer appear at once: the
-    // optimistic attributes this used to set left `canPostMessage` as it was
-    // before the join, and the channel read as closed until a reload.
+    // O endpoint devolve o canal como o membro o vê agora, com as flags; colocá-lo no
+    // store faz o composer aparecer sem recarregar.
     if (!adoptChannelPayload(payload)) {
       channel.pushAttributes({
         isFollowing: true,
         isHiddenMember: hidden,
         canPostMessage: channel.isOpen(),
-        // A hidden join is absent from the count, so it must not appear to move it.
+        // Join oculto não entra na contagem.
         userCount: hidden ? channel.userCount() : (channel.userCount() ?? 0) + 1,
       });
     }
@@ -234,11 +211,8 @@ async function joinChannel(channel: Channel, state: ChatState, hidden: boolean):
 }
 
 /**
- * Answers an open invitation from the channel's own controls.
- *
- * Accepting lands the member in the channel they are already looking at, so
- * nothing navigates; the composer simply appears. Declining on a public channel
- * leaves the reader where they are, with the invitation gone from the record.
+ * Responde a um convite pelos controles do canal. Aceitar não navega, só faz o
+ * composer aparecer; recusar num canal público deixa o leitor onde está.
  */
 async function answerInvitation(channel: Channel, state: ChatState, accept: boolean): Promise<void> {
   const id = String(channel.id());
@@ -273,9 +247,9 @@ async function answerInvitation(channel: Channel, state: ChatState, accept: bool
 }
 
 /**
- * Leaves the channel. The membership row is retained server-side, so read state
- * and history survive rejoining — and for a direct channel, restarting the
- * conversation links back to the earlier messages.
+ * Sai do canal. A linha de membro fica no servidor, então leitura e histórico
+ * sobrevivem a uma volta, e num canal direto a conversa retomada liga às mensagens
+ * anteriores.
  */
 async function leaveChannel(channel: Channel, state: ChatState): Promise<void> {
   const id = String(channel.id());
@@ -302,7 +276,6 @@ async function leaveChannel(channel: Channel, state: ChatState): Promise<void> {
       userCount: Math.max(0, (channel.userCount() ?? 1) - 1),
     });
 
-    // Drop it from the sidebar and step away from the now-unfollowed channel.
     state.channels = state.channels.filter((c) => c.id() !== channel.id());
     state.setActiveChannel(null);
 

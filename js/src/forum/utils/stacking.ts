@@ -1,13 +1,8 @@
 /**
- * Who sits on top when the chat drawer and the forum's composer overlap.
- *
- * The drawer is stacked just above the composer by default (see `.ChatDrawer`
- * in components.less): a reply bubble left parked at the bottom of the screen
- * must not cover the conversation. The moment the reader works in the composer
- * — focus or a press inside it, the bubble, or the theme's floating card — the
- * composer comes forward instead, and it steps back as soon as they act
- * anywhere else. Press as well as focus, because dragging a resize handle or
- * clicking a toolbar gap moves no focus at all.
+ * Quem fica por cima quando a gaveta do chat e o composer do fórum se sobrepõem.
+ * Por padrão a gaveta fica acima (ver `.ChatDrawer`); ao interagir com o composer
+ * ele passa à frente. Usa pointerdown além de focus porque arrastar o resize ou
+ * clicar num vão da toolbar não move o foco.
  */
 const COMPOSER = '#composer, #avocado-reply-dock, .AvocadoComposerDock, .AvocadoReplyDock';
 

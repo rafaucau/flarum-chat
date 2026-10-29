@@ -2,57 +2,36 @@ import app from 'flarum/forum/app';
 import type Mithril from 'mithril';
 
 /**
- * Optional integration with pianotell/flarum-ext-flamoji.
+ * Integração opcional com pianotell/flarum-ext-flamoji, toda resolvida pelo
+ * registro de exports em runtime: um `import` estático de `ext:pianotell-flamoji/…`
+ * tornaria a extensão obrigatória.
  *
- * Nothing here is imported from that extension: everything is resolved from the
- * export registry at runtime, so the chat frontend boots identically whether or
- * not Flamoji is installed. A static `import … from 'ext:pianotell-flamoji/…'`
- * would make it a hard dependency, which is the one thing this module exists to
- * avoid.
- *
- * ## What already works without any of this
- *
- * Message bodies need nothing. `Message` renders through core's shared
- * `Formatter`, which is exactly where Flamoji registers its Emoticon
- * replacements, so `:kappa:` in a chat message arrives as
- * `<span class="flamoji"><img …></span>` in `contentHtml` — and Flamoji's own
- * `span.flamoji img` rule is unscoped, so it is styled there too.
- *
- * ## What does not, and is what this module is for
- *
- * Three places render emoji *outside* the formatter, and each was blind to a
- * custom one:
- *
- * - the composer, which has no Flamoji button because it is a bare textarea and
- *   not Flarum's `TextEditor`, the only thing Flamoji extends;
- * - the `:` autocomplete, which searches the Unicode map only;
- * - reaction chips, which resolve a stored shortcode through that same map and
- *   fall back to printing `:kappa:` as literal text.
+ * O corpo das mensagens já funciona sozinho: passa pelo `Formatter` do core, onde o
+ * Flamoji registra suas substituições. Este módulo cobre o que fica fora do
+ * formatter: o botão no composer (que não é o `TextEditor` estendido pelo Flamoji),
+ * o autocomplete de `:` e os chips de reação.
  */
 
-/** The namespace Flamoji registers its modules under (the extension id). */
+/** Namespace dos módulos do Flamoji (o id da extensão). */
 const EXTENSION = 'pianotell-flamoji';
 
-/** Where Flamoji's own picker reads the full set from. Unauthenticated. */
+/** De onde o picker do Flamoji lê o conjunto completo. Sem autenticação. */
 const ALL_ENDPOINT = '/flamojis/all';
 
 export interface CustomEmoji {
-  /** Bare shortcode, no colons — `kappa`. The key everything matches on. */
+  /** Shortcode sem dois-pontos (`kappa`); a chave de toda comparação. */
   name: string;
-  /** The exact trigger to type, as stored — usually `:kappa:`. */
+  /** O gatilho exato como gravado, geralmente `:kappa:`. */
   insert: string;
-  /** Absolute image URL. */
+  /** URL absoluta da imagem. */
   url: string;
-  /** Admin-set label, falling back to the name. */
+  /** Rótulo definido pelo admin, ou o nome. */
   title: string;
 }
 
 /**
- * Reads a module out of Flarum's export registry.
- *
- * `checkModule` is preferred over `get` because it reports a missing module as
- * `false` rather than throwing, which is the normal case here: Flamoji not being
- * installed is not an error.
+ * Lê um módulo do registro de exports. `checkModule` em vez de `get` porque devolve
+ * `false` sem lançar, e Flamoji ausente não é erro.
  */
 function registryModule(path: string): any {
   const registry = (window as any)?.flarum?.reg;
@@ -67,27 +46,18 @@ function registryModule(path: string): any {
 }
 
 /**
- * Whether Flamoji is installed and enabled.
- *
- * Keyed on its picker button component rather than on a forum attribute. Both
- * would work, but the button is what the composer actually needs — testing for
- * the thing being used keeps the check honest if Flamoji ever reshuffles its
- * settings.
- *
- * Unlike ramon/stickers' picker, this component is registered in Flamoji's main
- * bundle at boot, so the lookup is reliable from the first render rather than
- * only after somebody has opened it once.
+ * Se o Flamoji está instalado e ativo, testado pelo componente do botão, que é o
+ * que o composer usa. Ao contrário do picker do ramon/stickers, esse componente é
+ * registrado no bundle principal no boot.
  */
 export function flamojiAvailable(): boolean {
   return Boolean(registryModule('forum/components/FlamojiPickerButton'));
 }
 
 /**
- * Absolute URL for a stored path.
- *
- * Mirrors `ConfigureTextFormatter::__invoke` on the server, which anchors the
- * same `^https?://` test and otherwise treats the value as forum-relative. The
- * two have to agree or the picker offers an image the message body cannot show.
+ * URL absoluta de um caminho gravado. Espelha `ConfigureTextFormatter::__invoke` no
+ * servidor (`^https?://`, senão relativo ao fórum); se divergirem, o picker oferece
+ * uma imagem que a mensagem não mostra.
  */
 function absolutise(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
@@ -97,7 +67,7 @@ function absolutise(path: string): string {
   return base + (path.startsWith('/') ? path : '/' + path);
 }
 
-/** Strips the delimiters from `:name:`, matching `emoji.ts`'s `normalise`. */
+/** Remove os delimitadores de `:name:`, igual ao `normalise` de `emoji.ts`. */
 function bareName(trigger: string): string {
   return trigger.trim().replace(/^:+|:+$/g, '');
 }
@@ -108,20 +78,14 @@ let loaded = false;
 let loading = false;
 
 /**
- * Pulls the emoji records out of whatever `/flamojis/all` returned.
- *
- * That endpoint is not a JSON:API document. It returns the models straight from
- * `Emoji::…->get()->all()`, so they serialise as *numerically keyed properties*
- * alongside the `jsonapi` version key, with the columns at the top level rather
- * than under `attributes`:
+ * Extrai os emojis da resposta de `/flamojis/all`, que não é JSON:API: os models
+ * vêm como propriedades com chave numérica ao lado de `jsonapi`, com as colunas no
+ * topo:
  *
  *     { "0": { "id": 3, "text_to_replace": ":kappa:", "path": "…" },
  *       "jsonapi": { "version": "1.1" } }
  *
- * Flamoji's own picker filters for numeric keys for exactly this reason. The
- * `data` branch is insurance, not observed behaviour: if the endpoint is ever
- * normalised into a proper document, this keeps reading it instead of silently
- * going empty.
+ * O ramo `data` é seguro para o caso de o endpoint virar um documento de verdade.
  */
 function extractRecords(response: any): Array<Record<string, unknown>> {
   if (!response || typeof response !== 'object') return [];
@@ -140,16 +104,9 @@ function extractRecords(response: any): Array<Record<string, unknown>> {
 }
 
 /**
- * Fetches the custom-emoji set once per page.
- *
- * The same unpaginated endpoint Flamoji's picker uses, hit directly rather than
- * through the store: these records are read-only here, and pushing them into
- * `app.store` would mean depending on Flamoji having registered its `flamojis`
- * model — one more thing to be absent.
- *
- * Redraws on completion so anything already rendered from an empty set (a
- * reaction chip showing `:kappa:`, an autocomplete list without customs)
- * upgrades in place.
+ * Busca os emojis custom uma vez por página, direto no endpoint que o picker do
+ * Flamoji usa. Fora do store: são só leitura aqui, e o store dependeria do model
+ * `flamojis` registrado. Redesenha ao terminar para chips e autocomplete atualizarem.
  */
 export function loadCustomEmoji(): void {
   if (loaded || loading || !flamojiAvailable()) return;
@@ -170,9 +127,8 @@ export function loadCustomEmoji(): void {
         const trigger = String(record.text_to_replace ?? '').trim();
         const path = String(record.path ?? '').trim();
 
-        // The server skips rows missing either half when configuring the
-        // formatter, so a picker that offered them would insert a trigger that
-        // renders as nothing.
+        // O servidor ignora linhas sem uma das metades ao configurar o formatter; o
+        // picker inseriria um gatilho que não renderiza nada.
         if (trigger === '' || path === '') continue;
 
         const name = bareName(trigger);
@@ -188,12 +144,9 @@ export function loadCustomEmoji(): void {
 
         next.push(emoji);
 
-        // Indexed lowercase, and looked up the same way: the reaction endpoint
-        // matches shortcodes case-insensitively, so `:Kappa:` and `:kappa:` have
-        // to resolve to one image rather than one image and one literal string.
-        //
-        // First wins, so a duplicate trigger cannot displace the row the
-        // formatter itself would have used.
+        // Indexado em minúsculas porque o endpoint de reação compara sem diferenciar
+        // caixa. O primeiro vence, para um gatilho duplicado não deslocar o que o
+        // formatter usaria.
         const key = name.toLowerCase();
 
         if (!index.has(key)) index.set(key, emoji);
@@ -206,8 +159,8 @@ export function loadCustomEmoji(): void {
       m.redraw();
     })
     .catch(() => {
-      // An unreachable endpoint leaves the chat exactly as it is without
-      // Flamoji: Unicode emoji everywhere, custom ones as their shortcode.
+      // Endpoint fora do ar deixa o chat como sem Flamoji: emojis Unicode e os custom
+      // como shortcode.
       loaded = true;
     })
     .finally(() => {
@@ -215,7 +168,7 @@ export function loadCustomEmoji(): void {
     });
 }
 
-/** The custom emoji for a bare shortcode, or null. */
+/** O emoji custom de um shortcode, ou null. */
 export function customEmoji(shortcode: string | null | undefined): CustomEmoji | null {
   if (!shortcode) return null;
 
@@ -225,11 +178,8 @@ export function customEmoji(shortcode: string | null | undefined): CustomEmoji |
 }
 
 /**
- * Searches custom emoji by shortcode, for the composer's `:` autocomplete.
- *
- * Ranked the same way `searchEmoji` ranks the Unicode set — prefix before
- * substring — so a merged list is ordered consistently rather than by which
- * source it came from.
+ * Busca emojis custom para o autocomplete de `:`, com o mesmo ranking de
+ * `searchEmoji` (prefixo antes de substring) para a lista mesclada ficar coerente.
  */
 export function searchCustomEmoji(query: string, limit = 8): CustomEmoji[] {
   loadCustomEmoji();
@@ -253,7 +203,7 @@ export function searchCustomEmoji(query: string, limit = 8): CustomEmoji[] {
   return [...prefix, ...contains].slice(0, limit);
 }
 
-/** The `<img>` a custom emoji renders as, sized by our own LESS. */
+/** O `<img>` de um emoji custom, dimensionado pelo nosso LESS. */
 export function customEmojiImage(emoji: CustomEmoji, className = 'ChatFlamoji'): Mithril.Children {
   return m('img', {
     className,
@@ -265,30 +215,18 @@ export function customEmojiImage(emoji: CustomEmoji, className = 'ChatFlamoji'):
 }
 
 /**
- * The containers a chat composer can live in.
- *
- * The picker must stay inside whichever one it is, not merely inside the
- * viewport — the drawer is a floating panel a few hundred pixels wide sitting
- * over the forum, so "on screen" and "on the panel" are very different places.
+ * Contêineres onde um composer do chat pode estar. O picker precisa ficar dentro
+ * dele, não só do viewport: a gaveta é um painel estreito sobre o fórum.
  */
 const PANEL_SELECTOR = '.ChatDrawer, .ChatPage, .ChatThreadPanel';
 
 /**
- * Places the picker for a chat composer.
+ * Posiciona o picker num composer do chat. O Flamoji centraliza o popup no botão, o
+ * que na gaveta faz um popup de 400px sair do painel. Aqui fica acima do botão e
+ * alinhado à direita, como o picker de stickers.
  *
- * Replaces Flamoji's own geometry, which centres the popup horizontally on the
- * button. That is right for the discussion composer, which spans the content
- * column — there is room either side of the button. In the drawer there is not:
- * the button sits at the right end of a narrow panel, so a centred 400px popup
- * hangs off the panel and over the message list behind it.
- *
- * Right-aligned to the button and floating above it instead, which is where the
- * room is in a composer pinned to the bottom of a panel — and the same placement
- * the sticker picker already uses, so the two tools open in the same place.
- *
- * Keeps Flamoji's contracts: no-ops until the element has been measured (emoji
- * mart fills its Shadow DOM asynchronously, so the first call after mount sees
- * zeroes), and clamps to the viewport last so the popup is never off-screen.
+ * Mantém os contratos do Flamoji: não faz nada até o elemento ter medida (o
+ * emoji-mart preenche o Shadow DOM de forma assíncrona) e limita ao viewport por último.
  */
 function positionInChat(el: HTMLElement, button: HTMLElement): void {
   const btn = button.getBoundingClientRect();
@@ -306,17 +244,14 @@ function positionInChat(el: HTMLElement, button: HTMLElement): void {
   let top = btn.top - margin - box.height;
 
   if (bounds) {
-    // A popup wider than the panel cannot be contained by it, so centre it on
-    // the panel rather than pinning it to one edge and letting the whole
-    // overflow fall on the other.
+    // Popup mais largo que o painel é centralizado nele, em vez de preso a uma borda.
     left =
       box.width <= bounds.width - pad * 2
         ? Math.min(Math.max(left, bounds.left + pad), bounds.right - box.width - pad)
         : bounds.left + (bounds.width - box.width) / 2;
   }
 
-  // The viewport wins over the panel: a popup pushed off-screen to honour a
-  // panel that is itself partly off-screen would be unusable.
+  // O viewport vence o painel: um popup fora da tela seria inutilizável.
   left = Math.min(Math.max(left, pad), window.innerWidth - box.width - pad);
   top = Math.min(Math.max(top, pad), window.innerHeight - box.height - pad);
 
@@ -324,22 +259,16 @@ function positionInChat(el: HTMLElement, button: HTMLElement): void {
   el.style.top = `${Math.round(top)}px`;
 }
 
-/** Cached so the class is built once rather than on every composer render. */
+/** Em cache para a classe ser criada uma vez só. */
 let buttonComponent: any = null;
 
 /**
- * Flamoji's own toolbar button, re-hosted in the chat composer.
+ * Botão do próprio Flamoji, hospedado no composer do chat. `FlamojiPickerButton`
+ * cuida de todo o ciclo do picker e fala com o host por `getButtonElement()` e
+ * `insertText()`; a subclasse só troca o segundo.
  *
- * `FlamojiPickerButton` owns the entire picker lifecycle — lazy-loading
- * emoji-mart, portaling the popup to `document.body`, positioning, teardown —
- * and talks to whatever hosts it through a two-method interface:
- * `getButtonElement()` for the anchor and `insertText()` for the insertion.
- * Only the second is composer-specific, so subclassing to override it reuses
- * that machinery whole instead of reimplementing a picker the forum already has.
- *
- * The subclass is built lazily rather than at module scope: the registry is
- * populated during Flamoji's own initializer, and reading it while this module
- * is being evaluated would capture `undefined` on some load orders.
+ * Criada sob demanda: o registro é preenchido no initializer do Flamoji, e lê-lo
+ * na avaliação deste módulo pegaria `undefined` em algumas ordens de carga.
  */
 function pickerButton(): any {
   if (buttonComponent) return buttonComponent;
@@ -352,25 +281,18 @@ function pickerButton(): any {
     static initAttrs(attrs: any): void {
       super.initAttrs(attrs);
 
-      // `TextEditorButton.initAttrs` assigns the class list outright, so this
-      // has to append afterwards. `Button-flamoji` must survive: it is what
-      // `getButtonElement()` looks for, and losing it would leave the picker
-      // with nothing to position against.
+      // `TextEditorButton.initAttrs` sobrescreve a lista de classes, então anexa depois.
+      // `Button-flamoji` precisa ficar: é o que `getButtonElement()` procura.
       attrs.className = `${attrs.className} ChatComposer-tool`;
     }
 
     oninit(vnode: Mithril.Vnode): void {
       super.oninit(vnode);
 
-      // `position()` is the one seam both placements go through — the picker
-      // itself, and the loading placeholder that stands in while it downloads —
-      // so overriding it here keeps the two from opening in different spots.
-      //
-      // Patched on the instance rather than passed in, because the controller
-      // takes no placement option: it resolves its own fallback anchor by
-      // looking for `.ComposerBody`/`.TextEditor` above the button, and finds
-      // neither here. Guarded so a renamed internal degrades to Flamoji's own
-      // positioning rather than throwing.
+      // `position()` é o ponto comum do picker e do placeholder de carregamento, então
+      // os dois abrem no mesmo lugar. Trocado na instância porque o controller não
+      // aceita opção de posição; protegido para um interno renomeado cair no
+      // posicionamento do Flamoji em vez de lançar.
       const controller = (this as any).controller;
 
       if (typeof controller?.position !== 'function') return;
@@ -382,7 +304,7 @@ function pickerButton(): any {
       };
     }
 
-    /** Where the picker's output goes, instead of a `TextEditor`'s cursor. */
+    /** Para onde vai o resultado do picker, em vez do cursor de um `TextEditor`. */
     insertText(text: string): void {
       this.attrs.onInsert?.(text);
     }
@@ -392,11 +314,11 @@ function pickerButton(): any {
 }
 
 /**
- * The composer's emoji button, or nothing when Flamoji is absent.
+ * Botão de emoji do composer, ou nada sem o Flamoji.
  *
- * @param onInsert Receives the chosen emoji — a shortcode for a custom one, the
- *   literal glyph for a standard one, per the admin's `picker_set`.
- * @param disabled Mirrors the other tools while a send is in flight.
+ * @param onInsert Recebe o emoji: shortcode para custom, o glifo para padrão,
+ *   conforme o `picker_set` do admin.
+ * @param disabled Acompanha as outras ferramentas durante um envio.
  */
 export function flamojiPickerButton(onInsert: (text: string) => void, disabled = false): Mithril.Children {
   const Button = pickerButton();
@@ -404,8 +326,7 @@ export function flamojiPickerButton(onInsert: (text: string) => void, disabled =
   if (!Button) return null;
 
   return m(Button, {
-    // Flamoji reads `composer.editor` only from its own `insertText`, which the
-    // subclass replaces, so there is no composer state to hand over.
+    // O Flamoji só lê `composer.editor` no próprio `insertText`, que a subclasse troca.
     composer: null,
     onInsert,
     disabled,

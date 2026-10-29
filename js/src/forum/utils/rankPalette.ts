@@ -1,9 +1,7 @@
 /**
- * Mirror of Ramon\Chat\Rank\RankPalette, for the rank editor's preview.
- *
- * The server already sends the derived colours of every saved rank; this only
- * exists so the preview follows the colour while it is being picked, before
- * saving. Changed there, change here.
+ * Espelho de Ramon\Chat\Rank\RankPalette para a prévia do editor de ranks: o
+ * servidor já envia as cores dos ranks salvos, isto só acompanha a cor enquanto
+ * é escolhida. Mudou lá, mude aqui.
  */
 
 export const LIGHT_SURFACE = '#ffffff';

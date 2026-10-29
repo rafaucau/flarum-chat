@@ -7,16 +7,12 @@ import type Message from '../../common/models/Message';
 import userLink from './userLink';
 
 /**
- * The chat bot's identity.
- *
- * There is no user account behind it — deliberately. An account would need a row
- * in `users`, would appear in member lists and mention autocomplete, and would be
- * something that could in principle be logged into. The bot is only ever an author
- * label, so it is a pair of settings instead: nothing to authenticate as, nothing
- * to impersonate, nothing to clean up if the feature is turned off.
+ * Identidade do bot do chat. Não há conta por trás, de propósito: uma conta
+ * apareceria em listas de membros e menções e poderia ser logada. O bot é só um
+ * rótulo de autor, definido por configurações.
  */
 
-/** Falls back to the forum's own name, so an unconfigured bot still reads sensibly. */
+/** Sem configuração, usa o nome do fórum. */
 export function botName(): string {
   const configured = app.forum.attribute<string | null>('ramon-chat.botName');
 
@@ -28,11 +24,8 @@ export function botName(): string {
 }
 
 /**
- * The uploaded file wins over a typed URL.
- *
- * Both are kept: an admin who uploads a picture and later removes it gets their
- * external URL back rather than an empty field. Precedence goes to the upload
- * because it is the more deliberate act — you type a URL once and forget it.
+ * Arquivo enviado vence a URL digitada. Os dois são guardados: removendo o upload,
+ * a URL externa volta.
  */
 export function botAvatarUrl(): string | null {
   const uploaded = app.forum.attribute<string | null>('ramon-chat.botAvatarPath');
@@ -47,11 +40,8 @@ export function botAvatarUrl(): string | null {
 }
 
 /**
- * The avatar, shaped like core's so it sits in the same gutter as everyone else's.
- *
- * With no image configured it falls back to an initial on a coloured disc, which is
- * what core does for a user without an avatar — the row should not be identifiable
- * as a bot post by the shape of a hole where the picture goes.
+ * Avatar no formato do core, para ocupar a mesma calha. Sem imagem, usa a inicial
+ * num disco colorido, como o core faz com usuário sem avatar.
  */
 export function botAvatar(className = 'Avatar'): Mithril.Children {
   const url = botAvatarUrl();
@@ -69,26 +59,19 @@ export function botAvatar(className = 'Avatar'): Mithril.Children {
 }
 
 /**
- * The avatar for a message, whoever wrote it.
- *
- * A bot message has no `user_id` — deliberately, since there is no account behind
- * it — so anything that renders `message.user()` directly gets a null relation and
- * draws it as a deleted account. That is what the bookmark list did: every pinned
- * announcement appeared as `[deleted]` with a blank disc.
- *
- * Written once here because four places need the same distinction, and the fourth
- * one to be written got it wrong.
+ * Avatar de uma mensagem, de qualquer autor. Mensagem do bot não tem `user_id`,
+ * então renderizar `message.user()` direto a mostraria como conta apagada.
  */
 export function authorAvatar(message: Message, className = 'Avatar'): Mithril.Children {
   return message.isBot() ? botAvatar(className) : <Avatar user={message.user()} className={className} />;
 }
 
-/** The author's name as plain text — for summaries and one-line rows. */
+/** Nome do autor em texto simples, para resumos e linhas curtas. */
 export function authorName(message: Message): Mithril.Children {
   return message.isBot() ? botName() : username(message.user());
 }
 
-/** The author's name as a link to their profile. The bot has none to link to. */
+/** Nome do autor com link para o perfil; o bot não tem perfil. */
 export function authorLink(message: Message): Mithril.Children {
   return message.isBot() ? botName() : userLink(message.user());
 }

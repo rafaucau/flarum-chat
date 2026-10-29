@@ -1,15 +1,13 @@
 /**
- * `simple-emoji-map` ships no typings. The same shim flarum/emoji uses.
- *
- * The module's shape (unicode → shortcode names) is asserted at the point of use
- * in `forum/utils/emoji.ts`, which also guards against a malformed entry.
+ * `simple-emoji-map` não traz tipagem. O formato (unicode → shortcodes) é
+ * validado onde é usado, em `forum/utils/emoji.ts`.
  */
 declare module 'simple-emoji-map';
 
 /**
- * flarum/flags' report dialog, which ships no typings and is not a dependency
- * of the chat: the module resolves at runtime only where that extension is
- * enabled. The members the chat reads or overrides, as the class defines them.
+ * Modal de denúncia do flarum/flags, sem tipagem e fora das dependências: só
+ * resolve em runtime onde a extensão está ativa. Declara apenas os membros que
+ * o chat lê ou sobrescreve.
  */
 declare module 'ext:flarum/flags/forum/components/FlagPostModal' {
   import FormModal from 'flarum/common/components/FormModal';

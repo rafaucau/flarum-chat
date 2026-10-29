@@ -1,29 +1,16 @@
 /**
- * Shortcode → Unicode emoji resolution.
+ * Resolução de shortcode → emoji Unicode.
  *
- * ## Why a local map rather than flarum/emoji's
+ * Mapa local em vez do flarum/emoji: lá os dados ficam num chunk lazy que talvez
+ * nunca carregue, então `flarum.reg.get()` quase sempre daria `undefined`. O
+ * `simple-emoji-map` é o mesmo pacote que o flarum/emoji usa, então `:heart:` é igual
+ * no chat e nos posts.
  *
- * flarum/emoji exposes the same data, but only through a dynamic `import()`, so it
- * lives in a lazily loaded chunk that is fetched when the composer autocomplete
- * first needs it — possibly never. Reading it through `flarum.reg.get()` would
- * therefore return `undefined` most of the time, which is the same trap that made
- * `forum/ForumApplication` unusable at initializer time.
- *
- * We import `simple-emoji-map` ourselves instead. It is the exact package
- * flarum/emoji builds its map from, so `:heart:` means the same thing in a chat
- * reaction as in a post — consistency that matters more than the 55 KB.
- *
- * ## Why lazily
- *
- * 55 KB of JSON has no business in the main bundle for a feature most page views
- * never touch. The dynamic import puts it in its own chunk, and a small inline
- * table covers the common reaction set so the first paint is never blank.
+ * Lazy porque são 55 KB de JSON; uma tabela pequena embutida cobre as reações comuns
+ * para a primeira pintura nunca sair vazia.
  */
 
-/**
- * The reactions the hover bar and the picker open with, plus a few obvious ones,
- * so the common case renders synchronously and the chunk load is invisible.
- */
+/** Reações da barra e do picker, mais algumas óbvias, resolvidas de forma síncrona. */
 const COMMON: Record<string, string> = {
   heart: '❤️',
   '+1': '👍',
@@ -42,24 +29,21 @@ const COMMON: Record<string, string> = {
   x: '❌',
 };
 
-/** name → unicode, built by inverting the package's unicode → names map. */
+/** nome → unicode, invertendo o mapa unicode → nomes do pacote. */
 let full: Record<string, string> | null = null;
 let loading = false;
 
 /**
- * Kicks off the chunk load. Safe to call repeatedly; only the first call fetches.
- *
- * Redraws on completion so anything already rendered from COMMON (or rendered as
- * a raw shortcode) upgrades in place.
+ * Dispara o carregamento do chunk; só a primeira chamada busca. Redesenha ao
+ * terminar para o que já foi renderizado com COMMON (ou como shortcode) atualizar.
  */
 export function loadEmojiMap(): void {
   if (full || loading) return;
 
   loading = true;
 
-  // `./emojiMap`, not the package by name: the chunk registration keys off a path
-  // resolved relative to this file, so a bare package name yields an unregistered
-  // chunk whose URL 404s. See the comment in emojiMap.ts.
+  // `./emojiMap`, não o pacote pelo nome: o registro do chunk usa o caminho relativo
+  // a este arquivo. Ver emojiMap.ts.
   import('./emojiMap')
     .then((module) => {
       const source = (module.default ?? module) as Record<string, string[]>;
@@ -69,8 +53,7 @@ export function loadEmojiMap(): void {
         if (!Array.isArray(names)) continue;
 
         for (const name of names) {
-          // First name wins: the package lists the canonical shortcode first, and
-          // later aliases would otherwise overwrite it with the same value anyway.
+          // Primeiro nome vence: o pacote lista o shortcode canônico primeiro.
           if (!(name in inverted)) inverted[name] = unicode;
         }
       }
@@ -79,7 +62,7 @@ export function loadEmojiMap(): void {
       m.redraw();
     })
     .catch(() => {
-      // Stay on COMMON. A missing chunk must not break the chat.
+      // Fica no COMMON; chunk ausente não pode quebrar o chat.
       full = {};
     })
     .finally(() => {
@@ -87,17 +70,14 @@ export function loadEmojiMap(): void {
     });
 }
 
-/** Strips the delimiters and whitespace from `:name:`. */
+/** Remove os delimitadores e espaços de `:name:`. */
 function normalise(input: string): string {
   return input.trim().replace(/^:+|:+$/g, '');
 }
 
 /**
- * True when the string already contains an emoji (or any non-ASCII pictograph),
- * meaning it needs no translation.
- *
- * Deliberately loose: the goal is to distinguish "the user pasted 💬" from "the
- * user typed speech_balloon", not to police which codepoints qualify.
+ * Verdadeiro quando a string já contém emoji (ou pictograma não ASCII). Frouxo de
+ * propósito: só distingue "colou 💬" de "digitou speech_balloon".
  */
 export function looksLikeEmoji(input: string): boolean {
   const value = input.trim();
@@ -108,10 +88,8 @@ export function looksLikeEmoji(input: string): boolean {
 }
 
 /**
- * Resolves a shortcode, with or without colons, to a Unicode emoji.
- *
- * Returns the input unchanged when it is already an emoji, and `null` when the
- * shortcode is unknown — callers decide whether to show a fallback or nothing.
+ * Resolve um shortcode, com ou sem dois-pontos. Devolve a entrada se já for emoji e
+ * `null` se o shortcode for desconhecido; quem chama decide o fallback.
  */
 export function resolveEmoji(input: string | null | undefined): string | null {
   if (!input) return null;
@@ -122,16 +100,13 @@ export function resolveEmoji(input: string | null | undefined): string | null {
 
   if (name === '') return null;
 
-  // Trigger the full map so an unknown-now shortcode resolves after it lands.
+  // Carrega o mapa completo para um shortcode desconhecido agora resolver depois.
   loadEmojiMap();
 
   return full?.[name] ?? COMMON[name] ?? null;
 }
 
-/**
- * Renders an emoji for display, falling back to the raw shortcode so an unknown
- * value is visible and debuggable rather than silently blank.
- */
+/** Emoji para exibição, com fallback para o shortcode cru em vez de ficar em branco. */
 export function displayEmoji(input: string | null | undefined, fallback = ''): string {
   if (!input) return fallback;
 
@@ -139,18 +114,15 @@ export function displayEmoji(input: string | null | undefined, fallback = ''): s
 }
 
 export interface EmojiSuggestion {
-  /** Canonical shortcode, without colons. */
+  /** Shortcode canônico, sem dois-pontos. */
   name: string;
   unicode: string;
 }
 
 /**
- * Searches the map by shortcode for the picker.
- *
- * Prefix matches rank above substring matches, so typing "hea" surfaces `heart`
- * before `broken_heart`. Results are capped because the dropdown is scrollable,
- * not infinite, and scoring 1949 entries on every keystroke is enough work
- * already.
+ * Busca por shortcode para o picker. Prefixo vem antes de substring ("hea" mostra
+ * `heart` antes de `broken_heart`). Resultados limitados: são ~1949 entradas
+ * pontuadas a cada tecla.
  */
 export function searchEmoji(query: string, limit = 48): EmojiSuggestion[] {
   loadEmojiMap();
@@ -184,17 +156,17 @@ export function searchEmoji(query: string, limit = 48): EmojiSuggestion[] {
   return [...prefix, ...contains].slice(0, limit);
 }
 
-/** True once the full map is available, so the picker can say it is still loading. */
+/** Verdadeiro quando o mapa completo já carregou, para o picker indicar carregamento. */
 export function emojiMapReady(): boolean {
   return full !== null;
 }
 
 /**
- * Whether a value is acceptable as a channel's emoji. Mirrors the server-side
- * check in ChannelResource so the form rejects it before the request.
+ * Se o valor serve como emoji de canal. Espelha a validação de ChannelResource para
+ * o formulário recusar antes do request.
  */
 export function isValidEmoji(input: string | null | undefined): boolean {
-  if (!input || input.trim() === '') return true; // empty is allowed
+  if (!input || input.trim() === '') return true; // vazio é permitido
 
   return resolveEmoji(input) !== null;
 }

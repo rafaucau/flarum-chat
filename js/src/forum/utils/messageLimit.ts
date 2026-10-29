@@ -2,16 +2,13 @@ import app from 'flarum/forum/app';
 
 import type Channel from '../../common/models/Channel';
 
-/** Used when the forum has no setting of its own — mirrors the server default. */
+/** Usado quando o fórum não tem configuração própria; igual ao padrão do servidor. */
 const FALLBACK = 3000;
 
 /**
- * How long a message may be in this channel.
- *
- * One helper because three places need the same answer and must not disagree:
- * the composer's counter, the composer's send guard, and the channel form's
- * "currently" hint. A channel's own value wins; null or zero means it follows
- * the forum, which is what the server does in `Channel::maxMessageLength()`.
+ * Tamanho máximo de mensagem no canal. Compartilhado pelo contador, pela trava de
+ * envio e pela dica do formulário, que não podem divergir. Nulo ou zero segue o
+ * fórum, como `Channel::maxMessageLength()` no servidor.
  */
 export function resolveMaxMessageLength(channel?: Channel | null): number {
   const own = channel?.maxMessageLength?.();
@@ -23,7 +20,7 @@ export function resolveMaxMessageLength(channel?: Channel | null): number {
   return forum;
 }
 
-/** The forum-wide setting, for channels that do not override it. */
+/** Configuração do fórum, para canais que não a sobrescrevem. */
 export function forumMaxMessageLength(): number {
   const forum = Number(app.forum.attribute<number>('ramon-chat.maxMessageLength') ?? FALLBACK);
 

@@ -54,109 +54,71 @@ export {
   OwnershipTransferNotification,
   OwnershipTransferDeclinedNotification,
   OwnershipInheritedNotification,
-  // Exported for diagnosis: in the console,
+  // Exposto para diagnóstico no console:
   //   flarum.extensions['ramon-chat'].realtimeBound()
-  // tells you whether the chat is on the websocket or on the polling fallback.
+  // diz se o chat está no websocket ou no polling.
   realtimeBound,
-  // And whether anything has ever arrived over it. `realtimeBound() === true`
-  // with `realtimeDelivered() === false` after some traffic is the signature of a
-  // forum whose PHP process cannot reach the websocket daemon.
+  // E se algo já chegou por ele. `realtimeBound() === true` com
+  // `realtimeDelivered() === false` após algum tráfego indica que o PHP não alcança
+  // o daemon do websocket.
   realtimeDelivered,
-  // Connected and proven: the state in which the poller stands down.
+  // Conectado e comprovado: o estado em que o poller recua.
   realtimeLive,
 };
 
 /**
- * Polling interval used when the websocket is unavailable.
- *
- * Was 15s, which is indistinguishable from "the chat is broken" — a message typed
- * in one window took up to fifteen seconds to appear in another. 3s is still a
- * fallback rather than a mode to optimise for, but it keeps a conversation usable
- * when realtime is not.
- *
- * The cost is bounded: the poll is skipped entirely while the tab is hidden, and
- * it only ever asks for messages newer than the newest one already held.
+ * Intervalo de polling sem websocket. 3s mantém uma conversa usável; o poll é
+ * pulado com a aba oculta e só pede mensagens mais novas que a última conhecida.
  */
 const POLL_INTERVAL = 3000;
 
 /**
- * Polling interval while the websocket is subscribed but has never delivered.
- *
- * Subscribing proves only that the *client* reached the daemon. Whether the
- * *server* can reach it is a separate question, and on a forum where it cannot,
- * the old code polled never: binding succeeded, so the fallback was never
- * started, and the chat updated only on reload. Polling slowly here bounds that
- * failure at a few seconds instead of forever.
+ * Intervalo com o websocket inscrito mas sem nunca ter entregado. A inscrição só
+ * prova que o cliente alcança o daemon; se o servidor não alcança, isto limita a
+ * falha a alguns segundos.
  */
 const POLL_INTERVAL_UNPROVEN = 15000;
 
 /**
- * Polling interval once the socket is connected and has proven it delivers.
- *
- * Effectively off. A dropped connection is no longer something this has to
- * notice on its own — the socket's state change restarts the poller at once and
- * a reconnect catches up immediately — so what is left is a deep backstop for an
- * event lost while everything looked healthy.
+ * Intervalo com o socket conectado e comprovado; na prática desligado. Queda de
+ * conexão já reinicia o poller pela mudança de estado, então sobra só a rede de
+ * segurança para um evento perdido.
  */
 const POLL_INTERVAL_PROVEN = 300000;
 
 /**
- * Floor between two refreshes of the channel list, whatever the poll rate is.
- *
- * The list is by far the most expensive thing the poller asks for: fifty rows,
- * each resolving a membership and ten capability policies. The message tail
- * beside it is a keyset read of whatever is newer than the newest id held, which
- * is usually nothing at all.
- *
- * They used to run at the same rate, so a forum whose websocket is not delivering
- * — the 3s case, which is exactly the forum least able to afford it — rebuilt the
- * whole sidebar twenty times a minute. Splitting them keeps a conversation live at
- * 3s while the list, whose job is unread badges and channels that appeared
- * elsewhere, settles for being a few seconds behind.
+ * Intervalo mínimo entre atualizações da lista de canais, seja qual for o poll. A
+ * lista é o pedido mais caro (cinquenta linhas, cada uma com membership e dez
+ * policies); o fim das mensagens é uma leitura por keyset, geralmente vazia.
+ * Separados, a conversa segue a 3s e a lista fica alguns segundos atrás.
  */
 const CHANNEL_POLL_INTERVAL = 15000;
 
 /**
- * The same floor once the socket has proven itself.
- *
- * Everything the list carries — new messages, joins, leaves, edits — arrives over
- * the socket at that point and is applied to these same objects, so this is a
- * backstop against a daemon that dies mid-session rather than the way the list
- * stays current.
+ * O mesmo piso com o socket comprovado. Tudo o que a lista carrega chega pelo
+ * socket, então isto só cobre um daemon que morre no meio da sessão.
  */
 const CHANNEL_POLL_INTERVAL_PROVEN = 60000;
 
 app.initializers.add('ramon-chat', () => {
-  // Before anything mounts (the models come from ./extend, applied before any
-  // initializer): the channel list, the
-  // open conversation, its pinned message and the drafts are already in the page
-  // (see Content\PreloadChat), and reading them here is what lets the chat paint
-  // finished instead of assembling itself over four round trips.
+  // Antes de montar qualquer coisa (os models vêm de ./extend, aplicado antes dos
+  // initializers): lista de canais, conversa aberta, mensagem fixada e rascunhos já
+  // vêm na página (ver Content\PreloadChat), e o chat pinta pronto.
   //
-  // Deliberately not deferred to `app.mount` — that runs after the router has
-  // mounted the page, so ChatPage would already have decided it had nothing to
-  // draw. `app.data` is populated before initializers run; `app.forum` and
-  // `app.session` are not, and nothing in hydrateFromBoot touches them.
+  // Não pode esperar `app.mount`: o router já teria montado o ChatPage sem dados.
+  // `app.data` existe antes dos initializers; `app.forum` e `app.session` não, e
+  // hydrateFromBoot não os toca.
   chatState.hydrateFromBoot();
 
-  // Then the local copy, for whatever the page did not carry: the sidebar and
-  // the last channels viewed, as they stood when the previous visit ended.
-  // Synchronous for the same reason, and revalidated once shown.
+  // Depois a cópia local, para o que a página não trouxe: a sidebar e os últimos
+  // canais vistos na visita anterior. Síncrono pelo mesmo motivo; revalidado ao exibir.
   chatState.hydrateFromSnapshot();
 
-  // ── Routes ────────────────────────────────────────────────────────────────
-  // Names match the server-side declarations in extend.php. Without these the
-  // URLs would serve the SPA and then render "not found".
-  //
-  // The ChatPage routes share one resolver whose key is constant, so moving
-  // between them redraws instead of remounting — see ChatPageResolver. Without it
-  // opening a thread or switching channel tore the page down and rebuilt it, which
-  // reads as a full reload.
-  //
-  // The page itself is code-split: everything it renders lives in the chatUi
-  // chunk, which the header button prefetches on hover and the app warms once
-  // idle. The resolver's constant key still holds, because the loader resolves
-  // to the same class every time.
+  // ── Rotas ──
+  // Os nomes batem com extend.php. As rotas do ChatPage dividem um resolver de key
+  // constante, então navegar entre elas redesenha em vez de remontar (ver
+  // ChatPageResolver). A página fica no chunk chatUi; o loader resolve sempre a
+  // mesma classe, então a key constante continua valendo.
   const chatPage = {
     component: () => loadChatUi().then((ui) => ({ default: ui.ChatPage })),
     resolverClass: ChatPageResolver,
@@ -171,7 +133,7 @@ app.initializers.add('ramon-chat', () => {
   app.routes['chat.bookmarks'] = { path: '/chat/bookmarks', ...chatPage };
   app.routes['chat.flags'] = { path: '/chat/flags', ...chatPage };
 
-  // A genuinely separate page, so it keeps the default resolver.
+  // Página de fato separada, com o resolver padrão.
   app.routes['chat.browse'] = {
     path: '/chat/browse',
     component: browsePage,
@@ -181,14 +143,13 @@ app.initializers.add('ramon-chat', () => {
     component: browsePage,
   };
 
-  // Warm the chat UI once the forum is idle, so the first open does not wait on
-  // the chunk. Checked at drain time, which is after mount, when the session is
-  // known: a guest or an opted-out member never downloads it.
+  // Aquece a UI do chat quando o fórum fica ocioso. Checado na hora, após o mount e
+  // com a sessão conhecida: visitante ou membro que desativou o chat não baixa nada.
   app.prefetch?.add('ramon-chat-ui', () => (canUseChat() ? loadChatUi() : Promise.resolve()), -10);
 
-  // ── Notifications ─────────────────────────────────────────────────────────
-  // The components that render the alerts come from ./extend; this is the row
-  // in the user's notification preferences that lets them turn each one off.
+  // ── Notificações ──
+  // Os componentes dos alertas vêm de ./extend; aqui fica a linha nas preferências
+  // de notificação.
   extend('flarum/forum/components/NotificationGrid', 'notificationTypes', function (items: ItemList<unknown>) {
     items.add('chatChannelInvite', {
       name: 'chatChannelInvite',
@@ -226,9 +187,7 @@ app.initializers.add('ramon-chat', () => {
       label: app.translator.trans('ramon-chat.forum.settings.notify_ownership_inherited'),
     });
 
-    // Administrators only, matching who the server actually notifies. Offering
-    // the row to anyone else advertises a notification they can never receive,
-    // and a preference that does nothing is worse than an absent one.
+    // Só administradores, que são quem o servidor notifica.
     if (app.session.user?.isAdmin()) {
       items.add('chatMessageFlagged', {
         name: 'chatMessageFlagged',
@@ -238,29 +197,21 @@ app.initializers.add('ramon-chat', () => {
     }
   });
 
-  // ── Header trigger ────────────────────────────────────────────────────────
+  // ── Botão do header ──
   extend(HeaderSecondary.prototype, 'items', function (items) {
     if (!canUseChat()) return;
 
     items.add('chat', <ChatNavButton />, 15);
   });
 
-  // ── Forum navigation ──────────────────────────────────────────────────────
-  // The same list "All Discussions", flarum/tags' "Tags" and flarum/messages'
-  // "Messages" live in: `IndexSidebar#navItems`. On a phone that list is not a
-  // sidebar at all — core wraps it in the `SelectDropdown` it classes
-  // `App-titleControl`, which is the menu in the toolbar beside the drawer
-  // toggle. Adding the entry here is therefore the whole of "put the chat in the
-  // mobile menu"; nothing needs to be positioned or mounted by hand.
+  // ── Navegação do fórum ──
+  // Mesma lista de "Todas as discussões", "Tags" e "Mensagens":
+  // `IndexSidebar#navItems`. No celular o core a põe no `SelectDropdown`
+  // `App-titleControl` da toolbar, então isto já põe o chat no menu mobile.
   //
-  // A `LinkButton` to `chat.index`, so it always opens the full-screen page.
-  // Deliberately not routed through `shouldUseChatDrawer()` like the header
-  // button: a navigation item that sometimes navigates and sometimes pops a
-  // panel over the page you are on is two controls wearing one label.
-  //
-  // Priority 90 puts it under core's "All Discussions" (100) and under
-  // flarum/messages' "Messages" (95), which is the order those two already agree
-  // on: core's own list first, then the conversational surfaces.
+  // `LinkButton` para `chat.index`, sempre a página cheia: um item de navegação que
+  // às vezes abre um painel seriam dois controles com um rótulo. Prioridade 90 fica
+  // abaixo de "Todas as discussões" (100) e de "Mensagens" (95).
   extend(IndexSidebar.prototype, 'navItems', function (items) {
     if (!canUseChat()) return;
 
@@ -273,27 +224,20 @@ app.initializers.add('ramon-chat', () => {
     );
   });
 
-  // ── "Chat" on a user's profile and controls dropdown ──────────────────────
-  // Same entry point flarum/messages uses for "Send message", so the two sit
-  // together rather than in unrelated places.
+  // ── "Chat" no perfil e no dropdown de controles do usuário ──
+  // Mesmo ponto que o flarum/messages usa para "Enviar mensagem".
   //
-  // Named rather than inline. `@ts-ignore` suppresses the *next line* only, and
-  // the formatter wraps a long call across several — which moved the offending
-  // argument out from under the suppression and turned a known typing gap into a
-  // build error. A short statement cannot be re-wrapped.
-  //
-  // The gap itself is the one flarum/messages works around: extend() infers the
-  // callback signature from the target method, and UserControls' published typing
-  // loses the `user` parameter, even though it is passed at runtime.
+  // Nomeado em vez de inline: `@ts-ignore` só vale para a próxima linha, e o
+  // formatter quebraria a chamada longa em várias. A tipagem publicada do
+  // UserControls perde o parâmetro `user`, embora ele seja passado em runtime.
   const addChatToUserControls = (items: ItemList<Mithril.Children>, user: User) => {
     if (!canUseChat()) return;
     if (!app.forum.attribute<boolean>('canStartChatDirect')) return;
 
-    // No point offering a chat with yourself.
     if (app.session.user?.id() === user.id()) return;
 
-    // With flarum/messages enabled, private messages already have their own
-    // "Send a message" entry: a second one for chat DMs would be redundant.
+    // Com o flarum/messages ativo já existe "Enviar mensagem"; outra entrada para DM
+    // do chat seria redundante.
     if ('flarum-messages' in flarum.extensions) return;
 
     items.add(
@@ -301,7 +245,7 @@ app.initializers.add('ramon-chat', () => {
       <Button icon="fas fa-envelope" onclick={() => startDirectMessage(user)}>
         {app.translator.trans('ramon-chat.forum.user_controls.start_chat')}
       </Button>,
-      // Just below flarum/messages' own button, which sits at the default 0.
+      // Logo abaixo do botão do flarum/messages, que fica na prioridade padrão 0.
       -5
     );
   };
@@ -309,45 +253,29 @@ app.initializers.add('ramon-chat', () => {
   // @ts-ignore
   extend(UserControls, 'userControls', addChatToUserControls);
 
-  // Anything that reads `app.forum`/`app.session`, or mounts its own Mithril
-  // root, has to run after ForumApplication.mount():
+  // O que lê `app.forum`/`app.session` ou monta uma raiz Mithril própria precisa
+  // rodar depois de ForumApplication.mount(): o boot() roda os initializers antes de
+  // preencher `forum` e `session`, e o mount() é quem chama m.route().
   //
-  //  - Application.boot() runs the initializers *before* it populates `forum`
-  //    and `session`, so touching either at initializer time throws.
-  //  - mount() is what calls m.route(). Core deliberately mounts its own
-  //    secondary roots (navigation, header) *after* that call; mounting ahead of
-  //    it attaches a redraw root to a router that does not exist yet.
+  // `app.beforeMount()` não serve: runBeforeMount() não tem try/catch, e um erro ali
+  // impede o mount() e a SPA não renderiza.
   //
-  // `app.beforeMount()` looks like the right hook but is not: runBeforeMount()
-  // has no try/catch, so anything that throws there stops mount() from ever
-  // running and the whole SPA silently fails to render.
-  //
-  // The target is the `app` *instance*, not ForumApplication.prototype. Core
-  // registers `forum/ForumApplication` through `addChunkModule`, so the class
-  // lives in a lazily loaded chunk and importing it at initializer time yields
-  // `undefined` — reading `.prototype` off that is a TypeError. Extending the
-  // instance installs an own property that shadows the prototype method, and
-  // boot() calls `this.mount()`, so the override is picked up.
+  // Estende a instância `app`, não ForumApplication.prototype: a classe fica num
+  // chunk lazy e importá-la aqui dá `undefined`. A propriedade própria sombreia o
+  // método do protótipo, e o boot() chama `this.mount()`.
   extend(app, 'mount', function () {
-    // Belt and braces. Core does not guard this call site either, and a chat
-    // extension must never be able to take the forum down with it — a broken
-    // chat is an annoyance, an unmountable forum is an outage.
+    // O core também não protege esta chamada, e o chat nunca pode derrubar o fórum.
     try {
-      // Signed out: nothing of the last account's conversations stays on disk.
+      // Sem sessão: nada das conversas da última conta fica no disco.
       if (!app.session.user) chatState.purgeSnapshots();
 
       if (!canUseChat()) return;
 
-      // ── Live updates ──────────────────────────────────────────────────────
-      // Both, always. The websocket carries the messages; the poller is a
-      // backstop that rate-limits itself against what the socket has proven it
-      // can do, and it is idempotent — it asks only for messages newer than the
-      // newest one held, so a healthy socket costs it one request a minute.
-      //
-      // It used to start only when binding failed. That covered the case where
-      // realtime is absent and missed the one that actually strands a forum: the
-      // client subscribes fine while the server cannot reach the daemon, so
-      // nothing is ever pushed and nothing ever notices.
+      // ── Atualizações ao vivo ──
+      // Os dois, sempre. O websocket traz as mensagens; o poller é a rede de segurança,
+      // ajusta o ritmo pelo que o socket comprovou e é idempotente (só pede o que é mais
+      // novo). Cobre o caso em que o cliente se inscreve mas o servidor não alcança o
+      // daemon e nada chega.
       setPollingFallback(startPolling);
       setConnectionHandlers({
         reconnect: () => {
@@ -359,11 +287,8 @@ app.initializers.add('ramon-chat', () => {
       bindRealtime();
       startPolling();
 
-      // Coming back to the tab, or back online, asks at once for what arrived
-      // meanwhile. The poller skips hidden tabs and a proven socket drops it to
-      // once a minute, so without this a tab woken after an hour could sit up
-      // to a minute behind; the cursors it uses make the request cheap. Going
-      // hidden writes the snapshot, so the next boot starts from this moment.
+      // Voltar à aba ou à rede pede na hora o que chegou no meio tempo; sem isto uma
+      // aba acordada podia ficar até um minuto atrás. Ocultar a aba grava o snapshot.
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           chatState.flushSnapshot();
@@ -376,19 +301,19 @@ app.initializers.add('ramon-chat', () => {
       });
       window.addEventListener('pagehide', () => chatState.flushSnapshot());
 
-      // ── Drawer ────────────────────────────────────────────────────────────
-      // Its own root outside the page tree, so navigating the forum never tears
-      // down an open conversation. Renders nothing until opened.
+      // ── Gaveta ──
+      // Raiz própria fora da árvore da página, para navegar no fórum não desmontar a
+      // conversa aberta. Não renderiza nada até abrir.
       mountDrawer();
 
       bindShortcuts();
       installComposerStacking();
 
-      // Chat reports in flarum/flags' own list, when that extension is present.
+      // Denúncias do chat na lista do flarum/flags, quando presente.
       bindFlagsIntegration();
 
-      // Reopen it if the last visit left it open. Dismissal is deliberate: only
-      // the close button (and switching to the full-screen page) clears this.
+      // Reabre se a última visita a deixou aberta. Só o botão de fechar (e ir para a
+      // página cheia) limpa isto.
       if (chatState.restoreDrawer()) {
         loadDrawerPanel().catch(() => {});
 
@@ -403,11 +328,9 @@ app.initializers.add('ramon-chat', () => {
 });
 
 /**
- * Opens (or creates) a direct channel with a user and shows it.
- *
- * The endpoint reuses an existing conversation only while every participant is
- * still in it. Once someone leaves, a fresh start opens a new channel rather than
- * dragging them back into the history they walked away from.
+ * Abre (ou cria) um canal direto com o usuário e o mostra. O endpoint só reusa a
+ * conversa enquanto todos os participantes estão nela; depois que alguém sai, um
+ * novo início abre outro canal.
  */
 export async function startDirectMessage(user: User): Promise<void> {
   try {
@@ -424,16 +347,15 @@ export async function startDirectMessage(user: User): Promise<void> {
 
     if (!channelId) return;
 
-    // The endpoint serialises the channel it found or created, so this is the
-    // whole conversation arriving with the POST rather than one more request
-    // after it — see StartDirectController::serialize.
+    // O endpoint serializa o canal encontrado ou criado, então a conversa chega com o
+    // POST (ver StartDirectController::serialize).
     let channel: Channel | null = null;
 
     if (payload.meta?.serialized) {
       try {
         channel = app.store.pushPayload(payload as never) as unknown as Channel;
       } catch {
-        // Falls through to the fetch below.
+        // Cai no fetch abaixo.
       }
     }
 
@@ -441,16 +363,14 @@ export async function startDirectMessage(user: User): Promise<void> {
       try {
         channel = (await app.store.find('chat-channels', String(channelId))) as unknown as Channel;
       } catch {
-        // The channel exists; a failed fetch just means the list refreshes later.
+        // O canal existe; um fetch falho só adia a atualização da lista.
       }
     }
 
     if (channel) chatState.rememberChannel(channel);
 
-    // A conversation created a moment ago has no history and nothing pinned, and
-    // the server has just told us it created one. Seeding both saves the two
-    // requests the channel view would otherwise open with — which, on a brand-new
-    // conversation, would both come back empty.
+    // Conversa recém-criada não tem histórico nem fixada; semear os dois evita dois
+    // requests que voltariam vazios.
     if (payload.meta?.created) {
       chatState.seedEmptyChannel(channelId);
     }
@@ -458,8 +378,8 @@ export async function startDirectMessage(user: User): Promise<void> {
     chatState.setActiveChannel(channelId);
 
     if (shouldUseChatDrawer()) {
-      // Not awaited: the drawer paints on the first frame now, and the channel
-      // list it fills in behind is not what the reader came for.
+      // Sem await: a gaveta pinta no primeiro frame e a lista de canais não é o que o
+      // leitor veio ver.
       ChatDrawer.open().catch(() => {});
     } else {
       m.route.set(app.route('chat.channel', { id: channelId }));
@@ -488,45 +408,33 @@ function mountDrawer(): void {
 }
 
 /**
- * Whether to show the chat at all.
- *
- * An account is required. A guest read permission existed briefly and has been
- * withdrawn; the `/chat/*` routes now answer 404 for anyone without access, so
- * this and the server agree rather than one of them silently offering something
- * the other refuses.
+ * Se o chat aparece. Exige conta: as rotas `/chat/*` respondem 404 a quem não tem
+ * acesso, e o cliente concorda com o servidor.
  */
 function canUseChat(): boolean {
   if (!app.forum.attribute<boolean>('canUseChat')) return false;
   if (!app.session.user) return false;
 
-  // Honour the per-user opt-out from /settings.
+  // Respeita a desativação por usuário em /settings.
   return app.session.user.preferences()?.['ramon-chat.enabled'] !== false;
 }
 
-/** Guards against a second loop when both callers ask for one. */
+/** Evita um segundo loop quando os dois chamadores pedem um. */
 let polling = false;
 
 /**
- * Set once the server has answered a background poll with 401.
- *
- * The session has ended underneath the page: it expired, or the account signed
- * out in another tab. Nothing here can bring it back, and a poller that keeps
- * asking would get the same answer every tick for the rest of the page's life,
- * each one raising core's "permission denied" alert and a console trace. The
- * next thing the reader does on the page will tell them to sign in again.
+ * Ligado quando o servidor responde 401 a um poll em segundo plano: a sessão
+ * acabou (expirou ou saiu em outra aba). Continuar perguntando geraria o alerta de
+ * "permissão negada" a cada tick; a próxima ação do leitor pedirá login.
  */
 let sessionLost = false;
 
 /**
- * Error handler for the requests the poller makes on its own initiative.
- *
- * A `.catch()` alone does not quiet them: `Application.requestErrorCatch`
- * shows its alert first and rejects afterwards, so the hook it checks before
- * doing so is the only place to intercept. A 401 ends polling for good; 403 and
- * 404 mean the channel or thread is no longer the reader's to see, which the
- * websocket or the next navigation will settle, and neither is worth an alert
- * from a request nobody asked for. Anything else is a real failure and is
- * handed back to the default handler.
+ * Handler de erro dos requests que o poller faz por conta própria. `.catch()` não
+ * basta: `Application.requestErrorCatch` mostra o alerta antes de rejeitar, e este
+ * hook é o único ponto de interceptação. 401 encerra o polling; 403 e 404 querem
+ * dizer que o canal ou tópico não é mais visível, o que o websocket ou a próxima
+ * navegação resolve. O resto vai para o handler padrão.
  */
 const backgroundErrorHandler = (error: { status?: number }): false | void => {
   if (error?.status === 401) {
@@ -544,19 +452,12 @@ const backgroundErrorHandler = (error: { status?: number }): false | void => {
 };
 
 /**
- * Refreshes the channel list and the open channel's tail on an interval.
+ * Atualiza a lista de canais e o fim do canal aberto em intervalos. Roda sempre,
+ * no ritmo do que o websocket comprovou (ver as constantes POLL_INTERVAL_*): um
+ * socket inscrito que nunca entrega parece saudável daqui.
  *
- * Runs unconditionally, at a rate set by how much the websocket has proven it can
- * do — see the three POLL_INTERVAL_* constants. It used to start only when
- * binding failed, which covered the wrong failure: a socket that binds and then
- * never carries anything looks identical to a healthy one from here, and the
- * chat simply stopped updating.
- *
- * Scheduled with a chained timeout rather than setInterval so the rate can change
- * mid-session — the first delivered event drops it from seconds to a minute.
- *
- * Only runs while the document is visible: a backgrounded tab polling every 15s
- * for hours is exactly the behaviour that gets an extension blamed for load.
+ * Timeout encadeado em vez de setInterval para o ritmo mudar na sessão. Só roda com
+ * o documento visível.
  */
 function startPolling(): void {
   if (polling) return;
@@ -575,9 +476,8 @@ function schedulePoll(): void {
 }
 
 /**
- * Restarts the countdown at the current rate. Called when the socket drops or
- * comes back, so a disconnected client does not sit out a five-minute timeout
- * scheduled while it was live.
+ * Reinicia a contagem no ritmo atual. Chamado quando o socket cai ou volta, para o
+ * cliente desconectado não esperar um timeout agendado enquanto estava online.
  */
 function reschedulePolling(): void {
   if (!polling) return;
@@ -587,10 +487,7 @@ function reschedulePolling(): void {
   schedulePoll();
 }
 
-/**
- * How long until the next poll. Read per tick, so a socket that starts or stops
- * delivering changes the rate without restarting anything.
- */
+/** Tempo até o próximo poll, lido a cada tick para o ritmo mudar sem reiniciar nada. */
 function pollInterval(): number {
   if (!realtimeBound()) return POLL_INTERVAL;
 
@@ -599,7 +496,7 @@ function pollInterval(): number {
   return realtimeDelivered() ? POLL_INTERVAL : POLL_INTERVAL_UNPROVEN;
 }
 
-/** When the channel list was last refreshed; see CHANNEL_POLL_INTERVAL. */
+/** Quando a lista de canais foi atualizada pela última vez; ver CHANNEL_POLL_INTERVAL. */
 let lastChannelPoll = 0;
 
 function poll(): void {
@@ -613,10 +510,8 @@ function poll(): void {
   if (now - lastChannelPoll >= channelFloor) {
     lastChannelPoll = now;
 
-    // Forced, because this is the one caller that genuinely wants a refetch: the
-    // list is cached for the session precisely so navigation does not re-fetch
-    // it, and the poller is the backstop that keeps it current when the
-    // websocket is not delivering. A cached read here would poll for nothing.
+    // Forçado: a lista fica em cache na sessão para a navegação não refazer o pedido,
+    // e o poller é justamente quem a mantém atual sem websocket.
     chatState.loadChannels(true, backgroundErrorHandler).catch(() => {});
   }
 
@@ -628,7 +523,7 @@ function poll(): void {
 
   if (!stream || stream.loading) return;
 
-  // Only what is newer than the newest known message.
+  // Só o que for mais novo que a última mensagem conhecida.
   const newest = stream.messages[stream.messages.length - 1];
 
   app.store
@@ -656,10 +551,8 @@ function poll(): void {
 
   pollChanges(`channel:${activeId}`, { channel: activeId }, stream.messages);
 
-  // The thread panel renders from its own stream, and nothing above reaches it:
-  // the channel filter drops thread replies by design, so an open thread was
-  // never polled at all. Its replies, and every reaction and edit inside it,
-  // waited for a reload.
+  // O painel de tópico renderiza do próprio stream, e o filtro do canal exclui
+  // respostas de tópico; sem isto o tópico aberto nunca seria consultado.
   const threadId = chatState.activeThreadId;
 
   if (threadId === null) return;
@@ -697,31 +590,20 @@ function poll(): void {
 }
 
 /**
- * How far each stream's change cursor has advanced, keyed by stream.
- *
- * Kept here rather than derived from the loaded window on every tick, because
- * the window is the wrong place to read it from: an edit to a message that has
- * scrolled out of the window never lands in it, so a cursor recomputed from the
- * window would sit still and re-request that same edit on every poll for the
- * rest of the session.
+ * Até onde avançou o cursor de mudanças de cada stream. Guardado aqui, não derivado
+ * da janela carregada: a edição de uma mensagem fora da janela nunca entra nela, e
+ * o cursor recalculado pediria a mesma edição a cada poll.
  */
 const changeCursors = new Map<string, number>();
 
 /**
- * Re-reads the messages of a stream that *changed* rather than arrived.
+ * Relê as mensagens de um stream que mudaram (reação, edição, exclusão, fixação),
+ * que os polls por id mais novo não veem. Com websocket isso vem dos handlers de
+ * realtime.ts.
  *
- * The polls above only ever reach forward from the newest id, which is the right
- * shape for arrivals and cannot see anything else: a reaction, an edit, a
- * deletion or a pin lands on a row they have already gone past. On a forum
- * running the websocket that gap is covered by the push handlers in realtime.ts,
- * and on a forum without one — or with one the server cannot reach — nothing
- * covered it, so those changes appeared only after a reload.
- *
- * Nothing is inserted into the stream from the result. Flarum's store keeps one
- * record per id and updates it in place, and the stream holds those same
- * objects, so re-reading a row is enough to redraw it. Appending would be
- * actively wrong: a changed message from outside the loaded window would be
- * spliced into the middle of it as though the gap between them did not exist.
+ * Nada é inserido no stream: o store tem um registro por id e o atualiza no lugar,
+ * e o stream guarda esses mesmos objetos. Inserir encaixaria uma mensagem de fora
+ * da janela no meio dela.
  */
 function pollChanges(key: string, filter: Record<string, unknown>, messages: Message[]): void {
   const since = changeCursors.get(key) ?? newestChange(messages);
@@ -742,9 +624,8 @@ function pollChanges(key: string, filter: Record<string, unknown>, messages: Mes
     .then((results) => {
       const advanced = newestChange((Array.isArray(results) ? results : []) as Message[]);
 
-      // Only ever forwards. A page truncated at the limit can come back with a
-      // lower maximum than the cursor already holds, and moving backwards would
-      // re-request the same rows indefinitely.
+      // Só avança. Uma página cortada no limite pode voltar com máximo menor que o
+      // cursor, e recuar repetiria as mesmas linhas para sempre.
       if (advanced !== null && advanced > since) {
         changeCursors.set(key, advanced);
       } else {
@@ -757,11 +638,9 @@ function pollChanges(key: string, filter: Record<string, unknown>, messages: Mes
 }
 
 /**
- * The most recent `updatedAt` across a set of messages, as a unix timestamp.
- *
- * A server-issued value rather than the browser's own clock: a client whose
- * clock runs fast would ask for changes from a moment that has not happened yet
- * and never see any, and the skew needed to break it is a few seconds.
+ * O `updatedAt` mais recente de um conjunto de mensagens, em unix timestamp. Valor
+ * do servidor, não do relógio do navegador: um relógio adiantado pediria mudanças
+ * de um momento que ainda não aconteceu.
  */
 function newestChange(messages: Message[]): number | null {
   let newest = 0;

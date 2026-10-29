@@ -1,34 +1,21 @@
 import app from 'flarum/forum/app';
 
 /**
- * The notification sound.
- *
- * Two decisions worth stating, because both are about not being obnoxious:
- *
- *  - Nothing plays while the message's own channel is on screen and focused. If
- *    you are looking at the conversation, you already saw it arrive; a chime for a
- *    message you are watching land is noise.
- *  - Plays are rate-limited. A burst of five messages arriving together should be
- *    one sound, not five overlapping ones.
- *
- * The admin picks the file; the user can silence it entirely from their own
- * settings, and that preference wins.
+ * Som de notificação. Não toca se o canal da mensagem está na tela e em foco, e é
+ * limitado por tempo para uma rajada de mensagens soar uma vez só. O admin escolhe
+ * o arquivo; a preferência do usuário de silenciar vence.
  */
 
-/** Minimum gap between two plays. */
+/** Intervalo mínimo entre dois toques. */
 const THROTTLE_MS = 2000;
 
 let lastPlayed = 0;
 let element: HTMLAudioElement | null = null;
 let loadedFor: string | null = null;
 
-/**
- * The file the admin chose, or null when sound is off — either forum-wide or for
- * this user.
- */
+/** Arquivo escolhido pelo admin, ou null com som desligado no fórum ou pelo usuário. */
 function chosen(): string | null {
-  // The user's own switch takes precedence over the forum default. Absent means
-  // "follow the forum", so only an explicit `false` silences it.
+  // Ausente significa "seguir o fórum"; só um `false` explícito silencia.
   if (app.session.user?.preferences()?.['ramon-chat.sound'] === false) return null;
 
   const setting = app.forum.attribute<string>('ramon-chat.notificationSound');
@@ -39,12 +26,9 @@ function chosen(): string | null {
 }
 
 /**
- * Resolves the published URL for a sound.
- *
- * The files live in the extension's `assets/` directory, which `flarum
- * assets:publish` copies to `assets/extensions/ramon-chat/`. Built from
- * `assetsBaseUrl` rather than hardcoded, so a forum serving assets from a CDN or a
- * subdirectory still finds them.
+ * URL publicada de um som. Os arquivos ficam em `assets/` da extensão e o
+ * `flarum assets:publish` os copia para `assets/extensions/ramon-chat/`. Usa
+ * `assetsBaseUrl` para funcionar com CDN ou subdiretório.
  */
 function url(name: string): string {
   const base = app.forum.attribute<string>('assetsBaseUrl') ?? '/assets';
@@ -64,8 +48,8 @@ export function playNotificationSound(): void {
   lastPlayed = now;
 
   try {
-    // One element, reused. Creating an Audio per message leaks them, and the
-    // browser will not garbage-collect one that is mid-play.
+    // Um elemento reutilizado: um Audio por mensagem vaza, e o navegador não coleta
+    // um que está tocando.
     if (!element || loadedFor !== name) {
       element = new Audio(url(name));
       element.preload = 'auto';
@@ -74,19 +58,15 @@ export function playNotificationSound(): void {
 
     element.currentTime = 0;
 
-    // Autoplay is refused until the user has interacted with the page. That is a
-    // browser policy, not an error worth surfacing — the sound simply does not
-    // play until they have clicked something, which by then they have.
+    // Autoplay é recusado até o usuário interagir com a página; é política do
+    // navegador, não erro.
     void element.play().catch(() => {});
   } catch {
-    // A malformed URL or a missing file must never break message delivery.
+    // URL malformada ou arquivo ausente nunca pode quebrar a entrega da mensagem.
   }
 }
 
-/**
- * Plays the given sound once, ignoring the throttle and the user's preference.
- * For the admin preview, where the point *is* to hear it.
- */
+/** Toca uma vez ignorando o limite e a preferência; para a prévia do admin. */
 export function previewSound(name: string): void {
   if (!name || name === 'none') return;
 
@@ -95,6 +75,6 @@ export function previewSound(name: string): void {
 
     void audio.play().catch(() => {});
   } catch {
-    // As above.
+    // Idem.
   }
 }
