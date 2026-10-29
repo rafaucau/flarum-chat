@@ -5,11 +5,10 @@ import type Mithril from 'mithril';
 import { channelIdOf, channelNameOf, fromName, openChannelFromNotification } from './ModeratorPromotedNotification';
 
 /**
- * "X left #channel, so you are now its owner."
+ * "X saiu de #canal e agora você é o dono."
  *
- * Sent to the oldest moderator when a channel's owner leaves and it passes to
- * them (Service\OwnershipSuccession). Nobody asked them, so they need telling:
- * the room's settings, members and its fate are theirs now.
+ * Vai para o moderador mais antigo quando o dono sai (Service\OwnershipSuccession).
+ * Ninguém perguntou a ele, então precisa ser avisado.
  */
 export default class OwnershipInheritedNotification extends Notification {
   icon(): string {

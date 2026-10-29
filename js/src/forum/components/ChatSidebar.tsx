@@ -25,14 +25,10 @@ interface SectionAction {
   action: () => void;
 }
 
-/**
- * Channel navigation: My Threads, Search, then the Channels and Direct Messages
- * sections — the same order and grouping as Discourse's chat sidebar.
- */
-/** How many unread channels are warmed in the background per page load. */
+/** Quantos canais não lidos pré-carregar em segundo plano por página. */
 const WARM_LIMIT = 3;
 
-/** Channels already warmed, so remounting the sidebar does not repeat it. */
+/** Canais já pré-carregados, para remontar a sidebar não repetir. */
 const warmed = new Set<number>();
 
 function whenIdle(fn: () => void, fallbackMs: number): void {
@@ -49,8 +45,9 @@ function whenIdle(fn: () => void, fallbackMs: number): void {
   }
 }
 
+/** Navegação: Minhas threads, Busca, depois Canais e Mensagens diretas. */
 export default class ChatSidebar extends Component<ChatSidebarAttrs> {
-  /** Pending hover-intent timer; see the pointer handlers on a channel row. */
+  /** Timer de intenção de hover pendente (ver handlers da linha do canal). */
   private prefetchTimer: number | null = null;
 
   oncreate(vnode: Mithril.VnodeDOM<ChatSidebarAttrs, this>): void {
@@ -72,10 +69,8 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
   }
 
   /**
-   * Loads the conversations someone is most likely to open next — the unread
-   * ones, mentions first — while the browser is idle, so the click lands on
-   * messages already drawn. Only while the websocket is live: that is what keeps
-   * a stream loaded in the background current until it is opened.
+   * Pré-carrega os não lidos (menções primeiro) com o navegador ocioso. Só com o
+   * websocket ativo, que mantém atualizado o stream carregado em segundo plano.
    */
   protected warmUnread(): void {
     const { state } = this.attrs;
@@ -105,9 +100,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
           {this.quickLink('chat.bookmarks', 'fas fa-bookmark', 'ramon-chat.forum.sidebar.bookmarks')}
           {this.quickLink('chat.search', 'fas fa-magnifying-glass', 'ramon-chat.forum.sidebar.search')}
 
-          {/* Moderators only, and the count comes from the server rather than
-              from the list — the link has to be able to say there is work waiting
-              before anyone opens the queue. */}
+          {/* Só moderadores. A contagem vem do servidor, antes de abrir a fila. */}
           {app.forum.attribute<boolean>('canModerateChat')
             ? this.quickLink(
                 'chat.flags',
@@ -125,15 +118,13 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
             <>
               {this.section('ramon-chat.forum.sidebar.channels', state.categoryChannels(), [
                 {
-                  // A magnifying glass, not a pencil: the action is "browse
-                  // channels", and a pencil promises editing.
+                  // Lupa, não lápis: a ação é explorar, não editar.
                   icon: 'fas fa-magnifying-glass',
                   title: app.translator.trans('ramon-chat.forum.sidebar.browse_channels', {}, true),
                   action: () => m.route.set(app.route('chat.browse')),
                 },
 
-                // Same permission the browse page draws its own button from,
-                // so the two agree about who may create a channel.
+                // Mesma permissão do botão da página de explorar.
                 ...(app.forum.attribute<boolean>('canCreateChatChannel')
                   ? [
                       {
@@ -147,8 +138,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
 
               {this.section('ramon-chat.forum.sidebar.direct_messages', state.directChannels(), [])}
 
-              {/* An empty sidebar has to offer a way out, or a fresh install is a
-                  dead end: no channels to open and no visible way to make one. */}
+              {/* Sidebar vazia oferece saída, senão uma instalação nova fica sem caminho. */}
               {state.channelsLoaded && state.channels.length === 0 ? (
                 <div className="ChatSidebar-empty">
                   <div className="ChatSidebar-empty-icon" aria-hidden="true">
@@ -157,13 +147,8 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
 
                   <p>{app.translator.trans('ramon-chat.forum.sidebar.no_channels')}</p>
 
-                  {/* The actions are their own element rather than loose
-                      children of the empty state: `Button--block` only sets a
-                      width, so two of them are separated by whatever margin the
-                      theme's button happens to carry — which on Avocado is
-                      none, and the two buttons touched. A flex column with an
-                      explicit gap owns the spacing here instead of inheriting
-                      it. */}
+                  {/* Contêiner próprio com gap: `Button--block` não dá margem e no Avocado
+                      os botões ficavam colados. */}
                   <div className="ChatSidebar-empty-actions">
                     <Button
                       className="Button Button--primary Button--block"
@@ -188,23 +173,11 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
     );
   }
 
-  /**
-   * One of the views above the channel list.
-   *
-   * Written once rather than three times, which is what makes the active state
-   * affordable: three hand-rolled buttons had no way to say which view was open,
-   * so the sidebar looked identical whether you were reading a channel, your
-   * threads or your bookmarks.
-   */
+  /** Um dos atalhos acima da lista de canais, com estado ativo. */
   protected quickLink(routeName: string, icon: string, key: string, badge?: number): Mithril.Children {
-    // Read from the router rather than from a stored value: the route can also
-    // change from browser back/forward, which no click handler observes.
-    //
-    // `?? ""` because `m.route.get()` is typed as a string and is not one until
-    // the router has resolved a route. The sidebar also draws inside the drawer,
-    // which mounts on its own root over whatever page is open, so it can render
-    // before that — and an exception here takes down the entire Mithril tree,
-    // not just this button.
+    // Lido do router porque voltar/avançar do navegador também muda a rota.
+    // `?? ''`: dentro do drawer a sidebar pode renderizar antes de o router
+    // resolver uma rota, e `m.route.get()` ainda é undefined.
     const current = m.route.get() ?? '';
     const active = current.split('?')[0] === app.route(routeName);
 
@@ -220,24 +193,14 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
         <i className={`ChatSidebar-quickLink-icon ${icon}`} aria-hidden="true" />
         <span>{app.translator.trans(key)}</span>
 
-        {/* Only when there is something to report. A badge reading zero is noise
-            that trains people to stop looking at it. */}
+        {/* Sem badge zerado. */}
         {badge ? <span className="ChatSidebar-quickLink-badge">{badge > 99 ? '99+' : badge}</span> : null}
       </button>
     );
   }
 
-  /**
-   * A labelled group of channels, with any affordances that belong to it.
-   *
-   * Takes a list rather than a single action because the channels header now
-   * carries two — browse and create — and they are not alternatives: the create
-   * button used to be rendered only in the empty state below, so it vanished the
-   * moment you joined your first channel and the only remaining route to it was
-   * through Browse.
-   */
+  /** Grupo de canais com título e ações (explorar, criar). */
   protected section(labelKey: string, channels: Channel[], actions: SectionAction[]): Mithril.Children {
-    // An empty section with no affordance is pure noise; hide it.
     if (channels.length === 0 && actions.length === 0) return null;
 
     return (
@@ -280,25 +243,19 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
           'ChatChannelRow--online': channel.isDirect() && isOnline(channel.others()[0]),
         })}
         onclick={() => onSelect?.(channel)}
-        // Hover intent, not hover: sweeping the pointer down the list to reach
-        // the bottom row would otherwise fetch every conversation it crossed.
-        // 120ms is long enough that only a pointer that stopped here counts.
+        // Intenção de hover: passar o ponteiro pela lista não pré-carrega cada canal.
         onpointerenter={() => this.schedulePrefetch(channel)}
         onpointerleave={() => this.cancelPrefetch()}
-        // The press itself, a hundred-odd milliseconds before `click` fires —
-        // and the only head start a touchscreen gets, having no hover.
+        // Ganha ~100ms antes do `click`; em touch é a única antecipação.
         onpointerdown={() => this.attrs.state.prefetchChannel(Number(channel.id()))}
-        // Keyboard arrives without a pointer, and a channel reached by tabbing
-        // deserves the same head start.
+        // Mesma antecipação para quem navega pelo teclado.
         onfocus={() => this.attrs.state.prefetchChannel(Number(channel.id()))}
       >
         {channelIcon(channel, 'ChatChannelRow-icon')}
 
         <span className="ChatChannelRow-name">{channel.displayName()}</span>
 
-        {/* Private channels are marked where they are used, not only in their
-            settings — otherwise a member has no way to tell that what they say
-            here is not visible to the rest of the forum. */}
+        {/* Marca o canal privado na lista para o membro saber que não é público. */}
         {channel.isPrivate() ? (
           <i
             className="ChatChannelRow-lock fas fa-lock"
@@ -307,8 +264,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
           />
         ) : null}
 
-        {/* Inspecting: a membership the room cannot see. Marked here so the
-            reader knows which of their rows is the quiet one. */}
+        {/* Inspecionando: participação que o canal não vê. */}
         {channel.isHiddenMember() ? (
           <i
             className="ChatChannelRow-lock fas fa-user-secret"
@@ -317,11 +273,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
           />
         ) : null}
 
-        {/* Muting is per-user and its only other sign in the list is the row
-            being dimmed — which reads as "inactive" just as easily as "muted",
-            and reads as nothing at all next to a row that is dim for its own
-            reasons. The padlock's treatment, for the same reason: state that
-            changes what the channel does to you belongs where the channel is. */}
+        {/* Ícone de silenciado: só a linha esmaecida se confundiria com "inativo". */}
         {channel.isMuted() ? (
           <i
             className="ChatChannelRow-mute fas fa-bell-slash"
@@ -330,7 +282,7 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
           />
         ) : null}
 
-        {/* A count only for mentions; ambient unreads get a plain dot-less badge. */}
+        {/* Número só para menções; as demais não lidas ganham badge simples. */}
         {mentions > 0 ? (
           <span className="ChatChannelRow-badge ChatChannelRow-badge--mention">{mentions > 99 ? '99+' : mentions}</span>
         ) : unread ? (
@@ -341,10 +293,8 @@ export default class ChatSidebar extends Component<ChatSidebarAttrs> {
   }
 
   /**
-   * Starts warming a channel once the pointer has settled on its row.
-   *
-   * Replaces any pending one: only the row currently under the pointer is worth
-   * fetching, and the previous timer belongs to a row already left behind.
+   * Pré-carrega o canal quando o ponteiro para na linha. Substitui o timer
+   * pendente da linha anterior.
    */
   protected schedulePrefetch(channel: Channel): void {
     this.cancelPrefetch();

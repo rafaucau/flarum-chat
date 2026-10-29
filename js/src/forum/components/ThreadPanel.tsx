@@ -17,18 +17,16 @@ export interface ThreadPanelAttrs extends ComponentAttrs {
   channel: Channel;
   threadId: number;
   state: ChatState;
-  /** Invoked when the panel is dismissed, so the route can drop the thread. */
+  /** Chamado ao fechar o painel, para a rota largar a thread. */
   onClose: () => void;
 }
 
 /**
- * A thread's replies, beside the channel.
+ * Respostas de uma thread, ao lado do canal.
  *
- * The channel stream shows a thread as one root message with a reply indicator —
- * the API's channel filter drops the replies — so this panel is the only place
- * they are readable. It is a narrower ChannelView: same rows, same composer, but
- * scoped to `filter[thread]` and without the unread divider, since a thread keeps
- * no read marker of its own.
+ * O filtro de canal da API omite as respostas, então só aparecem aqui. É um
+ * ChannelView com `filter[thread]` e sem divisor de não lidas: thread não tem
+ * marcador de leitura próprio.
  */
 export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   private scroller: HTMLElement | null = null;
@@ -46,7 +44,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
 
     super.onbeforeupdate(vnode);
 
-    // Switching threads inside the same instance: reset and reload.
+    // Troca de thread na mesma instância.
     if (previousId !== undefined && vnode.attrs.threadId !== previousId) {
       this.pinned = true;
       this.lastRenderedCount = 0;
@@ -82,8 +80,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
           <i className="fas fa-comments" aria-hidden="true" />
 
           <span className="ChatThreadPanel-title">
-            {/* displayTitle() falls back to an excerpt of the root message, so an
-                untitled thread is still identifiable. */}
+            {/* displayTitle() cai num trecho da mensagem raiz se não houver título. */}
             {thread ? thread.displayTitle() : app.translator.trans('ramon-chat.forum.thread.title')}
           </span>
 
@@ -102,12 +99,9 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
             <div className="ChatBrowse-empty">{app.translator.trans('ramon-chat.forum.thread.no_replies')}</div>
           ) : null}
 
-          {/* onReply/onEdit are wired even though the panel has no thread of its
-              own to open: a row whose action buttons do nothing is worse than a row
-              without them, and ChatMessage draws them from the message's own
-              capability flags. `onOpenThread` is deliberately absent — the policy
-              refuses to nest a thread inside a thread, so canCreateThread is false
-              on every row here and the button is never drawn. */}
+          {/* ChatMessage desenha os botões pelas flags da mensagem, então onReply/onEdit
+              precisam estar ligados. Sem `onOpenThread`: a policy não aninha threads,
+              e canCreateThread é false em toda linha daqui. */}
           {stream.messages.map((message, index) => (
             <ChatMessage
               key={message.id()}
@@ -129,8 +123,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   protected load(): void {
     const { state, threadId } = this.attrs;
 
-    // The record itself, for the title — the panel can be reached by URL without
-    // the channel stream having loaded the root message it hangs off.
+    // Para o título: pela URL, o painel abre sem o stream ter carregado a raiz.
     state.findThread(threadId).then(() => m.redraw());
 
     state.loadThread(threadId).catch(() => {});
@@ -150,10 +143,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
     }
   }
 
-  /**
-   * Reply and edit are staged against this panel's scope, so the channel composer
-   * below is unaffected.
-   */
+  /** Resposta e edição ficam no escopo do painel, sem afetar o composer do canal. */
   protected reply(message: Message): void {
     const { state, channel, threadId } = this.attrs;
 

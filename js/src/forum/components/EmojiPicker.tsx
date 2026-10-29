@@ -10,23 +10,17 @@ import { searchEmoji, resolveEmoji, loadEmojiMap, emojiMapReady, type EmojiSugge
 import iconLabel from '../utils/iconLabel';
 
 export interface EmojiPickerAttrs extends ComponentAttrs {
-  /** Current value: a shortcode or a Unicode emoji. */
+  /** Valor atual: shortcode ou emoji Unicode. */
   value: string | null;
   onchange: (value: string | null) => void;
   disabled?: boolean;
 }
 
 /**
- * A searchable emoji picker.
+ * Seletor de emoji com busca, para campos cujo valor é um único emoji.
  *
- * The discussion composer's picker is an autocomplete triggered by typing `:`
- * mid-sentence, which is the right interaction for prose but wrong for a field
- * whose entire value is one emoji. Here the field *is* the search box: type to
- * filter, click or press Enter to choose.
- *
- * Stores Unicode rather than a shortcode. A stored `❤️` renders everywhere with no
- * map lookup and survives the extension being disabled, whereas a stored `heart`
- * is meaningless without this table.
+ * Grava Unicode, não shortcode: `❤️` renderiza em qualquer lugar e sobrevive à
+ * extensão desativada; `heart` não significa nada sem esta tabela.
  */
 export default class EmojiPicker extends Component<EmojiPickerAttrs> {
   private open = false;
@@ -36,7 +30,7 @@ export default class EmojiPicker extends Component<EmojiPickerAttrs> {
   oninit(vnode: Mithril.Vnode<EmojiPickerAttrs>): void {
     super.oninit(vnode);
 
-    // Warm the chunk so the grid is populated by the time it is opened.
+    // Pré-carrega o chunk para a grade estar pronta ao abrir.
     loadEmojiMap();
   }
 
@@ -92,8 +86,7 @@ export default class EmojiPicker extends Component<EmojiPickerAttrs> {
                       'EmojiPicker-option--active': index === this.highlighted,
                     })}
                     title={`:${item.name}:`}
-                    // mousedown, not click: the input's blur would close the
-                    // dropdown before a click could land on it.
+                    // mousedown, não click: o blur do input fecharia o dropdown antes.
                     onmousedown={(e: Event) => {
                       e.preventDefault();
                       this.choose(item.unicode);
@@ -113,8 +106,7 @@ export default class EmojiPicker extends Component<EmojiPickerAttrs> {
   oncreate(vnode: Mithril.VnodeDOM<EmojiPickerAttrs>): void {
     super.oncreate(vnode);
 
-    // Close on any click outside. Bound on the document because the dropdown can
-    // be dismissed by interacting with anything else in the modal.
+    // No document porque qualquer outro ponto do modal deve fechar o dropdown.
     this.outsideHandler = (e: MouseEvent) => {
       if (!this.open) return;
       if (this.element.contains(e.target as Node)) return;
@@ -167,8 +159,7 @@ export default class EmojiPicker extends Component<EmojiPickerAttrs> {
       case 'Enter': {
         e.preventDefault();
 
-        // Enter with an exact shortcode typed and nothing highlighted should still
-        // resolve — the user may have pasted `:tada:` and pressed Enter.
+        // Enter sem destaque ainda resolve um shortcode exato (ex.: `:tada:` colado).
         const pick = results[this.highlighted] ?? null;
         this.choose(pick ? pick.unicode : resolveEmoji(this.query));
         break;

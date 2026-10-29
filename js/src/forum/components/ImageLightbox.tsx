@@ -12,25 +12,19 @@ import { authorName } from '../utils/bot';
 import iconLabel from '../utils/iconLabel';
 
 export interface ImageLightboxAttrs extends ComponentAttrs {
-  /** Every image in the message, so the viewer can move between them. */
+  /** Todas as imagens da mensagem, para navegar entre elas. */
   uploads: Upload[];
-  /** Which one was clicked. */
+  /** A que foi clicada. */
   index: number;
   message: Message;
   onClose: () => void;
 }
 
 /**
- * Full-screen image viewer, opened by clicking an image in the stream.
+ * Visualizador de imagem em tela cheia, aberto ao clicar numa imagem do stream.
  *
- * A plain `target="_blank"` link used to be the whole feature, which threw the
- * reader out of the conversation to look at a picture and made them find their
- * way back. This keeps them where they are.
- *
- * Deliberately not a Flarum `Modal`: the modal manager centres a white dialog
- * with a title bar and a close button, and constrains its width. What an image
- * viewer wants is the opposite — the picture as large as the viewport allows, on
- * a dark backdrop, with the chrome out of the way.
+ * Não é um `Modal` do Flarum: ele limita a largura e põe barra de título; aqui a
+ * imagem ocupa o viewport sobre fundo escuro.
  */
 export default class ImageLightbox extends Component<ImageLightboxAttrs> {
   private index = 0;
@@ -48,8 +42,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
     this.keyListener = (e: KeyboardEvent) => this.onKey(e);
     document.addEventListener('keydown', this.keyListener);
 
-    // The page behind must not scroll while the viewer is open, or a scroll
-    // gesture aimed at the image moves the conversation instead.
+    // Sem isso, rolar sobre a imagem rola a conversa por trás.
     document.body.style.overflow = 'hidden';
 
     (vnode.dom as HTMLElement).focus();
@@ -77,8 +70,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
         aria-modal="true"
         aria-label={upload.fileName() ?? ''}
         onclick={(e: Event) => {
-          // Only the backdrop closes. Clicking the picture itself is what someone
-          // does to look at it more closely, not to dismiss it.
+          // Só o fundo fecha; clicar na imagem não.
           if (e.target === e.currentTarget) onClose();
         }}
       >
@@ -157,7 +149,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
     if (e.key === 'ArrowRight') this.step(1);
   }
 
-  /** Wraps, so the arrows never dead-end on the first or last image. */
+  /** Dá a volta, para as setas não travarem na primeira ou na última imagem. */
   protected step(by: number): void {
     const total = this.attrs.uploads.length;
 

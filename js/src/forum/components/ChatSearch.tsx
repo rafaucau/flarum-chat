@@ -16,40 +16,34 @@ import iconLabel from '../utils/iconLabel';
 
 export interface ChatSearchAttrs extends ComponentAttrs {
   state: ChatState;
-  /** When set, the search is scoped to one channel instead of all of them. */
+  /** Se definido, restringe a busca a um canal. */
   channelId?: number | null;
   /**
-   * Rendered over a conversation rather than as the page's main pane — the
-   * drawer, which has no route to reach `chat.search` with.
-   *
-   * Two things change: the pane grows a header with a way back out, and opening
-   * a result switches the channel in place instead of routing to it.
+   * Desenhado sobre a conversa no drawer, que não tem rota para `chat.search`.
+   * Ganha cabeçalho de volta e abrir um resultado troca o canal no lugar.
    */
   embedded?: boolean;
-  /** Dismisses the pane. Required when embedded; ignored otherwise. */
+  /** Fecha o painel. Obrigatório com embedded; ignorado sem. */
   onClose?: () => void;
 }
 
-/** Keystrokes are coalesced for this long before a request goes out. */
+/** Espera após a digitação antes de enviar a requisição (ms). */
 const DEBOUNCE = 300;
 
 const PAGE_SIZE = 30;
 
 /**
- * Message search, scoped to one channel or to everything the actor can read.
- *
- * Queries `filter[q]` on the message searcher, so results are already restricted
- * by the same visibility scope the stream uses — there is no separate permission
- * check to keep in step here.
+ * Busca de mensagens em um canal ou em tudo que o usuário pode ler. Usa
+ * `filter[q]`, que já aplica o mesmo escopo de visibilidade do stream.
  */
 export default class ChatSearch extends Component<ChatSearchAttrs> {
   private query = '';
   private results: Message[] = [];
   private searching = false;
-  /** Whether a query has run, to tell "no results" apart from "nothing typed". */
+  /** Distingue "sem resultados" de "nada digitado". */
   private searched = false;
   private timer: number | null = null;
-  /** Guards against an earlier, slower request overwriting a later one. */
+  /** Impede que uma requisição antiga e lenta sobrescreva uma mais nova. */
   private sequence = 0;
 
   onremove(): void {
@@ -65,8 +59,7 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
           'ChatSearch--embedded': this.attrs.embedded,
         })}
       >
-        {/* The panel shell the thread and pinned lists use, so the three panes
-            that share the drawer's overlay slot are dismissed the same way. */}
+        {/* Mesma casca dos painéis que dividem o slot do drawer. */}
         {this.attrs.embedded ? (
           <div className="ChatThreadPanel-header">
             <i className="fas fa-magnifying-glass" aria-hidden="true" />
@@ -93,7 +86,7 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
             aria-label={app.translator.trans('ramon-chat.forum.search.title', {}, true)}
             oninput={(e: Event) => this.onInput((e.target as HTMLInputElement).value)}
             onkeydown={(e: KeyboardEvent) => {
-              // Enter searches immediately rather than waiting out the debounce.
+              // Enter busca na hora, sem esperar o debounce.
               if (e.key === 'Enter') this.run();
             }}
           />
@@ -152,15 +145,14 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
             {at ? <span className="ChatSearch-result-time">{humanTime(at)}</span> : null}
           </div>
 
-          {/* Plain text, not contentHtml: a result row is a one-line excerpt, and
-              rendered markup would drag block elements and images into it. */}
+          {/* Texto puro: o resultado é um trecho de uma linha. */}
           <div className="ChatSearch-result-excerpt">{messagePreview(message)}</div>
         </div>
       </button>
     );
   }
 
-  // ── Behaviour ──────────────────────────────────────────────────────────────
+  // ── Comportamento ──
 
   protected onInput(value: string): void {
     this.query = value;
@@ -202,7 +194,6 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
         page: { limit: PAGE_SIZE },
       })) as unknown as Message[];
 
-      // A slower earlier request must not clobber a later one's results.
       if (mine !== this.sequence) return;
 
       this.results = Array.isArray(results) ? results : [];
@@ -230,11 +221,8 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
   }
 
   /**
-   * Opens the result's channel.
-   *
-   * It does not jump to the message itself: the stream pages backwards from the
-   * newest message, so landing on an old one would mean loading everything in
-   * between. Better to open the conversation than to appear to hang.
+   * Abre o canal do resultado, sem pular para a mensagem: o stream pagina a partir
+   * da mais nova, e chegar numa antiga exigiria carregar tudo no meio.
    */
   protected open(message: Message): void {
     const channelId = message.channelId();
@@ -243,9 +231,7 @@ export default class ChatSearch extends Component<ChatSearchAttrs> {
 
     this.attrs.state.setActiveChannel(channelId);
 
-    // In the drawer there is no route to set, and setting one would close the
-    // drawer to open the full-screen page — which is the whole reason the search
-    // is in here. Dismissing the pane puts the chosen channel on screen.
+    // No drawer, rotear fecharia o drawer; fechar o painel já mostra o canal escolhido.
     if (this.attrs.embedded) {
       this.attrs.onClose?.();
       m.redraw();

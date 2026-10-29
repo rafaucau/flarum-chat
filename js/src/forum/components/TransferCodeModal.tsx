@@ -11,21 +11,16 @@ import { invitationErrorText } from '../utils/invitations';
 
 export interface TransferCodeModalAttrs extends IFormModalAttrs {
   channel: Channel;
-  /** Display name of the member the channel is being offered to. */
+  /** Nome de quem recebe a oferta do canal. */
   recipientName: string;
-  /** Called with the channel as the server answered once the code is accepted. */
+  /** Recebe o canal devolvido pelo servidor após o código ser aceito. */
   onConfirmed?: (channel: Channel | null) => void;
 }
 
 /**
- * The second step of handing a channel over: the owner types the 6-digit code
- * mailed to them.
- *
- * The code is held only in this field until it is posted once; a wrong one
- * leaves the dialog open with the server's answer (how many attempts remain),
- * and the fifth wrong one ends the transfer on the server.
- *
- * Extends FormModal so Enter submits.
+ * Segundo passo da transferência: o dono digita o código de 6 dígitos recebido
+ * por e-mail. O quinto código errado encerra a transferência no servidor.
+ * Estende FormModal para o Enter enviar.
  */
 export default class TransferCodeModal extends FormModal<TransferCodeModalAttrs> {
   private code!: Stream<string>;
@@ -110,8 +105,8 @@ export default class TransferCodeModal extends FormModal<TransferCodeModalAttrs>
 
         app.alerts.show({ type: 'error' }, invitationErrorText(error, 'ramon-chat.forum.info.transfer_failed'));
 
-        // The transfer may have ended on the server (fifth wrong code, or
-        // expired); the caller re-reads the members tab either way.
+        // A transferência pode ter acabado no servidor (quinto erro ou expirou);
+        // quem chamou relê a aba de membros de qualquer forma.
         this.attrs.onConfirmed?.(null);
 
         m.redraw();

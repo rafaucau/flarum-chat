@@ -25,12 +25,10 @@ interface TranscriptResponse {
 }
 
 /**
- * The bar shown while messages are selected: quote into a discussion, copy, move.
+ * Barra da seleção de mensagens: citar numa discussão, copiar, mover.
  *
- * Rendering the transcript is the server's job — TranscriptController re-checks
- * every id against `whereVisibleTo`, so a selection that names a message the actor
- * cannot read comes back without it, and the count of what was dropped is reported
- * rather than silently swallowed.
+ * O servidor monta a transcrição (TranscriptController) e rechecka cada id com
+ * `whereVisibleTo`; as descartadas voltam contadas.
  */
 export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
   private working = false;
@@ -63,9 +61,8 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
   }
 
   /**
-   * Moving needs `ramon-chat.moderate`, and the destination has to be somewhere the
-   * actor may post — a closed or archived channel is refused server-side, so those
-   * are not offered.
+   * Mover exige `ramon-chat.moderate`. Canais fechados ou arquivados são recusados
+   * pelo servidor, então não aparecem como destino.
    */
   protected moveControls(count: number): Mithril.Children {
     const { channel, state } = this.attrs;
@@ -78,15 +75,9 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
 
     const blocked = count === 0 || this.working;
 
-    // One control rather than a <select> plus a Move button. The pair cost two
-    // slots in a bar that has to fit a drawer, and the button sat disabled until
-    // a target was picked — dead UI for the whole time the menu was closed.
-    // Picking a channel here is the action; there is nothing left to confirm.
-    //
-    // The menu is positioned in components.less rather than through
-    // `menuClassName`: core strips its own placement classes on every open and
-    // recomputes them against the window, which is the wrong box for a bar
-    // pinned to the bottom of a drawer.
+    // Escolher o canal já move. O menu é posicionado no components.less, não por
+    // `menuClassName`: o core recalcula o posicionamento contra a janela a cada
+    // abertura, o que erra numa barra presa ao fundo do drawer.
     return (
       <Dropdown
         className="ChatSelectionBar-move"
@@ -104,7 +95,7 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
     );
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Ações ──
 
   protected async transcript(format: 'markup' | 'plain'): Promise<TranscriptResponse['data']['attributes'] | null> {
     this.working = true;
@@ -150,13 +141,8 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
 
     const DiscussionComposer = (await import('flarum/forum/components/DiscussionComposer')).default;
 
-    // Seeded through `originalContent`, not by writing `fields.content` after
-    // load(). ComposerBody.oninit runs when show() mounts the body, and its first
-    // act is `fields.content(attrs.originalContent || '')` — so anything written
-    // beforehand is overwritten with the empty string, which is why the composer
-    // opened blank. Passing it as an attr is the same route EditPostComposer takes
-    // to pre-fill a post's text, and it also means closing straight away does not
-    // ask to discard: nothing has been typed yet.
+    // Via `originalContent`: ComposerBody.oninit sobrescreve `fields.content` ao
+    // montar. Assim fechar logo em seguida também não pede para descartar.
     await app.composer.load(() => Promise.resolve({ default: DiscussionComposer }), {
       user: app.session.user,
       originalContent: rendered.content,
@@ -178,8 +164,7 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
       app.alerts.show({ type: 'success' }, app.translator.trans('ramon-chat.forum.selection.copied'));
       this.cancel();
     } catch {
-      // Clipboard access is refused outside a secure context and in some
-      // embedded browsers. Say so rather than appearing to have copied.
+      // O clipboard é negado fora de contexto seguro e em alguns navegadores embutidos.
       app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.selection.copy_failed'));
     }
   }
@@ -202,8 +187,7 @@ export default class ChatSelectionBar extends Component<ChatSelectionBarAttrs> {
         },
       });
 
-      // The messages are no longer in this channel; drop them from the window
-      // rather than refetching the whole page.
+      // Saíram do canal; remove da janela sem recarregar a página toda.
       for (const id of ids) {
         state.removeMessage(Number(channel.id()), id);
       }

@@ -21,31 +21,29 @@ import iconLabel from '../utils/iconLabel';
 export interface ChannelViewAttrs extends ComponentAttrs {
   channel: Channel;
   state: ChatState;
-  /** Rendered in the header; lets the drawer show a back button the page doesn't need. */
+  /** Botão de voltar no cabeçalho, usado só pelo drawer. */
   onBack?: () => void;
   /**
-   * The view is inside a container that shows the thread panel itself — the
-   * drawer. Opening a thread then sets the state and stops, instead of routing
-   * away to the full-screen page and closing the drawer to do it.
+   * Dentro do drawer, que mostra o painel de thread por conta própria. Abrir uma
+   * thread só ajusta o state; rotear fecharia o drawer.
    */
   embedded?: boolean;
 }
 
 /**
- * A channel's header, message stream and composer.
+ * Cabeçalho, stream e composer de um canal.
  *
- * The stream is bottom-anchored: it stays pinned to the newest message while the
- * user is at the bottom, and holds its scroll position when they are not. Getting
- * this wrong is the single most noticeable chat bug, so the anchoring logic is
- * kept explicit rather than left to the browser.
+ * O stream é ancorado no fim: segue a mensagem mais nova enquanto o usuário está
+ * no fim e mantém a posição quando não está. A ancoragem é explícita, sem
+ * depender do navegador.
  */
 export default class ChannelView extends Component<ChannelViewAttrs> {
   private scroller: HTMLElement | null = null;
 
-  /** Whether the user is at (or near) the bottom of the stream. */
+  /** Se o usuário está no fim do stream (ou perto). */
   private pinned = true;
 
-  /** Scroll height before a prepend, used to restore position after paging up. */
+  /** Altura antes de inserir mensagens antigas, para restaurar a posição. */
   private heightBeforePrepend: number | null = null;
 
   private lastRenderedCount = 0;
@@ -57,13 +55,13 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   }
 
   onbeforeupdate(vnode: Mithril.VnodeDOM<ChannelViewAttrs, this>): void {
-    // `this.attrs` still holds the previous attrs at this point; Component
-    // assigns the incoming vnode's attrs in super.onbeforeupdate().
+    // Aqui `this.attrs` ainda é o anterior; o Component só atualiza em
+    // super.onbeforeupdate().
     const previousId = this.attrs?.channel?.id();
 
     super.onbeforeupdate(vnode);
 
-    // Switching channels inside the same component instance: reset and reload.
+    // Troca de canal na mesma instância.
     if (previousId !== undefined && vnode.attrs.channel.id() !== previousId) {
       this.pinned = true;
       this.lastRenderedCount = 0;
@@ -84,8 +82,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     const stream = this.attrs.state.stream(Number(this.attrs.channel.id()));
     const count = stream.messages.length;
 
-    // Restore the pre-prepend position after paging upwards, so the viewport does
-    // not jump to the top when older messages arrive.
+    // Restaura a posição para o viewport não pular ao chegarem mensagens antigas.
     if (this.heightBeforePrepend !== null && this.scroller) {
       this.scroller.scrollTop = this.scroller.scrollHeight - this.heightBeforePrepend;
       this.heightBeforePrepend = null;
@@ -105,17 +102,12 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
         {this.header()}
         {this.pinnedBar()}
 
-        {/* The wrapper exists only to anchor the scroll-down button. Positioning
-            it against `.ChatChannel` would mean guessing the composer's height,
-            which grows with the text in it and with the typing indicator; against
-            the scroller itself it would scroll away with the content. */}
+        {/* Âncora do botão de descer: em `.ChatChannel` dependeria da altura do
+            composer, e no scroller rolaria junto com o conteúdo. */}
         <div className="ChatChannel-streamWrap">
           <div className="ChatChannel-stream" onscroll={(e: Event) => this.onScroll(e)}>
             {stream.loading && stream.messages.length === 0 ? this.skeleton() : null}
-            {/* Paging upwards. A skeleton row rather than a spinner: it occupies
-                roughly the height the arriving messages will, so the stream does
-                not lurch when they land — and it says "messages are coming"
-                rather than "something is happening". */}
+            {/* Skeleton em vez de spinner: ocupa a altura das mensagens que chegam. */}
             {stream.hasMore && stream.messages.length > 0 ? (
               <div className="ChatChannel-loadMore">{stream.loading ? MessageStreamSkeleton(2) : null}</div>
             ) : null}
@@ -132,30 +124,23 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
 
         {this.typingIndicator()}
 
-        {/* Selection replaces the composer: the two are different modes, and
-            leaving the input under a selection bar invites typing into a channel
-            while acting on messages in it. */}
+        {/* A seleção substitui o composer: são modos diferentes. */}
         {state.selecting ? (
           <ChatSelectionBar channel={channel} state={state} />
         ) : (
           <ChatComposer channel={channel} state={state} onSent={() => this.onSent()} />
         )}
 
-        {/* Announces arrivals to screen readers without stealing focus. */}
+        {/* Anuncia novas mensagens ao leitor de tela sem roubar o foco. */}
         <div className="ChatChannel-liveRegion" role="status" aria-live="polite" />
       </div>
     );
   }
 
   /**
-   * The pinned message, as a strip under the header — the WhatsApp arrangement.
-   *
-   * Shown in the drawer as well as the full-screen page: the drawer has no room for
-   * the pinned panel, and a pin nobody can see is pointless. Clicking it jumps to
-   * the message, first loading the history between it and the window when it is
-   * older than what is on screen — a pin far up a busy channel used to be a dead
-   * label. A pin the channel stream cannot carry (a thread reply) opens the
-   * pinned panel instead.
+   * Faixa da mensagem fixada sob o cabeçalho, também no drawer. O clique pula
+   * para a mensagem, carregando o histórico até ela se preciso; uma fixada que o
+   * stream do canal não mostra (resposta de thread) abre o painel de fixadas.
    */
   protected pinnedBar(): Mithril.Children {
     const { channel, state } = this.attrs;
@@ -178,17 +163,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           <span className="ChatChannel-pinnedBar-text">{text || app.translator.trans('ramon-chat.forum.message.pinned')}</span>
         </button>
 
-        {/* Only past the first. The bar already *is* the one pinned message, and
-            a control opening a panel to show that same message again would cost
-            a click to see what is already on screen. Past that the bar shows the
-            newest of several and the rest have nowhere else to be reached from —
-            which is the gap this closes: the panel's own toggle moved into the
-            drawer's overflow menu, and the strip that stands for the pins had no
-            way into them.
-
-            A sibling rather than a nested button: the strip is itself a button
-            and a button inside a button is invalid, which is why the whole thing
-            is a div now with the jump as its first child. */}
+        {/* Só com mais de uma fixada: a faixa já mostra a mais nova. Fica como
+            irmão, não dentro do botão da faixa: botão dentro de botão é inválido. */}
         {count > 1 ? (
           <button
             type="button"
@@ -219,12 +195,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   }
 
   /**
-   * The channel's own bar: mark, name, description, actions.
-   *
-   * Absent when embedded. The drawer is 320px of vertical space and drew two
-   * bars stacked, both naming the same channel — its own, for the window
-   * controls, and this one. It now carries both, so this would be the second
-   * copy rather than the only one.
+   * Barra do canal: ícone, nome, descrição, ações. Não aparece com embedded: o
+   * cabeçalho do drawer já faz esse papel.
    */
   protected header(): Mithril.Children {
     const { channel, state, onBack, embedded } = this.attrs;
@@ -242,11 +214,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           />
         ) : null}
 
-        {/* Name on the first line, description under it — not both on one row.
-            Side by side they competed for the same width and the flex line
-            resolved it by cutting the *name*: "Canal Priva…Apenas um canal …".
-            Stacked, each truncates within its own line and the name is always
-            whole for as long as the header is wide enough to hold it. */}
+        {/* Nome e descrição em linhas separadas: na mesma linha o flex cortava o nome. */}
         <button type="button" className="ChatChannel-title" onclick={() => openChannelInfo(channel)}>
           {channelIcon(channel, 'ChatChannel-icon')}
 
@@ -257,8 +225,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
           </span>
         </button>
 
-        {/* The same set the drawer puts behind its overflow menu — see
-            utils/channelActions, which is where the gating lives. */}
+        {/* Mesmo conjunto do menu do drawer; as permissões ficam em utils/channelActions. */}
         <div className="ChatChannel-headerActions">
           {channelActions(channel, state).map((action) => (
             <Button
@@ -277,9 +244,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     );
   }
 
-  /**
-   * Interleaves date separators and the unread divider with the message rows.
-   */
+  /** Intercala separadores de data e o divisor de não lidas com as mensagens. */
   protected rows(messages: Message[], dividerAfterId: number | null): Mithril.Children {
     const out: Mithril.Children[] = [];
     let lastDate: string | null = null;
@@ -339,11 +304,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
       return app.translator.trans('ramon-chat.forum.stream.yesterday', {}, true);
     }
 
-    // Through Day.js rather than toLocaleDateString: the browser's locale is
-    // not the forum's, so a reader with an English forum on a Portuguese
-    // machine saw "27 de agosto" between English messages. Core exposes the
-    // dayjs instance the language pack has set the locale on, and the format
-    // token is a translation so a pack can reorder it.
+    // Day.js, não toLocaleDateString: o locale do navegador não é o do fórum. O
+    // formato é uma tradução para o pacote de idioma poder reordenar.
     return app.translator.formatDateTime(dayjs(date), 'ramon-chat.forum.stream.date_format');
   }
 
@@ -388,20 +350,18 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     );
   }
 
-  // ── Behaviour ──────────────────────────────────────────────────────────────
+  // ── Comportamento ──
 
   protected async load(): Promise<void> {
     const { channel, state } = this.attrs;
     const channelId = Number(channel.id());
 
-    // Not awaited: the pinned bar is secondary to the conversation, and blocking
-    // the first page on it would delay every channel open by a round trip.
+    // Sem await: a faixa de fixada não deve atrasar a primeira página.
     state.loadPinnedPreview(channelId).catch(() => {});
 
     await state.loadChannel(channelId);
 
-    // Mark read only after the first page is on screen, so the divider has
-    // already been positioned from the pre-read marker.
+    // Só depois da primeira página, para o divisor usar o marcador anterior.
     state.markRead(channelId);
   }
 
@@ -409,17 +369,12 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     const el = e.target as HTMLElement;
     const wasPinned = this.pinned;
 
-    // 40px of tolerance: "at the bottom" should survive sub-pixel rounding and a
-    // partially visible last row.
+    // 40px de tolerância para arredondamento e última linha parcialmente visível.
     this.pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
 
-    // Scroll fires continuously and Mithril redraws after every handler bound
-    // this way, so a drag through the middle of a long stream repaints it dozens
-    // of times over. Suppressed only while staying *away* from the bottom, which
-    // is the one case with nothing to show for it: the button below is already
-    // visible, `markRead` is not reached, and `fetchPage` redraws itself when its
-    // request lands. Staying pinned still redraws — `markRead` mutates the unread
-    // badge and has no redraw of its own.
+    // O Mithril redesenha após cada evento de scroll. Pula o redraw só longe do
+    // fim, onde nada muda; no fim ainda redesenha porque `markRead` altera o
+    // badge e não chama redraw.
     if (!this.pinned && !wasPinned) {
       (e as Event & { redraw?: boolean }).redraw = false;
     }
@@ -439,18 +394,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   }
 
   /**
-   * The way back down, for when the stream has been left somewhere above the
-   * newest message.
-   *
-   * Jumping to a pinned message is the case that makes this necessary: it can
-   * land you hours up the conversation with no affordance but a long scroll, and
-   * on a phone that is a lot of dragging. Same control WhatsApp draws in the same
-   * corner, for the same reason.
-   *
-   * Tied to `pinned` rather than to a scroll-offset threshold of its own —
-   * `pinned` is already what decides whether the stream follows new messages, so
-   * the button is visible exactly when it is not following, and never lingers
-   * over a stream that is already at the bottom.
+   * Botão de voltar ao fim. Segue `pinned`, que já decide se o stream acompanha as
+   * novas mensagens, então aparece exatamente quando não acompanha.
    */
   protected scrollDownButton(): Mithril.Children {
     if (this.pinned) return null;
@@ -474,14 +419,9 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
   }
 
   /**
-   * Jumps the stream to the newest message.
-   *
-   * Instant, including for the button — an animated version of this does not
-   * survive its surroundings. `onupdate` re-anchors to the bottom the moment a
-   * message arrives while pinned, which overrides an animation mid-flight; and a
-   * smooth `scrollTo` resolves its target once, so rows still laying out below
-   * (an image finishing, the reconcile filling a row in) leave it settling short
-   * of the bottom — on whichever row happened to be there.
+   * Pula para a mensagem mais nova, sem animação: o `onupdate` interrompe a
+   * animação ao reancorar, e o `scrollTo` suave calcula o alvo uma vez só e para
+   * antes do fim se linhas ainda estão sendo montadas.
    */
   protected scrollToBottom(): void {
     if (!this.scroller) return;
@@ -516,9 +456,7 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
     if (thread) {
       state.activeThreadId = Number(thread.id());
 
-      // In the drawer the panel opens over the conversation, the way the pinned
-      // list does. Routing here would throw the drawer away and reopen the whole
-      // thing full-screen, which is not what clicking a reply count asks for.
+      // No drawer o painel abre sobre a conversa; rotear fecharia o drawer.
       if (embedded) {
         m.redraw();
 
@@ -530,10 +468,8 @@ export default class ChannelView extends Component<ChannelViewAttrs> {
       return;
     }
 
-    // No thread yet: the send makes one. Staged as a reply like any other, but
-    // flagged as a branch — the composer cannot otherwise tell this apart from
-    // the plain reply below, and inferring it turned every reply in a
-    // threading-enabled channel into a thread.
+    // Sem thread ainda: o envio cria uma. Marcada como ramificação, senão o
+    // composer não a distingue de uma resposta comum.
     state.setReplyingTo(Number(channel.id()), message, null, true);
     m.redraw();
   }

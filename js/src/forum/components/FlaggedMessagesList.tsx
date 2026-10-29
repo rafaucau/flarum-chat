@@ -20,23 +20,17 @@ export interface FlaggedMessagesListAttrs extends ComponentAttrs {
 }
 
 /**
- * The chat's moderation queue.
+ * Fila de moderação do chat.
  *
- * flarum/flags cannot back this: its `flags.post_id` is a non-nullable foreign key
- * into `posts`, so a chat message id is refused by the database. Rather than alter
- * another extension's schema, the chat keeps its own reports — same shape, same
- * two decisions at the end of each one: the message stays, or it goes.
- *
- * Rows are summaries, as in BookmarksList: a full ChatMessage draws reply, edit and
- * pin actions from its own capability flags, and none of those are what a moderator
- * came here to do.
+ * Não usa flarum/flags: `flags.post_id` é FK não nula para `posts`. Linhas são
+ * resumos, como em BookmarksList.
  */
 export default class FlaggedMessagesList extends Component<FlaggedMessagesListAttrs> {
   private flags: MessageFlag[] = [];
   private loading = true;
-  /** Id of the flag whose row is mid-request, so only that row shows a spinner. */
+  /** Denúncia com requisição em andamento, para só essa linha mostrar spinner. */
   private working: number | null = null;
-  /** Whether resolved reports are shown alongside the open ones. */
+  /** Mostra também as denúncias resolvidas. */
   private showResolved = false;
 
   oninit(vnode: Mithril.Vnode<FlaggedMessagesListAttrs>): void {
@@ -46,9 +40,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   view(): Mithril.Children {
-    // Reading the queue is `ramon-chat.moderate`. The route is reachable by
-    // anyone who may use the chat, so the component says no rather than showing
-    // an empty list that looks like "no reports".
+    // A rota é acessível a qualquer usuário do chat; sem `ramon-chat.moderate`
+    // recusa em vez de mostrar uma lista vazia que pareceria "sem denúncias".
     if (!app.forum.attribute<boolean>('canModerateChat')) {
       return (
         <div className="ChatFlags">
@@ -121,9 +114,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
           </span>
         </div>
 
-        {/* The reporter's own words, as a text node. Mithril escapes it; putting
-            it through m.trust would let a report body carry markup into the one
-            screen a moderator has to read. */}
+        {/* Nó de texto, escapado pelo Mithril. Nunca m.trust aqui. */}
         {flag.detail() ? <div className="ChatFlags-detail">{flag.detail()}</div> : null}
 
         {message ? this.target(message) : <div className="ChatFlags-gone">{app.translator.trans('ramon-chat.forum.flags.message_gone')}</div>}
@@ -138,9 +129,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
           {resolved ? (
             <span className="ChatFlags-resolvedBy">
               {app.translator.trans('ramon-chat.forum.flags.resolved_by', {
-                // Not `user`: the translator reserves that key, extracts it and
-                // runs username() on it itself — which crashed on the vnode this
-                // already is.
+                // Não `user`: o translator reserva essa chave e roda username() nela,
+                // o que quebra com um vnode.
                 moderator: username(flag.resolvedBy()),
               })}
             </span>
@@ -185,8 +175,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
           {channel ? <span className="ChatFlags-target-channel">{channel.displayName()}</span> : null}
         </div>
 
-        {/* Plain text again, and for the same reason as the modal: the reported
-            content is what may be wrong, and this list is read by a person. */}
+        {/* Texto puro, como no modal: o conteúdo denunciado pode ser o problema. */}
         <div className="ChatFlags-target-excerpt">
           {message.isDeleted() ? app.translator.trans('ramon-chat.forum.flags.message_deleted') : messagePreview(message, 240)}
         </div>
@@ -200,13 +189,9 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
 
     try {
       const results = (await app.store.find('chat-message-flags', {
-        // Always stated, never omitted. The server applies no default of its own —
-        // it cannot, because a default in the searcher's query could not be undone
-        // by a filter that runs after it — so a bare listing would return the
-        // history too. Sending it either way keeps the two views honest.
-        //
-        // A `filter[...]` rather than a plain query parameter because Flarum 2
-        // rejects any parameter it does not recognise.
+        // Sempre enviado: o servidor não tem default (um filtro posterior não
+        // desfaria um default do searcher). É `filter[...]` porque o Flarum 2
+        // rejeita parâmetros que não conhece.
         filter: { resolved: this.showResolved ? '1' : '0' },
         sort: '-createdAt',
         page: { limit: 50 },
@@ -224,9 +209,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Opens the channel the reported message lives in, and its thread when it has
-   * one — a thread reply is not in the channel window, so routing to the channel
-   * alone would land somewhere the message is not.
+   * Abre o canal e, se houver, a thread: uma resposta de thread não está na janela
+   * do canal.
    */
   protected open(message: Message): void {
     const channelId = message.channelId();
@@ -263,8 +247,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Deletes the reported message. The server closes every open report about it in
-   * the same breath — see ResolveFlagsOnModeration — so this row is done too.
+   * Apaga a mensagem denunciada; o servidor fecha junto todas as denúncias abertas
+   * dela (ResolveFlagsOnModeration).
    */
   protected async deleteMessage(flag: MessageFlag, message: Message): Promise<void> {
     if (!confirm(app.translator.trans('ramon-chat.forum.message.delete_confirm', {}, true))) return;
@@ -280,8 +264,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
         url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/delete`,
       });
 
-      // Always a moderator removal: this is the moderation queue, and the
-      // author cannot reach it.
+      // Sempre remoção por moderador: o autor não acessa a fila.
       message.pushAttributes({
         isDeleted: true,
         content: null,
@@ -299,8 +282,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Drops the row from the open queue, or marks it in place when resolved reports
-   * are on screen — removing it there would hide the very thing being shown.
+   * Remove a linha da fila aberta, ou a marca no lugar quando as resolvidas estão
+   * visíveis.
    */
   protected afterResolved(flag: MessageFlag): void {
     flag.pushAttributes({ isResolved: true, resolvedAt: new Date() });
@@ -309,7 +292,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
       this.flags = this.flags.filter((f) => f.id() !== flag.id());
     }
 
-    // Keep the sidebar badge honest without a round trip.
+    // Atualiza o badge da sidebar sem nova requisição.
     const count = Number(app.forum.attribute<number>('chatOpenFlagsCount') ?? 0);
 
     app.forum.pushAttributes({ chatOpenFlagsCount: Math.max(0, count - 1) });

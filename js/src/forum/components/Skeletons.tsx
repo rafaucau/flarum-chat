@@ -1,36 +1,27 @@
 import type Mithril from 'mithril';
 
 /**
- * Loading placeholders shaped like the content that replaces them.
- *
- * A spinner tells you something is happening; a skeleton tells you *what* is
- * coming, and — because it occupies the same space — the interface does not jump
- * when the data lands. Each function here mirrors one real surface, so a change to
- * that surface's layout should be mirrored here too; a skeleton that no longer
- * matches is worse than none, because it promises the wrong shape.
- *
- * All of them are plain functions rather than components: they hold no state, and
- * a component would only add a lifecycle nobody needs.
+ * Placeholders de carregamento no formato do conteúdo real, para a interface não
+ * pular quando os dados chegam. Cada função espelha uma tela: mudou o layout lá,
+ * mude aqui.
  */
 
-/** Repeats a builder `count` times with a key, which every fragment here needs. */
+/** Repete o builder `count` vezes, com key. */
 function repeat(count: number, build: (index: number) => Mithril.Children): Mithril.Children[] {
   return Array.from({ length: count }, (_, index) => build(index));
 }
 
 /**
- * Widths are varied per row so a list does not read as a striped block. Derived
- * from the index rather than random, so the layout is stable across redraws.
+ * Larguras variam por linha; derivadas do índice, não aleatórias, para ficarem
+ * estáveis entre redraws.
  */
 function width(index: number, steps: number[]): string {
   return steps[index % steps.length] + '%';
 }
 
-// ── Message stream ───────────────────────────────────────────────────────────
+// ── Stream de mensagens ──
 
-/**
- * The channel, thread and pinned streams: avatar, author line, message line.
- */
+/** Streams de canal, thread e fixadas. */
 export function MessageStreamSkeleton(rows = 6): Mithril.Children {
   return (
     <div className="ChatSkeleton" aria-hidden="true">
@@ -47,16 +38,9 @@ export function MessageStreamSkeleton(rows = 6): Mithril.Children {
   );
 }
 
-// ── Full channel pane ────────────────────────────────────────────────────────
+// ── Painel do canal ──
 
-/**
- * What the main pane looks like before a channel is ready: the header bar, the
- * stream and the composer, in their final positions.
- *
- * This is the one that matters most — it is the whole right-hand side of the page
- * on first load, and a lone spinner there leaves the layout to snap into place a
- * second later.
- */
+/** Painel principal antes do canal carregar: cabeçalho, stream e composer. */
 export function ChannelSkeleton(): Mithril.Children {
   return (
     <div className="ChatChannel ChatSkeleton-channel" aria-hidden="true">
@@ -72,12 +56,9 @@ export function ChannelSkeleton(): Mithril.Children {
   );
 }
 
-// ── Sidebar ──────────────────────────────────────────────────────────────────
+// ── Sidebar ──
 
-/**
- * The channel list: quick links, a section heading, then rows with an icon and a
- * name.
- */
+/** Lista de canais: atalhos, título de seção e linhas. */
 export function SidebarSkeleton(): Mithril.Children {
   return (
     <div className="ChatSkeleton-sidebar" aria-hidden="true">
@@ -100,15 +81,9 @@ export function SidebarSkeleton(): Mithril.Children {
   );
 }
 
-// ── Browse channels ──────────────────────────────────────────────────────────
+// ── Explorar canais ──
 
-/**
- * Cards with the icon, title, description and footer.
- *
- * Mirrors the real card's three bands rather than approximating them: the card
- * is a column, and a skeleton laid out as a row makes the list visibly jump into
- * place when the data arrives.
- */
+/** Cards em coluna, como os reais; em linha, a lista pularia ao carregar. */
 export function BrowseSkeleton(cards = 6): Mithril.Children {
   return (
     <div className="ChatBrowse-list" aria-hidden="true">
@@ -138,7 +113,7 @@ export function BrowseSkeleton(cards = 6): Mithril.Children {
   );
 }
 
-// ── Search results ───────────────────────────────────────────────────────────
+// ── Resultados de busca ──
 
 export function SearchResultsSkeleton(rows = 5): Mithril.Children {
   return (
@@ -156,7 +131,7 @@ export function SearchResultsSkeleton(rows = 5): Mithril.Children {
   );
 }
 
-// ── My threads ───────────────────────────────────────────────────────────────
+// ── Minhas threads ──
 
 export function ThreadsSkeleton(rows = 5): Mithril.Children {
   return (
@@ -174,7 +149,7 @@ export function ThreadsSkeleton(rows = 5): Mithril.Children {
   );
 }
 
-// ── Member list ──────────────────────────────────────────────────────────────
+// ── Lista de membros ──
 
 export function MembersSkeleton(rows = 6): Mithril.Children {
   return (

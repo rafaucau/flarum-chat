@@ -12,36 +12,28 @@ import type Mithril from 'mithril';
 import type Channel from '../../common/models/Channel';
 import { isOnline } from '../utils/presence';
 
-/** What the endpoint accepts in one call; mirrors ChannelResource::addMembers. */
+/** Limite por chamada; espelha ChannelResource::addMembers. */
 const MAX_PER_REQUEST = 50;
 
-/** How many recently active people are offered before anything is typed. */
+/** Quantas pessoas recentes sugerir antes da digitação. */
 const SUGGESTIONS = 8;
 
 export interface AddMembersModalAttrs extends IFormModalAttrs {
   channel: Channel;
-  /** Already in the channel: listed, but not offered. */
+  /** Já no canal: aparecem, mas não são selecionáveis. */
   members: User[];
-  /** Already asked and not answered: listed, but not offered again. */
+  /** Convite pendente: aparecem, mas não são selecionáveis. */
   invited: User[];
-  /** Called with the people the server was asked to invite. */
+  /** Recebe as pessoas enviadas ao servidor para convite. */
   onAdded: (users: User[]) => void;
 }
 
 /**
- * Picks people to invite into a channel.
+ * Escolhe pessoas para convidar a um canal, num campo de tokens.
  *
- * A token field: the chosen people sit inside the search box as chips, so the
- * question "who am I about to invite" is answered where the typing happens.
- * Before anything is typed the box offers the people most recently seen on the
- * forum, so the dialog never opens onto an empty grey square; typing narrows
- * that to a search. People who are already in, or already asked, still appear
- * in the results, marked and unselectable, so their absence from the offer is
- * explained rather than silent.
- *
- * The keyboard works the way a token field is expected to: arrows move along
- * the list, Enter picks, Backspace on an empty box takes the last chip back,
- * Escape clears the query.
+ * Sem digitação, sugere quem foi visto por último. Membros e convidados aparecem
+ * marcados e não selecionáveis. Setas navegam, Enter escolhe, Backspace no campo
+ * vazio remove o último chip e Escape limpa a busca.
  */
 export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   private query = '';
@@ -53,12 +45,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   private highlighted = 0;
   private timer: number | null = null;
 
-  /**
-   * Guards against an earlier search resolving after a later one.
-   *
-   * Typing "ram" issues a request for "ra" and one for "ram"; without this the
-   * slower of the two wins and the list contradicts the field.
-   */
+  /** Impede que uma busca antiga resolva depois de uma mais nova. */
   private sequence = 0;
 
   oninit(vnode: Mithril.Vnode<AddMembersModalAttrs, this>): void {
@@ -131,9 +118,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     );
   }
 
-  /**
-   * The offer: suggestions until two letters are typed, then the search.
-   */
+  /** Sugestões até duas letras digitadas; depois, a busca. */
   protected list(): Mithril.Children {
     const typed = this.query.trim().length;
 
@@ -180,9 +165,8 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   }
 
   /**
-   * Rows for a list that mixes people who can be picked with people who
-   * cannot. The highlight counts only the former, the way the arrow keys do,
-   * so a marked row in the middle of the results does not shift it.
+   * O destaque conta só as linhas selecionáveis, como as setas, para uma linha
+   * marcada no meio não deslocá-lo.
    */
   protected rows(users: User[]): Mithril.Children {
     let offeredIndex = 0;
@@ -282,11 +266,9 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     );
   }
 
-  // ── Behaviour ──────────────────────────────────────────────────────────────
+  // ── Comportamento ──
 
-  /**
-   * Why a person cannot be picked, or null when they can.
-   */
+  /** Por que a pessoa não pode ser escolhida, ou null se pode. */
   protected statusOf(user: User): 'you' | 'member' | 'invited' | null {
     const id = user.id();
 
@@ -308,8 +290,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
 
     this.selected = this.isSelected(user) ? this.selected.filter((picked) => picked.id() !== user.id()) : [...this.selected, user];
 
-    // Picking someone from a search clears it, the way a token field does:
-    // the chip is the record of the choice, and the next name starts fresh.
+    // Escolher alguém limpa a busca, como num campo de tokens.
     if (this.query !== '') {
       this.query = '';
       this.results = [];
@@ -338,8 +319,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
       e.preventDefault();
       this.highlighted = (this.highlighted - 1 + offered.length) % offered.length;
     } else if (e.key === 'Enter') {
-      // Enter picks; it must not submit the form behind the field, which is
-      // what a bare input inside a form does.
+      // Enter escolhe; não pode enviar o form.
       e.preventDefault();
 
       const pick = offered[this.highlighted];
@@ -362,19 +342,13 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   }
 
   /**
-   * A handful of people offered before any typing.
-   *
-   * The most recently seen when the actor may sort by that (core gates the
-   * `lastSeenAt` sort behind `user.viewLastSeenAt`, which ordinary members
-   * usually lack and which the API answers with a 400), the most active
-   * posters otherwise. Fetched once per opening; the list is small and the
-   * point is only to give the dialog something to open onto.
+   * Sugestões antes da digitação, buscadas uma vez por abertura. Ordena por
+   * `lastSeenAt` quando possível (o core exige `user.viewLastSeenAt`, e sem ela a
+   * API responde 400); senão, por quem mais posta.
    */
   protected async loadSuggestions(): Promise<void> {
     const limit = SUGGESTIONS + 1 + this.attrs.members.length;
-    // Administrators hold every permission; anyone else who happens to hold
-    // this one is caught by the fallback rather than by a second request
-    // for everyone.
+    // Admin tem toda permissão; para os demais, `lastSeenAt` fica como fallback.
     const orders = app.session.user?.isAdmin() ? ['-lastSeenAt', '-commentCount'] : ['-commentCount', '-lastSeenAt'];
 
     try {
@@ -391,7 +365,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
 
           break;
         } catch {
-          // A sort this actor may not use; the next one is open to everyone.
+          // Ordenação proibida para este usuário; tenta a próxima.
         }
       }
 
@@ -402,7 +376,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     }
   }
 
-  /** Debounced so typing does not issue a request per keystroke. */
+  /** Com debounce, para não disparar uma requisição por tecla. */
   protected search(value: string): void {
     this.query = value;
     this.highlighted = 0;
@@ -461,9 +435,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
       .request<any>({
         method: 'POST',
         url: `${app.forum.attribute('apiUrl')}/chat-channels/${this.attrs.channel.id()}/members`,
-        // One request for the whole selection: the endpoint takes a list, and
-        // inviting five people used to be five requests, five notifications'
-        // worth of round trips and five chances to half-fail.
+        // Uma requisição para a seleção inteira: o endpoint aceita lista.
         body: {
           data: { attributes: { userIds: chosen.map((u) => Number(u.id())) } },
         },

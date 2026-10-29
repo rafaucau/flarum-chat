@@ -15,28 +15,18 @@ export interface FlagMessageModalAttrs extends IFormModalAttrs {
 }
 
 /**
- * The reasons the server accepts, in the order they are offered.
- *
- * Mirrors `MessageFlag::REASONS`. A reason the server would reject must never
- * appear here — the request would fail with a validation error the reporter
- * cannot act on.
- *
- * `other` is last and is the one that requires an explanation, because the reason
- * alone says nothing to whoever picks the report up.
+ * Motivos aceitos pelo servidor, na ordem exibida. Espelha `MessageFlag::REASONS`.
+ * `other` exige explicação.
  */
 const REASONS = ['spam', 'inappropriate', 'harassment', 'off_topic', 'other'] as const;
 
 type Reason = (typeof REASONS)[number];
 
 /**
- * Reports a message to the moderators.
+ * Denuncia uma mensagem aos moderadores.
  *
- * A modal rather than a one-click action: the report lands in a queue a person has
- * to read, and a reason picked deliberately is worth more to them than a bare
- * count. It is also the last chance to reconsider, which a single button is not.
- *
- * Extends FormModal, not Modal: `Modal.wrapper()` returns a bare fragment, so a
- * `type="submit"` button inside it has no form and onsubmit never fires.
+ * Estende FormModal, não Modal: `Modal.wrapper()` devolve um fragment sem form, e
+ * o onsubmit nunca dispararia.
  */
 export default class FlagMessageModal extends FormModal<FlagMessageModalAttrs> {
   private reason!: Stream<Reason>;
@@ -63,9 +53,7 @@ export default class FlagMessageModal extends FormModal<FlagMessageModalAttrs> {
     return (
       <div className="Modal-body">
         <div className="Form">
-          {/* The message being reported, as plain text. Rendering its HTML here
-              would put the reported content — which may be exactly what is wrong
-              with it — into the reporter's own dialog. */}
+          {/* Texto puro: renderizar o HTML traria o conteúdo denunciado para o diálogo. */}
           <div className="ChatFlagModal-target">
             <div className="ChatFlagModal-target-author">{authorName(message)}</div>
             <div className="ChatFlagModal-target-excerpt">{messagePreview(message, 200)}</div>
@@ -122,8 +110,8 @@ export default class FlagMessageModal extends FormModal<FlagMessageModalAttrs> {
   }
 
   /**
-   * Nothing awaits this method, so a rejection here would surface as an unhandled
-   * promise rejection rather than as feedback. Every failure path is handled inline.
+   * Ninguém aguarda este método; toda falha é tratada aqui para não virar
+   * unhandled rejection.
    */
   onsubmit(e: SubmitEvent): void {
     e.preventDefault();
@@ -132,8 +120,7 @@ export default class FlagMessageModal extends FormModal<FlagMessageModalAttrs> {
 
     const detail = this.detail().trim();
 
-    // Checked here as well as on the button and on the server. The button being
-    // disabled is a courtesy; a form submits on Enter regardless.
+    // O Enter envia o form mesmo com o botão desabilitado.
     if (this.reason() === 'other' && detail === '') return;
 
     this.loading = true;
@@ -153,8 +140,7 @@ export default class FlagMessageModal extends FormModal<FlagMessageModalAttrs> {
         },
       })
       .then(() => {
-        // Locally, so the button reads "reported" without waiting for the next
-        // fetch of the stream.
+        // Local, para o botão mostrar "denunciada" sem esperar o próximo fetch.
         this.attrs.message.pushAttributes({ isFlagged: true });
 
         this.hide();

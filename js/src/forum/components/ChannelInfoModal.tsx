@@ -32,36 +32,29 @@ export interface ChannelInfoModalAttrs extends IInternalModalAttrs {
 }
 
 /**
- * Channel details: notification preferences, the member list, and the moderation
- * actions that change a channel's state.
+ * Detalhes do canal: notificações, membros e ações de moderação.
  *
- * Distinct from ChannelFormModal, which edits what a channel *is* (name, category,
- * threading) and needs the edit permission. This is what any member may see and
- * adjust for themselves, with the state-changing actions gated per capability
- * flag — so a plain member gets a useful panel rather than a locked one.
+ * O ChannelFormModal edita o canal em si e exige permissão de edição; este é o
+ * que qualquer membro vê, com cada ação liberada pela flag de permissão dela.
  */
 export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   private tab: 'settings' | 'members' | 'ranks' = 'settings';
 
-  /** Whose ranks are open for editing in the members tab, or null. */
+  /** Membro com os ranks abertos para edição na aba de membros, ou null. */
   private assigningUserId: string | null = null;
   private members: User[] = [];
 
   /**
-   * Who holds the channel's moderator role, as of the last read of the member
-   * list or the last promotion. Kept here rather than read off the store's
-   * record: every other read of the channel comes without the member list and
-   * answers this empty, so a capability refresh landing while the tab was open
-   * wiped every badge from it.
+   * Moderadores do canal, da última leitura da lista ou promoção. Guardado aqui:
+   * as outras leituras do canal vêm sem membros e devolvem isto vazio.
    */
   private moderatorIds: number[] = [];
-  /** People invited and not yet answered. Served to managers only. */
+  /** Convites sem resposta. Só quem gerencia recebe. */
   private invited: User[] = [];
 
   /**
-   * The pending ownership handover, as the server shows it to this reader:
-   * the owner's own (waiting for the code, or for the answer), or the one
-   * offered to this reader. Read with the member list, like `moderatorIds`.
+   * Transferência de dono pendente, como o servidor a mostra a este leitor: a do
+   * dono ou a oferecida a ele. Lida junto com os membros, como `moderatorIds`.
    */
   private transfer: OwnershipTransferState | null = null;
   private loadingMembers = false;
@@ -69,16 +62,12 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   private memberFilter = '';
   private working = false;
 
-  /** Stops listening for membership pushes; set while the modal is open. */
+  /** Para de ouvir pushes de membros; definido enquanto o modal está aberto. */
   private stopListening: (() => void) | null = null;
 
   /**
-   * Which immediate action is running, or null.
-   *
-   * `working` answers "is anything in flight", which is what every control reads
-   * to disable itself. A spinner is a narrower claim — it says *this* button
-   * started something — and driving them all from the one flag meant changing
-   * the notification level spun Close and Archive along with it.
+   * Ação imediata em andamento, ou null. `working` desabilita todos os controles;
+   * isto decide qual botão mostra o spinner.
    */
   private pending: 'status' | 'archive' | 'unarchive' | 'delete' | null = null;
 
@@ -133,7 +122,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     );
   }
 
-  // ── Settings tab ───────────────────────────────────────────────────────────
+  // ── Aba de configurações ──
 
   protected settings(): Mithril.Children {
     const channel = this.attrs.channel;
@@ -163,9 +152,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
             </select>
           </label>
 
-          {/* What the chosen level actually does. Three named levels with no
-              explanation left the difference between "mentions only" and
-              "nothing" to be discovered by picking one and waiting. */}
+          {/* O que o nível escolhido faz. */}
           <div className="helpText">{app.translator.trans(this.notificationLevelHelp(channel))}</div>
 
           <Switch state={Boolean(channel.isMuted())} onchange={(value: boolean) => this.saveNotifications(null, value)} disabled={this.working}>
@@ -183,17 +170,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * How this member's own composer behaves.
-   *
-   * Its own section rather than a row under NOTIFICATIONS, and worth being
-   * explicit about why it is in a per-channel panel at all: which key sends is a
-   * setting for the person, not for the channel, and it applies everywhere. The
-   * section sits here because this is the panel a member already opens to adjust
-   * the chat for themselves — but the help line says "every channel" so nobody
-   * reads the surrounding modal as the scope.
-   *
-   * Guests never reach this: the chat requires an account, and `savePreferences`
-   * needs a user to save against.
+   * Comportamento do composer do membro. A tecla de envio vale para todos os
+   * canais, não só este; o texto de ajuda deixa isso claro.
    */
   protected composerSection(): Mithril.Children {
     if (!app.session.user) return null;
@@ -224,7 +202,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     );
   }
 
-  /** The line describing the notification level currently selected. */
+  /** Descrição do nível de notificação selecionado. */
   protected notificationLevelHelp(channel: Channel): string {
     switch (channel.notificationLevel() ?? NotificationLevel.Mentions) {
       case NotificationLevel.Always:
@@ -237,8 +215,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Actions that change the channel for everyone. Each is drawn only when the
-   * server said the actor may do it, so nothing here is present-and-rejected.
+   * Ações que mudam o canal para todos; cada uma só aparece se o servidor permitir.
    */
   protected moderation(): Mithril.Children {
     const channel = this.attrs.channel;
@@ -274,9 +251,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
       );
     }
 
-    // Read from the status, not from `archivedAt`. The stamps used to survive a
-    // channel being reopened by status, and a channel that still carried them
-    // never offered the archive action again.
+    // Lido do status, não de `archivedAt`, que pode sobrar após reabrir o canal.
     if (channel.isArchived() && channel.canUnarchive()) {
       items.push(
         <Button
@@ -314,7 +289,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     );
   }
 
-  // ── Members tab ────────────────────────────────────────────────────────────
+  // ── Aba de membros ──
 
   protected memberTab(): Mithril.Children {
     if (this.loadingMembers) {
@@ -324,8 +299,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     const term = this.memberFilter.trim().toLowerCase();
     const shown = term ? this.members.filter((user) => (user.displayName() + ' ' + user.username()).toLowerCase().includes(term)) : this.members;
 
-    // Everyone is in a channel for everyone, so the list is only the people
-    // who run it, and adding someone has nothing to add them to.
+    // Em canal para todos a lista mostra só quem administra, e não há quem adicionar.
     const forEveryone = this.attrs.channel.isForEveryone();
 
     return (
@@ -339,10 +313,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
                 })}
           </span>
 
-          {/* Opens a picker rather than unfolding a field here: choosing people
-              is its own task, and a search box for candidates directly above a
-              search box for members made two controls that look identical do
-              different things. */}
+          {/* Abre um seletor à parte: um campo de candidatos sobre o de busca de
+              membros pareceria o mesmo controle. */}
           {this.attrs.channel.canManageMembers() && !forEveryone ? (
             <Button
               className="Button Button--primary Button--compact"
@@ -350,9 +322,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
               disabled={this.working}
               onclick={() => this.openAddMembers()}
             >
-              {/* The dialog's own title, not `info.add_member`: that string is
-                  the phrasing of a search field ("Add someone by name") and
-                  reads as an instruction rather than as a button. */}
+              {/* Título do diálogo; `info.add_member` é texto de campo de busca. */}
               {app.translator.trans('ramon-chat.forum.add_members.title')}
             </Button>
           ) : null}
@@ -360,7 +330,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
 
         {forEveryone ? <p className="helpText ChatChannelInfo-everyoneHelp">{app.translator.trans('ramon-chat.forum.info.everyone_help')}</p> : null}
 
-        {/* What the role means, shown to whoever can hand it out. */}
+        {/* Explica o papel para quem pode atribuí-lo. */}
         {this.attrs.channel.canManageModerators() ? (
           <p className="helpText ChatChannelInfo-moderatorHelp">{app.translator.trans('ramon-chat.forum.info.moderator_help')}</p>
         ) : null}
@@ -378,8 +348,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
         />
 
         <div className="ChatChannelInfo-memberList">
-          {/* One keyed item per member, holding the row and, while open, the
-              member's ranks under it: a keyed list may not have holes. */}
+          {/* Um item com key por membro, com os ranks dentro: lista com key não
+              pode ter buracos. */}
           {shown.map((user) => (
             <div key={user.id()} className="ChatChannelInfo-memberItem">
               <div
@@ -407,12 +377,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Who has been asked in and not answered, for whoever manages the list.
-   *
-   * Under the members rather than among them: an invitation is not a
-   * membership, and a name in the member list that cannot be messaged would
-   * be a lie. Each row can be withdrawn, which is the manager's half of the
-   * exchange the invitee's accept and decline are the other half of.
+   * Convites pendentes, para quem gerencia. Ficam abaixo dos membros porque
+   * convite não é participação; cada um pode ser retirado.
    */
   protected invitedList(): Mithril.Children {
     if (!this.attrs.channel.canManageMembers() || this.invited.length === 0) {
@@ -450,8 +416,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Withdraws an invitation. The invitee's notification goes with it, so
-   * confirmed first: the person may be reading it at that very moment.
+   * Retira um convite, com confirmação: a notificação do convidado some junto.
    */
   protected async cancelInvite(user: User): Promise<void> {
     const confirmed = confirm(app.translator.trans('ramon-chat.forum.info.cancel_invite_confirm', { username: username(user) }, true));
@@ -496,7 +461,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     return this.moderatorIds.some((id) => Number(id) === Number(user.id()));
   }
 
-  /** The rank shown for a member, from the channel's rank book. */
+  /** Rank exibido do membro, do `rankBook` do canal. */
   protected rankOf(user: User) {
     const book = this.attrs.channel.rankBook?.();
 
@@ -504,9 +469,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * The member's rank, the way author lines draw it: a tag, or nothing here
-   * when the rank colours the name instead. Without a rank book — a direct
-   * conversation has none — the role labels the list always had.
+   * Rank do membro como nas linhas de autor: tag, ou nada se o rank só colore o
+   * nome. Sem `rankBook` (conversa direta), usa os rótulos de papel.
    */
   protected memberBadge(user: User): Mithril.Children {
     const book = this.attrs.channel.rankBook?.();
@@ -537,8 +501,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Opens the member's ranks, for whoever manages them. Offered for oneself
-   * too: a chat moderator running another person's room may wear a rank there.
+   * Abre os ranks do membro para quem gerencia, inclusive os próprios: um
+   * moderador do chat pode ter rank no canal de outra pessoa.
    */
   protected rankControl(user: User): Mithril.Children {
     if (!this.attrs.channel.canManageRanks()) return null;
@@ -560,9 +524,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * The owner's ranks as a checklist under the member's row. Each tick saves
-   * at once, the whole set: the server answers with the rank book, which
-   * redraws this list, the member's tag and every author line together.
+   * Checklist de ranks sob a linha do membro. Cada marcação grava o conjunto
+   * inteiro; o servidor devolve o `rankBook`, que redesenha tudo junto.
    */
   protected rankPicker(user: User): Mithril.Children {
     const book = this.attrs.channel.rankBook?.();
@@ -623,10 +586,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Promote, demote and remove — each drawn only for people the actor may
-   * actually act on, so no button is a promise the server refuses to keep.
-   * Nothing for yourself: leaving is what "Leave channel" is for, and the owner
-   * is not something you can stop being from here.
+   * Promover, rebaixar e remover, só para quem o usuário pode afetar. Nada para si
+   * mesmo: para isso existe "Sair do canal".
    */
   protected memberControls(user: User): Mithril.Children {
     const channel = this.attrs.channel;
@@ -655,9 +616,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
       );
     }
 
-    // Handing the channel over. Offered to its owner (and administrators) for
-    // anyone else in the list; the server still decides whether that member
-    // may own channels, and says so if not.
+    // Transferir o canal: para o dono e admins. O servidor decide se o membro pode
+    // ser dono.
     if (channel.canTransferOwnership() && !this.isOwner(user)) {
       controls.push(
         <Button
@@ -686,9 +646,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * The pending handover, with what this reader can do about it: the owner
-   * enters the code or cancels; the member it is offered to accepts or
-   * declines, the same two answers the notification row carries.
+   * Transferência pendente: o dono digita o código ou cancela; quem recebe aceita
+   * ou recusa, como na notificação.
    */
   protected transferBanner(): Mithril.Children {
     const transfer = this.transfer;
@@ -753,7 +712,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     );
   }
 
-  /** A member's display name by id, from the list or the store. */
+  /** Nome do membro pelo id, da lista ou do store. */
   protected userName(id: number): string {
     const user = this.members.find((member) => Number(member.id()) === Number(id)) ?? (app.store.getById('users', String(id)) as User | undefined);
 
@@ -761,8 +720,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * First step: asked once, then the server mails the owner a code and the
-   * code dialog opens over this one.
+   * Primeiro passo: após confirmar, o servidor manda o código por e-mail ao dono e
+   * o diálogo do código abre por cima.
    */
   protected async startTransfer(user: User): Promise<void> {
     if (this.working) return;
@@ -858,9 +817,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Redraws the tab from a channel the server answered with, members and all.
-   * The transfer endpoints include participants, so the badges, the role list
-   * and the pending handover all come from that one answer.
+   * Redesenha a aba a partir do canal devolvido. Os endpoints de transferência
+   * incluem participantes, então tudo vem dessa resposta.
    */
   protected adoptMembers(channel: Channel | null): void {
     if (!channel) {
@@ -880,10 +838,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Hands the channel's moderator role to a member, or takes it back.
-   *
-   * The response carries the channel with its participants, so pushing it
-   * refreshes `moderatorIds` on the very model this modal is drawing from.
+   * Dá ou tira o papel de moderador. A resposta traz o canal com participantes,
+   * o que atualiza `moderatorIds`.
    */
   protected async setModerator(user: User, moderator: boolean): Promise<void> {
     if (this.working) return;
@@ -900,7 +856,6 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
 
       if (payload?.data) app.store.pushPayload(payload);
 
-      // The answer the server gave, which is what the row is drawn from.
       const ids = payload?.data?.attributes?.moderatorIds;
 
       if (Array.isArray(ids)) this.moderatorIds = ids.map(Number);
@@ -920,24 +875,15 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Opens the people picker.
-   *
-   * Stacked on top of this modal rather than replacing it: the member list is
-   * the context for the choice, and coming back to a closed dialog after adding
-   * three people would mean reopening it to check they landed.
-   *
-   * This is how anyone gets into a private channel: it is not discoverable and
-   * cannot be joined, so an existing member with `manageMembers` has to put you
-   * there. Offered only when the server says the actor may — a moderator, or the
-   * creator of a group conversation.
+   * Abre o seletor de pessoas empilhado sobre este modal. É a única forma de
+   * entrar num canal privado, que não aparece na busca nem aceita entrada direta.
    */
   protected openAddMembers(): void {
     app.modal.show(
       loadAddMembersModal,
       {
         channel: this.attrs.channel,
-        // Both lists: the picker shows them marked rather than offering them,
-        // so someone already in, or already asked, is not a mystery absence.
+        // O seletor mostra membros e convidados marcados, não selecionáveis.
         members: this.members,
         invited: this.invited,
         onAdded: (users: User[]) => this.onMembersInvited(users),
@@ -947,11 +893,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Folds the picker's result into the pending list.
-   *
-   * Invited, not added: nobody is a member until they say yes, so the count
-   * does not move and the names go under "invitations pending" rather than
-   * into the member list.
+   * Adiciona o resultado do seletor aos convites pendentes. Ninguém vira membro
+   * antes de aceitar, então a contagem não muda.
    */
   protected onMembersInvited(users: User[]): void {
     const known = new Set([...this.members.map((member) => member.id()), ...this.invited.map((user) => user.id())]);
@@ -965,11 +908,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Removes someone else from the channel.
-   *
-   * Confirmed first: unlike adding, this one is not obviously undoable from the
-   * other side — a private channel cannot be rejoined, so the person would have to
-   * be added back by hand.
+   * Remove alguém do canal, com confirmação: de canal privado a pessoa não volta
+   * sozinha.
    */
   protected async remove(user: User): Promise<void> {
     const confirmed = confirm(app.translator.trans('ramon-chat.forum.info.remove_member_confirm', { username: username(user) }, true));
@@ -990,8 +930,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
 
       this.members = this.members.filter((member) => member.id() !== user.id());
 
-      // Kept in step with the server's own decrement so the count does not sit
-      // one high until the next fetch.
+      // Acompanha o decremento do servidor até o próximo fetch.
       this.attrs.channel.pushAttributes({
         userCount: Math.max(0, (this.attrs.channel.userCount() ?? 1) - 1),
       });
@@ -1015,8 +954,7 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
 
     this.loadingMembers = true;
 
-    // From here on, a membership push for this channel re-reads the list, so
-    // an invitation answered while the tab is open is seen being answered.
+    // Daqui em diante, um push de membros relê a lista com a aba aberta.
     this.stopListening ??= chatState.onMembershipChange((channelId) => {
       if (channelId !== Number(this.attrs.channel.id())) return;
 
@@ -1025,10 +963,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     });
 
     try {
-      // Re-fetched with the relationships included rather than read off the
-      // sidebar's copy, which is loaded without participants. The pending
-      // invitations ride along; the server omits them for anyone who may not
-      // manage the list.
+      // Busca com relações: a cópia da sidebar vem sem participantes. Os convites
+      // pendentes só vêm para quem gerencia.
       const channel = (await app.store.find('chat-channels', String(this.attrs.channel.id()), {
         include: 'participants,invitedUsers',
       })) as unknown as Channel;
@@ -1055,13 +991,12 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
     this.stopListening = null;
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Ações ──
 
   protected async saveNotifications(level: number | null, muted: boolean | null): Promise<void> {
     const channel = this.attrs.channel;
 
-    // Optimistic: the endpoint answers 204, so there is nothing to push back and
-    // waiting would leave the control visibly lagging the click.
+    // Otimista: o endpoint responde 204, sem nada a aplicar.
     channel.pushAttributes({
       ...(level !== null ? { notificationLevel: level } : {}),
       ...(muted !== null ? { isMuted: muted } : {}),
@@ -1092,19 +1027,11 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Stores the send-key choice on the user.
+   * Grava a tecla de envio no usuário, de forma otimista: o composer lê a
+   * preferência a cada tecla.
    *
-   * Optimistic like `saveNotifications`, and for a sharper reason: the composer
-   * reads the preference off the same record on every keystroke, so the change
-   * has to be in place before the next one — waiting for the round trip would
-   * mean the first Enter after choosing still did the old thing.
-   *
-   * The rollback is not the redundant belt-and-braces it looks like. `Model.save`
-   * does snapshot and restore on failure, but `savePreferences` mutates the
-   * preferences object *in place* before calling it, so the snapshot is taken
-   * with the new value already in it and core's revert restores that. Undoing it
-   * here is the only thing that stops a rejected save from leaving the select —
-   * and the composer — agreeing with a server that never accepted it.
+   * O rollback manual é necessário: `savePreferences` altera o objeto antes do
+   * `Model.save`, então o snapshot do core já contém o valor novo.
    */
   protected async saveSendKey(value: SendKey): Promise<void> {
     const user = app.session.user;
@@ -1169,10 +1096,8 @@ export default class ChannelInfoModal extends Modal<ChannelInfoModalAttrs> {
   }
 
   /**
-   * Runs one immediate state change.
-   *
-   * `action` names the button that owns the spinner for the duration; `working`
-   * still gates every other control, so nothing else can be started meanwhile.
+   * Executa uma mudança de estado imediata. `action` diz qual botão mostra o
+   * spinner; `working` bloqueia os demais controles.
    */
   protected async act(action: 'status' | 'archive' | 'unarchive', path: string, attributes: Record<string, unknown>): Promise<void> {
     this.pending = action;

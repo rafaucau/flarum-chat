@@ -16,11 +16,9 @@ import { loadChannelFormModal } from '../utils/lazy';
 type BrowseFilter = 'all' | 'open' | 'closed' | 'archived' | 'mine';
 
 /**
- * Discourse's "Browse channels" page: every channel the actor can see, with join
- * controls and — for those who may — a way to create one.
- *
- * This is also the only place a channel can be created, so it is reachable from
- * the sidebar even when the actor has joined nothing.
+ * Página "Explorar canais": todos os canais visíveis, com botões de entrar e, para
+ * quem pode, de criar. É o único lugar onde se cria canal, por isso a sidebar
+ * aponta para cá mesmo sem canais.
  */
 export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAttrs> extends Page<CustomAttrs> {
   private channels: Channel[] = [];
@@ -36,10 +34,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
 
     app.setTitle(title);
 
-    // What gives the phone toolbar its back arrow: core's `Navigation` draws the
-    // drawer toggle instead whenever `app.history.canGoBack()` is false, and the
-    // stack only grows if a page pushes itself onto it. `TagsPage` does exactly
-    // this one line; see the longer note on `ChatPage.recordHistory`.
+    // Dá a seta de voltar na toolbar do celular: o `Navigation` do core só a
+    // desenha quando `app.history.canGoBack()` (ver `ChatPage.recordHistory`).
     app.history.push('chat.browse', title);
 
     const routeFilter = m.route.param('filter') as BrowseFilter | undefined;
@@ -56,10 +52,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
       <div className="ChatBrowse">
         {mobileTitleControl(app.translator.trans('ramon-chat.forum.browse.title', {}, true))}
 
-        {/* The back link sits above the title rather than beside it: it is
-            navigation, not a peer of the page's primary action, and putting the
-            three on one row made the title collide with the buttons as soon as the
-            viewport narrowed. */}
+        {/* Acima do título, não ao lado: na mesma linha colidia com os botões em
+            telas estreitas. */}
         <button type="button" className="ChatBrowse-back" onclick={() => m.route.set(app.route('chat.index'))}>
           <i className="fas fa-arrow-left" aria-hidden="true" />
           {app.translator.trans('ramon-chat.forum.nav.chat')}
@@ -68,10 +62,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
         <div className="ChatBrowse-header">
           <div className="ChatBrowse-heading">
             <h1 className="ChatBrowse-title">{app.translator.trans('ramon-chat.forum.browse.title')}</h1>
-            {/* The half about starting your own is only true for someone who
-                may create a channel — the button beside it is drawn on the same
-                condition. Promising it to everyone else describes an action the
-                page does not offer and the server would refuse. */}
+            {/* O texto sobre criar canal só aparece para quem pode criar, como o botão. */}
             <p className="ChatBrowse-subtitle">
               {app.translator.trans(
                 app.forum.attribute<boolean>('canCreateChatChannel')
@@ -89,8 +80,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
         </div>
 
         <div className="ChatBrowse-toolbar">
-          {/* A radio group, not five unrelated buttons: exactly one is active at
-              a time, and `aria-pressed` is what tells a screen reader which. */}
+          {/* Só um ativo por vez; `aria-pressed` indica qual ao leitor de tela. */}
           <div className="ChatBrowse-filters" role="group" aria-label={app.translator.trans('ramon-chat.forum.browse.title', {}, true)}>
             {(['all', 'open', 'closed', 'archived', 'mine'] as BrowseFilter[]).map((f) => (
               <button
@@ -118,9 +108,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
               oninput={(e: Event) => this.onSearch((e.target as HTMLInputElement).value)}
             />
 
-            {/* `type="search"` draws a native clear button in some engines and
-                none in others, and the styled one above hides it — so the
-                affordance has to be ours to be there at all. */}
+            {/* O botão nativo de limpar do `type="search"` varia por engine e fica
+                oculto pelo estilo, então o botão é próprio. */}
             {this.query !== '' ? (
               <button
                 type="button"
@@ -147,12 +136,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
   }
 
   /**
-   * Nothing to show.
-   *
-   * Two different situations wearing one sentence before: a forum with no
-   * channels at all, and a search that matched none. The first needs a way to
-   * create one, the second needs a way back to the full list — and being told
-   * "no channels match" on a forum that has none reads as a bug.
+   * Estado vazio. Fórum sem canais oferece criar um; busca sem resultado oferece
+   * voltar à lista completa.
    */
   protected empty(): Mithril.Children {
     const searching = this.query.trim() !== '';
@@ -205,8 +190,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
             </h2>
 
             <div className="ChatBrowseCard-badges">
-              {/* Membership is the one badge about the reader rather than the
-                  channel, so it comes first and is the one given a colour. */}
+              {/* Único badge sobre o leitor, não o canal: vem primeiro e tem cor. */}
               {channel.isFollowing() && channel.isHiddenMember() ? (
                 <span className="ChatBrowseCard-status ChatBrowseCard-status--joined ChatBrowseCard-status--inspecting">
                   <i className="fas fa-user-secret" aria-hidden="true" />
@@ -238,10 +222,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
                 </span>
               )}
 
-              {/* Threading is a property of the channel, like private and
-                  archived, so it belongs with them rather than among the
-                  counts. It also keeps the meta row to two items, which is what
-                  lets every card's action sit at the same height. */}
+              {/* Junto de privado/arquivado, não das contagens: a linha de meta fica
+                  com dois itens e os botões dos cards ficam alinhados. */}
               {channel.threadingEnabled() ? (
                 <span className="ChatBrowseCard-status">
                   <i className="fas fa-code-branch" aria-hidden="true" />
@@ -264,15 +246,15 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
           <div className="ChatBrowseCard-meta">
             <span>
               <i className="fas fa-user" aria-hidden="true" />
-              {/* A channel for everyone counts only who has a row in it, which
-                  says nothing about how many are in the room. */}
+              {/* Canal para todos só conta quem tem linha nele, o que não diz
+                  quantos estão na sala. */}
               {channel.isForEveryone()
                 ? app.translator.trans('ramon-chat.forum.channel.everyone')
                 : app.translator.trans('ramon-chat.forum.channel.members', {
                     count: channel.userCount() ?? 0,
                   })}
             </span>
-            {/* Was a hardcoded "msg" — the one untranslated string on the page. */}
+            {/* Contagem de mensagens, traduzida. */}
             <span>
               <i className="fas fa-comment" aria-hidden="true" />
               {app.translator.trans('ramon-chat.forum.browse.messages', {
@@ -299,10 +281,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
               </>
             ) : (
               <>
-                {/* Inspecting: in without appearing in the list, for whoever
-                    holds the permission. Beside the join rather than behind a
-                    menu, since the card is the one place a channel not yet
-                    opened can be acted on. */}
+                {/* Inspecionar: entrar sem aparecer na lista, para quem tem a permissão. */}
                 {channel.canJoinHidden()
                   ? this.iconButton('fas fa-user-secret', 'ramon-chat.forum.channel.join_hidden', () => this.join(channel, true))
                   : null}
@@ -321,8 +300,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
   }
 
   /**
-   * A round icon-only control on a card. The label is both the tooltip and
-   * the accessible name, since the glyph alone says nothing to a screen reader.
+   * Botão redondo só com ícone. O label serve de tooltip e de nome acessível.
    */
   protected iconButton(icon: string, labelKey: string, onclick: () => void, danger = false): Mithril.Children {
     const label = app.translator.trans(labelKey, {}, true) as string;
@@ -342,14 +320,14 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
     );
   }
 
-  // ── Behaviour ──────────────────────────────────────────────────────────────
+  // ── Comportamento ──
 
   protected setFilter(filter: BrowseFilter): void {
     this.filter = filter;
     this.load();
   }
 
-  /** Debounced so typing does not issue a request per keystroke. */
+  /** Com debounce, para não disparar uma requisição por tecla. */
   protected onSearch(value: string): void {
     this.query = value;
 
@@ -358,7 +336,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
     this.searchTimer = window.setTimeout(() => this.load(), 350);
   }
 
-  /** Back to the unfiltered list, without waiting out the search debounce. */
+  /** Volta à lista sem filtro, sem esperar o debounce. */
   protected clearSearch(): void {
     if (this.searchTimer !== null) {
       window.clearTimeout(this.searchTimer);
@@ -375,8 +353,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
 
     const filter: Record<string, unknown> = {};
 
-    // 'all' deliberately sends no status filter: closed and archived channels are
-    // browsable, they are simply frozen.
+    // 'all' não envia filtro de status: canais fechados e arquivados também aparecem.
     if (this.filter === 'open' || this.filter === 'closed' || this.filter === 'archived') {
       filter.status = this.filter;
     }
@@ -396,13 +373,11 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
         page: { limit: 50 },
       })) as unknown as Channel[];
 
-      // Direct channels are not browsable — they are private by construction.
+      // Canais diretos são privados por natureza e não aparecem aqui.
       this.channels = (Array.isArray(results) ? results : []).filter((c) => c.isCategory());
     } catch (e) {
       this.channels = [];
-      // Not `browse.empty`: a request that failed is not a forum without
-      // channels, and saying so sends the reader off to create one that already
-      // exists.
+      // Não `browse.empty`: falha de requisição não é fórum sem canais.
       app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.browse.load_failed'));
     } finally {
       this.loading = false;
@@ -417,8 +392,7 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
   }
 
   protected edit(channel: Channel): void {
-    // Reload after saving: a renamed or re-categorised channel may no longer
-    // match the active filter or search.
+    // Recarrega após salvar: o canal editado pode não casar mais com o filtro.
     app.modal.show(loadChannelFormModal, {
       channel,
       onSaved: () => this.load(),
@@ -426,9 +400,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
   }
 
   /**
-   * Joins, or with `hidden` inspects: in the channel with no place in the
-   * member list, nothing announced and nothing notified. The server refuses
-   * the hidden form for anyone without `inspectChannels`.
+   * Entra no canal ou, com `hidden`, inspeciona: sem aparecer na lista de membros
+   * nem notificar. O servidor exige `inspectChannels` para o modo oculto.
    */
   protected async join(channel: Channel, hidden = false): Promise<void> {
     try {
@@ -438,8 +411,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
         body: { data: { attributes: { hidden } } },
       });
 
-      // The server's record, capability flags included, so opening the channel
-      // straight from here draws the composer instead of a "closed" notice.
+      // Registro do servidor com as flags de permissão, para o canal abrir já com
+      // o composer em vez do aviso de "fechado".
       if (!adoptChannelPayload(payload)) {
         channel.pushAttributes({
           isFollowing: true,
@@ -462,9 +435,8 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
   }
 
   /**
-   * Accepts or declines an invitation from the card. Accepting leaves the
-   * card in place as a joined one; declining leaves it as a plain channel the
-   * reader may still join on their own.
+   * Aceita ou recusa um convite pelo card. Recusar deixa o canal disponível para
+   * entrar por conta própria.
    */
   protected async answerInvitation(channel: Channel, accept: boolean): Promise<void> {
     if (!accept && !confirm(app.translator.trans('ramon-chat.forum.channel.decline_invite_confirm', {}, true))) {

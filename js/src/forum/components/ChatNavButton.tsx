@@ -12,17 +12,11 @@ import { chatTitle, chatIcon } from '../utils/branding';
 import { shouldUseChatDrawer } from '../utils/surface';
 
 /**
- * The chat entry point in the header — Discourse's speech bubble next to search.
+ * Botão do chat no cabeçalho.
  *
- * The markup is a copy of core's `HeaderDropdown.getButtonContent()`, which is what
- * `flarum/messages` renders through `DialogsDropdown`: icon, then bubble, then
- * label, on a `.Button.Button--flat`. Matching it exactly is what makes the control
- * behave in both places it is drawn — as a round icon in the desktop header, and as
- * a named row inside the drawer on a phone — without a parallel set of rules.
- *
- * It is a plain `<button>` rather than a `HeaderDropdown` subclass because there is
- * no menu: the chat opens its own drawer or its page. Subclassing would drag in
- * `Dropdown-menu` markup and a toggle state that nothing here uses.
+ * O markup copia `HeaderDropdown.getButtonContent()` do core (ícone, bubble, label
+ * num `.Button.Button--flat`) para funcionar como ícone no desktop e como linha no
+ * drawer do celular. É um `<button>` simples porque não há menu.
  */
 export default class ChatNavButton<CustomAttrs extends ComponentAttrs = ComponentAttrs> extends Component<CustomAttrs> {
   view(): Mithril.Children {
@@ -31,14 +25,8 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
     const icon = chatIcon();
     const label = chatTitle();
 
-    // A count, the way core's notification bell shows one — not a dot. A dot says
-    // "something happened" and leaves you to open the chat to find out how much,
-    // which is the one question the header is there to answer.
-    //
-    // Mentions take precedence over ambient channel traffic, and the `new` class
-    // below is what distinguishes them: core repaints `.HeaderDropdownBubble`
-    // with the header colour under `.new`. That is the same signal the bell uses
-    // for an unread notification, so the two read alike.
+    // Contagem, como no sino do core. Menções têm prioridade e ganham a classe
+    // `new`, com que o core recolore `.HeaderDropdownBubble`.
     const count = mentions > 0 ? mentions : unread;
     const digits = count > 99 ? '99+' : String(count);
 
@@ -46,44 +34,31 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
       <button
         type="button"
         className={classList('Button Button--flat ChatNavButton', {
-          // Core styles `.new` on a header button to signal fresh activity.
           new: mentions > 0,
           hasIcon: icon !== null,
         })}
         title={label}
         aria-label={this.ariaLabel(mentions, unread > 0, label)}
         onclick={(e: MouseEvent) => this.open(e.currentTarget as HTMLElement)}
-        // The boot payload only reaches a page the server rendered; opening the
-        // chat from the header is a client-side navigation with nothing preloaded,
-        // and the channel list is the round trip everything else waits behind.
-        // Started on hover and on focus, it is usually finished by the time the
-        // click lands. `loadChannels` is once-per-session and joins a request
-        // already in flight, so repeated hovering costs one fetch at most.
+        // Navegação no cliente não traz payload de boot; pré-carrega a lista de
+        // canais no hover/foco. `loadChannels` roda uma vez por sessão e reaproveita
+        // a requisição em andamento.
         onpointerenter={() => this.prefetch()}
         onfocus={() => this.prefetch()}
       >
         {icon ? <Icon name={icon} className="Button-icon" /> : null}
 
-        {/* `HeaderDropdownBubble` alongside `Bubble`, exactly as core emits it.
-            The first supplies the colours and — critically — the phone offset;
-            the second the size, radius and absolute placement. Positioning it
-            ourselves was the bug behind the grey slab in the drawer: core anchors
-            the bubble with `left: 18px`, our override added `right: 2px` without
-            clearing `left`, and an absolutely positioned box given both stretches
-            to fill the distance between them. On a 36px header button that is
-            invisible; on a full-width drawer row it is the whole row. */}
+        {/* As duas classes, como o core: `HeaderDropdownBubble` dá cores e o offset no
+            celular, `Bubble` tamanho e posição. Não posicione à mão: o core já
+            ancora com `left`. */}
         {count > 0 ? (
           <span className="Bubble HeaderDropdownBubble" data-digits={digits.length} aria-hidden="true">
             {digits}
           </span>
         ) : null}
 
-        {/* Always emitted, never blanked when there is an icon — core's
-            getButtonContent() does the same. On a phone the header moves into the
-            drawer and its controls are laid out as named rows; a button that
-            renders no text there is an anonymous icon sitting between "Flagged
-            Posts" and "Messages". Hiding the label is the stylesheet's job, and it
-            only does so from @tablet-up. */}
+        {/* Sempre emitido, como no core: no drawer do celular o botão vira linha com
+            nome. O CSS esconde o label a partir de @tablet-up. */}
         <span className="Button-label">
           <span className="Button-labelText">{label}</span>
         </span>
@@ -92,12 +67,8 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
   }
 
   /**
-   * Warms what opening the chat will ask for, without waiting for it.
-   *
-   * Drafts come along because the drawer loads both together, and the composer
-   * that would otherwise appear empty and then fill in is the same flash the
-   * channel list has. The UI chunk too: the drawer and the page both live in it,
-   * so a hover is usually enough for the click to open without a spinner.
+   * Pré-carrega o que abrir o chat vai pedir: canais, rascunhos e o chunk da
+   * interface, onde ficam o drawer e a página.
    */
   protected prefetch(): void {
     loadDrawerPanel().catch(() => {});
@@ -106,15 +77,11 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
   }
 
   /**
-   * Opens the drawer or the full-screen page, following the user's preference.
-   *
-   * Nothing closes Flarum's drawer on the way out: `ChatPage` extends core's
-   * `Page`, whose `oninit` calls `app.drawer.hide()`. Doing it again here would
-   * start the hide animation twice.
+   * Abre o drawer ou a página, conforme a preferência do usuário. Não fecha o
+   * drawer do Flarum: o `oninit` de `Page` já chama `app.drawer.hide()`.
    */
   open(from?: HTMLElement): void {
     if (shouldUseChatDrawer()) {
-      // The drawer grows out of the button that opened it.
       if (!chatState.drawerOpen) rememberOrigin(from, 'drawer');
 
       ChatDrawer.open();
@@ -126,13 +93,8 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
   }
 
   /**
-   * Read through ChatState rather than off the user record directly.
-   *
-   * The serialised attribute is a snapshot from page render; the summary prefers
-   * the loaded channel list when there is one and falls back to that attribute
-   * otherwise — and realtime keeps the attribute moving. Reading the attribute
-   * here meant the dot only ever appeared after a reload, which is precisely when
-   * it is least useful.
+   * Lido do ChatState, não do usuário: o atributo serializado é um retrato do
+   * render, e o state prefere a lista de canais carregada.
    */
   protected unreadChannels(): number {
     return chatState.unreadSummary().messages;
@@ -143,9 +105,8 @@ export default class ChatNavButton<CustomAttrs extends ComponentAttrs = Componen
   }
 
   /**
-   * The bubble is aria-hidden, so this is the only thing a screen reader gets —
-   * and it has to say which kind of unread it is, because the two carry different
-   * urgency and the colour that distinguishes them is not announced.
+   * O bubble é aria-hidden; o label precisa dizer se são menções ou não lidas,
+   * porque a cor que as distingue não é anunciada.
    */
   protected ariaLabel(mentions: number, hasUnread: boolean, label: string): string {
     if (mentions > 0) {

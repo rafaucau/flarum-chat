@@ -14,15 +14,15 @@ import iconLabel from '../utils/iconLabel';
 import { rankName, rankNameAttrs, rankTag, validIcon } from '../utils/ranks';
 import { deriveRankColors, isHex } from '../utils/rankPalette';
 
-/** Mirrors ChannelRank::MAX_PER_CHANNEL and ChannelRank::NAME_MAX. */
+/** Espelha ChannelRank::MAX_PER_CHANNEL e ChannelRank::NAME_MAX. */
 export const MAX_RANKS = 20;
 export const RANK_NAME_MAX = 32;
 
 type RankPath = '' | '/update' | '/delete' | '/order' | '/assign';
 
 /**
- * One rank write, answered with the channel; the new `rankBook` lands on the
- * store record every author line and the members tab read from.
+ * Grava um rank; a resposta traz o canal, e o novo `rankBook` vai para o registro
+ * do store que as linhas de autor e a aba de membros leem.
  */
 export async function rankRequest(channelId: number | string, path: RankPath, attributes: Record<string, unknown>): Promise<Channel | null> {
   const payload = await app.request<any>({
@@ -36,12 +36,12 @@ export async function rankRequest(channelId: number | string, path: RankPath, at
 }
 
 interface RankDraft {
-  /** 'new', a built-in's name, or a custom rank's id. */
+  /** 'new', o nome de um rank nativo ou o id de um rank próprio. */
   target: 'new' | 'owner' | 'moderator' | number;
   builtin: 'owner' | 'moderator' | null;
   name: string;
   color: string;
-  /** A built-in left at the theme's colour. */
+  /** Rank nativo com a cor do tema. */
   themeColor: boolean;
   icon: string;
   showBadge: boolean;
@@ -52,13 +52,9 @@ export interface ChannelRanksTabAttrs extends ComponentAttrs {
 }
 
 /**
- * The ranks editor, for whoever may manage them: the two built-in ranks every
- * channel has, then the owner's own in priority order, each editable, the own
- * ones reorderable and removable. Handing them out happens in the Members tab,
- * where the people are.
- *
- * Draws only from the channel's `rankBook`, and every write answers with the
- * new one, so the list is always the server's word.
+ * Editor de ranks: os dois nativos e os próprios do canal, em ordem de prioridade.
+ * A atribuição fica na aba de membros. Lê só o `rankBook` do canal, que toda
+ * gravação devolve atualizado.
  */
 export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
   private draft: RankDraft | null = null;
@@ -210,7 +206,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
     return Object.values((book.assignments as Record<string, number[]>) ?? {}).filter((ids) => ids.map(Number).includes(Number(rank.id))).length;
   }
 
-  // ── Editor ─────────────────────────────────────────────────────────────────
+  // ── Editor ──
 
   protected edit(rank: RankEntry | null): void {
     this.draft = rank
@@ -364,10 +360,7 @@ export default class ChannelRanksTab extends Component<ChannelRanksTabAttrs> {
     );
   }
 
-  /**
-   * The rank as it would look, on a light surface and on a dark one side by
-   * side, so whoever picks a colour sees both themes before anyone else does.
-   */
+  /** Prévia do rank no tema claro e no escuro, lado a lado. */
   protected preview(draft: RankDraft): Mithril.Children {
     const color = draft.themeColor || !isHex(draft.color) ? null : draft.color;
     const rank: RankEntry = {

@@ -29,47 +29,44 @@ export interface ChatComposerAttrs extends ComponentAttrs {
   channel: Channel;
   state: ChatState;
   threadId?: number | null;
-  /** Called after a successful send, so the stream can scroll to the bottom. */
+  /** Chamado após enviar, para o stream rolar até o fim. */
   onSent?: () => void;
 }
 
 /**
- * The message input.
- *
- * Auto-grows to a cap, persists a draft, throttles typing announcements, and
- * submits on Enter with Shift+Enter for a newline — the conventions a chat user
- * arrives already expecting.
- */
-/**
- * How long to wait after a keystroke before asking the server for matching users.
- * Emoji are matched locally and need no delay.
+ * Espera após a tecla antes de buscar usuários no servidor. Emojis são buscados
+ * localmente, sem espera.
  */
 const MENTION_DEBOUNCE = 180;
 
+/**
+ * Campo de mensagem: cresce até um limite, guarda rascunho, limita os avisos de
+ * digitação e envia com Enter (Shift+Enter quebra linha).
+ */
 export default class ChatComposer extends Component<ChatComposerAttrs> {
   private textarea: HTMLTextAreaElement | null = null;
   private joining = false;
   private unarchiving = false;
   private sending = false;
 
-  /** Seconds left before this channel will accept another message from us. */
+  /** Segundos até o canal aceitar outra mensagem deste usuário. */
   private cooldown = 0;
   private cooldownTimer: number | null = null;
 
-  /** Last `slowModeRemaining` seen, so a change can be told from a redraw. */
+  /** Último `slowModeRemaining` visto, para distinguir mudança de redraw. */
   private lastServerCooldown = -1;
 
-  /** Last `slowModeSeconds` seen. -1 so the first sync always runs. */
+  /** Último `slowModeSeconds` visto. -1 para a primeira sincronização sempre rodar. */
   private lastSlowModeWindow = -1;
   private uploading = false;
 
-  /** Id of the reply/edit target the cursor was last moved for. */
+  /** Alvo de resposta/edição para o qual o cursor foi movido por último. */
   private focusedContext: string | null = null;
 
-  // ── Autocomplete ───────────────────────────────────────────────────────────
+  // ── Autocomplete ──
   private suggestions: Suggestion[] = [];
   private activeSuggestion = 0;
-  /** The `@foo` / `:smi` fragment being completed, as [start, end) in the value. */
+  /** Trecho `@foo` / `:smi` sendo completado, como [início, fim) no valor. */
   private trigger: {
     type: '@' | ':';
     start: number;
@@ -77,7 +74,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     term: string;
   } | null = null;
   private mentionTimer: number | null = null;
-  /** Discards a slower earlier user search whose results arrived out of order. */
+  /** Descarta uma busca de usuários antiga que chegou fora de ordem. */
   private mentionSequence = 0;
 
   onremove(): void {
@@ -91,35 +88,19 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     this.syncSlowMode();
 
-    // Warm the custom-emoji set so the `:` list and the picker are complete on
-    // first use. A no-op when Flamoji is not installed.
+    // Pré-carrega os emojis customizados. Não faz nada sem o Flamoji.
     loadCustomEmoji();
   }
 
   /**
-   * Reconciles the local countdown with the channel's slow-mode rule.
+   * Alinha a contagem local com o modo lento do canal.
    *
-   * Both directions matter, and they are not symmetrical.
+   * Ligar: adota `slowModeRemaining`, mas só quando muda; é um retrato da última
+   * leitura, e reler a cada draw reiniciaria a contagem sem nunca chegar a zero.
    *
-   * Turning slow mode *on* is the server's word to adopt: `slowModeRemaining`
-   * says how long this actor has left, and an already-open composer has to pick
-   * it up or the new rule binds them only after they navigate away and back.
-   * It is read on a *change* rather than every draw — it is a snapshot from the
-   * last channel read, not a ticking value, so comparing it each time would
-   * restart the countdown from the same stale number and it would never reach
-   * zero.
-   *
-   * Turning slow mode *off* has to release whoever is mid-wait. The local
-   * countdown exists only because of the window it was started from, so it
-   * cannot outlive that window: with no window there is nothing left to wait
-   * for, and a narrowed one caps what is left. This is the half that was
-   * missing — a "never shorten" guard meant to protect the local countdown from
-   * a stale snapshot also kept enforcing a rule that had just been withdrawn.
-   *
-   * Narrowing is capped rather than recomputed: the broadcast moves the window
-   * immediately while the per-actor refetch is still in flight, so `remaining`
-   * is briefly stale. Capping at the new window is never more permissive than
-   * the server, and the next send resyncs it exactly.
+   * Desligar ou reduzir: libera ou limita a espera ao novo intervalo. Limita em vez
+   * de recalcular porque o broadcast chega antes do refetch; nunca fica mais
+   * permissivo que o servidor, e o próximo envio ressincroniza.
    */
   protected syncSlowMode(): void {
     const channel = this.attrs.channel;
@@ -145,10 +126,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       return;
     }
 
-    // Capped at the window for the same reason it is capped above: while the
-    // refetch is in flight `remaining` still describes the *old* rule, and a
-    // window that was just narrowed must not be lengthened by a stale figure.
-    // The server can never require longer than the window itself.
+    // Limitado ao intervalo: durante o refetch `remaining` ainda é da regra antiga.
     const wait = Math.min(remaining, window);
 
     if (wait > this.cooldown) {
@@ -171,17 +149,9 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Puts the cursor in the input when a reply or edit is staged.
-   *
-   * Handled here rather than at each call site because a reply can be started from
-   * three places — the channel's message row, the thread panel, and arrow-up — and
-   * only the composer knows where its own textarea is. Clicking Reply and then
-   * having to click the box before typing is a small thing that happens on every
-   * single reply.
-   *
-   * Fires only on a *change* of target: `onupdate` runs on every redraw, including
-   * one per incoming message, and focusing on each of those would seize the cursor
-   * from someone reading, or scroll a phone's keyboard open unprompted.
+   * Foca o campo quando uma resposta ou edição é preparada. Só quando o alvo muda:
+   * o `onupdate` roda a cada redraw, e focar sempre roubaria o cursor ou abriria o
+   * teclado do celular.
    */
   protected focusOnNewContext(): void {
     const target = this.editing() ?? this.replyingTo();
@@ -195,8 +165,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     this.textarea.focus();
 
-    // Caret at the end. An edit pre-fills the box with the existing text, and
-    // landing at position zero means typing inserts before it.
+    // Cursor no fim: a edição preenche o campo com o texto existente.
     const end = this.textarea.value.length;
     this.textarea.setSelectionRange(end, end);
   }
@@ -208,11 +177,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       return this.frozen(channel);
     }
 
-    // Slow mode is a "not now", so it reads like the other "not now" states
-    // rather than as a disabled button with a number in it. A greyed-out send
-    // still invites clicking, and a textarea that accepts typing it will not
-    // deliver is worse than no textarea: the draft survives in state either way,
-    // so nothing is lost by standing the box down until the wait is over.
+    // No modo lento o campo dá lugar a um aviso; o rascunho fica no state.
     if (this.cooldown > 0) {
       return this.slowed();
     }
@@ -241,27 +206,17 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
             placeholder={this.placeholder(channel)}
             value={value}
             rows={1}
-            // Deliberately no `maxlength`: the browser enforces it by silently
-            // dropping the tail of a paste, so a long quote arrives cut with no
-            // sign that anything went missing. Over-length text is allowed into
-            // the box, the counter goes negative, and `submit()` explains.
+            // Sem `maxlength`: o navegador cortaria o fim do texto colado sem avisar.
+            // O contador fica negativo e `submit()` explica.
             oninput={(e: Event) => this.onInput(e)}
             onkeydown={(e: KeyboardEvent) => this.onKeyDown(e)}
             disabled={this.sending}
             aria-label={this.placeholder(channel)}
           />
 
-          {/* Controls on their own row under the text, not in a column beside
-              it. Beside it they took a strip the full height of the composer —
-              so a long message wrapped early and left a tall empty band down
-              the right-hand side, and the text never used the box it was
-              typed into. Below, the textarea spans the whole width. */}
+          {/* Controles numa linha abaixo do texto, para o textarea usar toda a largura. */}
           <div className="ChatComposer-bar">
-            {/* Only surfaced near the limit — a permanent counter is noise.
-                Past it the number goes negative and takes the error colour:
-                that is the state in which the send button refuses, so it has
-                to look different from "nearly there" rather than just
-                smaller. */}
+            {/* Só perto do limite. Passou, fica negativo e na cor de erro. */}
             {remaining <= 200 ? (
               <div
                 className={classList('ChatComposer-counter', {
@@ -275,9 +230,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
             ) : null}
 
             <div className="ChatComposer-tools">
-              {/* Both have to hold: the forum-wide setting, and this actor's
-                permission. Checking only the setting drew a paperclip for people
-                the upload endpoint would refuse. */}
+              {/* Exige a configuração do fórum e a permissão do usuário. */}
               {app.forum.attribute('ramon-chat.allowUploads') && app.forum.attribute('canUploadChatFiles') ? (
                 <>
                   <input
@@ -297,13 +250,10 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
                 </>
               ) : null}
 
-              {/* Only when ramon/stickers is actually installed. The component is
-                resolved from Flarum's export registry at runtime, so this is a
-                button that appears rather than a dependency that must be met. */}
+              {/* Só com o ramon/stickers instalado; detectado em runtime. */}
               {stickersAvailable() ? (
-                // A plain button, not `Button` with an `icon` attr: that attr takes a
-                // Font Awesome class name, and this icon is an inline SVG so it
-                // matches the one on the discussion composer exactly.
+                // `button` simples: o ícone é SVG inline, e o attr `icon` do `Button`
+                // só aceita classe do Font Awesome.
                 <button
                   type="button"
                   className="ChatComposer-tool"
@@ -316,19 +266,15 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
                 </button>
               ) : null}
 
-              {/* Flamoji's own picker button, hosted here. It draws nothing
-                  when that extension is absent, so this is a tool that appears
-                  rather than a dependency that must be met. Deliberately not
-                  gated on a chat permission: it only types into the box, and
-                  what may be sent is already decided by the send button. */}
+              {/* Botão do Flamoji; não desenha nada sem a extensão. Sem permissão própria:
+                  só insere texto no campo. */}
               {flamojiPickerButton((text: string) => this.insertAtCursor(text), this.sending)}
             </div>
 
             <button
               type="button"
               className="ChatComposer-send"
-              // Names the keystroke, since which one sends is a forum setting and
-              // the button is the only place a member would find out.
+              // Diz qual tecla envia, que depende de configuração do fórum.
               title={this.sendHint()}
               disabled={this.sending || (!value.trim() && this.pendingUploads().length === 0)}
               onclick={() => this.submit()}
@@ -342,20 +288,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Why you cannot type here.
-   *
-   * The reasons are checked most-specific first, because they are not equivalent:
-   * "this channel is closed" told someone in a perfectly open announcement channel
-   * the wrong thing entirely, and left them with no idea that reading was all that
-   * was ever on offer.
-   */
-  /**
-   * What stands in for the composer during a slow-mode wait.
-   *
-   * Shaped like `frozen()` because it means the same thing to the reader — the
-   * channel is not taking a message from you right now — and an hourglass rather
-   * than a padlock because nothing is locked and nothing went wrong: the wait
-   * ends on its own, and the count says when.
+   * Substitui o composer durante a espera do modo lento. Ampulheta, não cadeado:
+   * nada está bloqueado, a espera acaba sozinha.
    */
   protected slowed(): Mithril.Children {
     return (
@@ -370,10 +304,12 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     );
   }
 
+  /**
+   * Por que não dá para escrever aqui. Motivos do mais específico ao mais geral,
+   * para um canal de avisos aberto não aparecer como "fechado".
+   */
   protected frozen(channel: Channel): Mithril.Children {
-    // Invited but not in. The first thing to check: an invitation is the one
-    // state where the reader has been asked a question, and the answer is what
-    // this bar is for.
+    // Convidado e ainda fora: a barra serve para responder ao convite.
     if (!channel.isFollowing() && channel.isInvited() && channel.isOpen()) {
       const inviter = channel.invitedByName();
 
@@ -405,9 +341,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       );
     }
 
-    // Not a member. Checked before the read-only reasons because it is the only one
-    // the reader can do something about, and telling them the channel is closed when
-    // it is merely unjoined would be the same mistake as the announcement case.
+    // Não membro: antes dos motivos de só leitura, por ser o único que o leitor resolve.
     if (!channel.isArchived() && !channel.isClosed() && channel.postPermission() !== 'moderators' && !channel.isFollowing() && channel.canJoin()) {
       return (
         <div className="ChatChannel-frozen ChatChannel-frozen--join">
@@ -428,8 +362,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         ? 'ramon-chat.forum.channel.moderators_only'
         : 'ramon-chat.forum.composer.placeholder_closed';
 
-    // A megaphone, not a padlock: an announcement channel is not locked, it is
-    // read-only by design, and the lock icon reads as something having gone wrong.
+    // Megafone, não cadeado: canal de avisos é só leitura por natureza.
     const icon = key.endsWith('moderators_only') ? 'fas fa-bullhorn' : 'fas fa-lock';
 
     return (
@@ -441,8 +374,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * The archived notice: where the transcript went, and the way back out of
-   * the archive for whoever may take it.
+   * Aviso de arquivado: onde ficou a transcrição e, para quem pode, como desarquivar.
    */
   protected archivedNotice(channel: Channel): Mithril.Children {
     const discussionId = channel.archivedDiscussionId();
@@ -469,9 +401,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Takes the channel out of the archive. It comes back closed, so the notice
-   * turns into the closed one and the composer stays away until the channel
-   * is reopened.
+   * Desarquiva o canal. Ele volta fechado, então o composer só aparece ao reabrir.
    */
   protected async unarchive(channel: Channel): Promise<void> {
     if (this.unarchiving) return;
@@ -496,12 +426,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Joins the channel so the composer can appear.
-   *
-   * The join answers with the channel itself, so `canPostMessage` is the
-   * server's answer rather than an assumption: a join that succeeded for a
-   * channel that has since been closed still leaves the composer hidden, and
-   * one that succeeded for an open channel draws it without a second request.
+   * Entra no canal para o composer aparecer. A resposta traz o canal, e
+   * `canPostMessage` vem do servidor.
    */
   protected async join(channel: Channel): Promise<void> {
     this.joining = true;
@@ -531,11 +457,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Answers the invitation the bar above is showing.
-   *
-   * Accepting is a join that goes through the invite route, and lands the same
-   * way: the returned record carries `canPostMessage`, so the composer takes
-   * the bar's place on the next draw.
+   * Responde ao convite da barra. Aceitar devolve o canal com `canPostMessage`, e
+   * o composer assume no próximo draw.
    */
   protected async answerInvitation(channel: Channel, accept: boolean): Promise<void> {
     if (!accept && !confirm(app.translator.trans('ramon-chat.forum.channel.decline_invite_confirm', {}, true))) {
@@ -567,17 +490,14 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * This composer's own reply/edit target.
-   *
-   * The channel and an open thread each render a composer over the same state, so
-   * the context is looked up by scope — a thread edit must not put the channel
-   * composer into edit mode.
+   * Alvo de resposta/edição deste composer. Canal e thread têm composers sobre o
+   * mesmo state, então o contexto é buscado pelo escopo.
    */
   protected replyingTo() {
     return this.attrs.state.replyingTo(Number(this.attrs.channel.id()), this.attrs.threadId ?? null);
   }
 
-  /** Whether the staged reply was started as "reply in thread". */
+  /** Se a resposta preparada veio de "responder em thread". */
   protected branching(): boolean {
     return this.attrs.state.branchingFrom(Number(this.attrs.channel.id()), this.attrs.threadId ?? null);
   }
@@ -600,12 +520,12 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     );
   }
 
-  /** The send button's tooltip, naming the keystroke that actually sends. */
+  /** Tooltip do botão de envio, com a tecla que envia. */
   protected sendHint(): string {
     return app.translator.trans(sendsOnCtrlEnter() ? 'ramon-chat.forum.composer.send_ctrl_enter' : 'ramon-chat.forum.composer.send_enter', {}, true);
   }
 
-  /** Reply / edit context strip above the input. */
+  /** Faixa de contexto de resposta/edição acima do campo. */
   protected contextBar(): Mithril.Children {
     const editingTarget = this.editing();
     const target = editingTarget ?? this.replyingTo();
@@ -614,9 +534,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     const editing = Boolean(editingTarget);
 
-    // A branch and a reply stage identically, and now send differently — so the
-    // strip has to say which one is about to happen. Same icon the thread action
-    // uses, so the two read as the same feature.
+    // Ramificação e resposta são preparadas igual mas enviam diferente; a faixa
+    // diz qual vai acontecer.
     const branching = !editing && this.branching();
 
     return (
@@ -671,7 +590,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     );
   }
 
-  // ── Input handling ─────────────────────────────────────────────────────────
+  // ── Entrada ──
 
   protected onInput(e: Event): void {
     const target = e.target as HTMLTextAreaElement;
@@ -684,14 +603,11 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     this.resize();
   }
 
-  // ── Autocomplete ───────────────────────────────────────────────────────────
+  // ── Autocomplete ──
 
   /**
-   * Looks for an `@name` or `:emoji` fragment immediately before the caret.
-   *
-   * Anchored on a word boundary so an email address or a `http://` does not open
-   * the list, and closed as soon as the fragment stops matching — the trigger has
-   * to disappear on its own rather than needing an explicit dismissal.
+   * Procura um trecho `@nome` ou `:emoji` logo antes do cursor. Exige início de
+   * palavra, para e-mail ou `http://` não abrirem a lista.
    */
   protected detectTrigger(el: HTMLTextAreaElement): void {
     const caret = el.selectionStart ?? 0;
@@ -708,9 +624,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const [, , symbol, term] = match;
     const type = symbol as '@' | ':';
 
-    // A bare `:` matches nearly the whole emoji map, and a bare `@` every user;
-    // neither is a useful list, so wait for something to filter on. `@` opens at
-    // once because @here/@all are worth offering immediately.
+    // `:` sozinho casaria com quase tudo; `@` abre logo por causa de @here/@all.
     if (type === ':' && term.length < 2) {
       this.closeAutocomplete();
 
@@ -725,10 +639,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     };
 
     if (type === ':') {
-      // Custom emoji first, and on their own budget rather than competing for
-      // the twelve slots. There are few of them, they are forum-specific, and a
-      // member who typed `:kap` almost certainly means the one their forum
-      // added — not `kappa`'s nearest Unicode neighbour.
+      // Emojis customizados primeiro, com cota própria fora dos doze slots.
       const custom: Suggestion[] = searchCustomEmoji(term, 4).map((entry) => ({
         key: 'flamoji-' + entry.name,
         insert: entry.insert,
@@ -744,9 +655,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         emoji: entry.unicode,
       }));
 
-      // A custom emoji may share a name with a Unicode one, and the formatter
-      // gives the custom one precedence — so offering both would let someone
-      // pick a glyph they will not get.
+      // Com nome repetido, o formatter usa o customizado; o Unicode é omitido.
       const taken = new Set(custom.map((entry) => entry.label));
 
       this.suggestions = [...custom, ...unicode.filter((entry) => !taken.has(entry.label))];
@@ -790,15 +699,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     this.mentionTimer = window.setTimeout(() => {
       app.store
         .find<User[]>('users', {
-          // Scoped to the channel: mentioning someone who is not in it notifies
-          // them about a conversation they cannot open, and in a private channel
-          // the unscoped list named people who cannot see it exists.
+          // Restrito ao canal: em canal privado, a lista aberta exporia o canal a quem
+          // não o vê.
           filter: { q: term, chatChannel: Number(this.attrs.channel.id()) },
           page: { limit: 6 },
         })
         .then((results) => {
-          // A stale response must not replace a newer one, and must not reopen a
-          // list the user has already dismissed or typed past.
+          // Resposta velha não substitui a nova nem reabre uma lista já fechada.
           if (mine !== this.mentionSequence || this.trigger?.type !== '@') return;
 
           this.suggestions = [
@@ -816,8 +723,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
           m.redraw();
         })
         .catch(() => {
-          // Keep whatever @here/@all we already have; a failed lookup is not
-          // worth an error for something this incidental.
+          // Mantém @here/@all; falha na busca não merece erro.
         });
     }, MENTION_DEBOUNCE);
   }
@@ -835,8 +741,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     state.setDraft(Number(channel.id()), value, threadId ?? null);
     this.closeAutocomplete();
 
-    // The value is redrawn from the draft, so the caret has to be restored after
-    // Mithril writes it back or it jumps to the end of the text.
+    // O valor vem do rascunho; restaura o cursor depois que o Mithril reescreve.
     m.redraw.sync();
     el.focus();
     el.setSelectionRange(caret, caret);
@@ -850,15 +755,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     this.activeSuggestion = 0;
   }
 
-  /** Whether the list is open and should own the arrow keys, Enter and Escape. */
+  /** Se a lista está aberta e captura setas, Enter e Escape. */
   protected autocompleteOpen(): boolean {
     return this.trigger !== null && this.suggestions.length > 0;
   }
 
   protected onKeyDown(e: KeyboardEvent): void {
-    // The suggestion list owns these keys while it is open, and must be checked
-    // before anything else: Enter here means "accept", not "send", and ArrowUp
-    // means "previous suggestion", not "edit my last message".
+    // Com a lista aberta, Enter aceita e ArrowUp sobe na lista; checado antes de tudo.
     if (this.autocompleteOpen()) {
       const count = this.suggestions.length;
 
@@ -871,9 +774,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         return;
       }
 
-      // Ctrl/Cmd+Enter is "send", never "accept": in Ctrl+Enter mode a plain
-      // Enter still belongs to the list, but the send shortcut has to reach the
-      // send path or the list becomes a trap for anyone who used it.
+      // Ctrl/Cmd+Enter sempre envia, mesmo com a lista aberta.
       if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         this.applySuggestion(this.suggestions[this.activeSuggestion]);
@@ -896,13 +797,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       }
     }
 
-    // Which keystroke sends is the forum's choice. Default: Enter sends and
-    // Shift+Enter breaks the line, the chat convention. With
-    // `send_with_ctrl_enter` on, Enter breaks the line and only Ctrl/Cmd+Enter
-    // sends — for forums whose members write long messages and lose them to a
-    // stray Enter. Cmd is accepted alongside Ctrl because on macOS the modifier
-    // for this shortcut is Cmd, and a mac user pressing Ctrl+Enter means the
-    // same thing.
+    // Padrão: Enter envia, Shift+Enter quebra linha. Com `send_with_ctrl_enter`,
+    // só Ctrl/Cmd+Enter envia (Cmd por causa do macOS).
     if (e.key === 'Enter' && !e.altKey) {
       const withModifier = e.ctrlKey || e.metaKey;
 
@@ -918,14 +814,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       this.cancelContext();
     }
 
-    // Arrow-up on an empty composer edits your last message — a chat convention.
+    // Seta para cima com o campo vazio edita a última mensagem.
     if (e.key === 'ArrowUp') {
       const { channel, state } = this.attrs;
       const draft = state.draft(Number(channel.id()), this.attrs.threadId ?? null);
 
       if (draft === '' && !this.editing()) {
-        // The thread panel's own window when this composer is scoped to a thread,
-        // so arrow-up cannot reach back into the channel from inside a thread.
+        // No escopo de thread, usa a janela da thread, não a do canal.
         const window = this.attrs.threadId ? state.threadStream(this.attrs.threadId).messages : (state.streams[Number(channel.id())]?.messages ?? []);
 
         const mine = [...window].reverse().find((msg) => msg.canEdit());
@@ -938,7 +833,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     }
   }
 
-  /** Grows the textarea with its content, up to the CSS max-height. */
+  /** Cresce o textarea com o conteúdo, até o max-height do CSS. */
   protected resize(): void {
     const el = this.textarea;
 
@@ -969,14 +864,11 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     m.redraw();
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Envio ──
 
   /**
-   * Opens the sticker picker, or closes it if this button opened it.
-   *
-   * The chosen shortcode goes in at the caret like any other typed text, so it is
-   * still editable and still part of the draft — the message is only rendered
-   * into a sticker by the formatter, on send.
+   * Abre ou fecha o seletor de figurinhas. O shortcode entra no cursor como texto
+   * comum; o formatter o converte no envio.
    */
   protected toggleStickers(e: Event): void {
     e.preventDefault();
@@ -994,11 +886,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Inserts text where the caret is, rather than appending.
-   *
-   * The composer keeps its value in the draft rather than in the DOM, so both
-   * have to be updated: the textarea for the caret position the user can see, and
-   * the draft for what is actually sent.
+   * Insere texto no cursor. Atualiza o textarea (posição do cursor) e o rascunho
+   * (o que é enviado).
    */
   protected insertAtCursor(text: string): void {
     const { channel, state, threadId } = this.attrs;
@@ -1020,7 +909,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     m.redraw.sync();
 
-    // Restored after the redraw, or the caret jumps to the end of the box.
+    // Restaurado após o redraw, senão o cursor vai para o fim.
     this.textarea.focus();
     this.textarea.setSelectionRange(start + text.length, start + text.length);
 
@@ -1028,15 +917,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
   }
 
   /**
-   * Starts (or refreshes) the slow-mode countdown.
-   *
-   * Driven by a one-second interval rather than computed on each redraw: nothing
-   * else would cause a redraw while the user waits, so the number would sit
-   * frozen at whatever it read when they last typed.
-   *
-   * The server is the authority. This only mirrors what it already told us, so a
-   * reload — or a second tab — still shows the wait rather than offering a send
-   * that is refused.
+   * Inicia ou renova a contagem do modo lento, num intervalo de um segundo: nada
+   * mais redesenharia durante a espera. Só espelha o que o servidor informou.
    */
   protected startCooldown(seconds: number): void {
     this.stopCooldown();
@@ -1073,10 +955,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     if (!content.trim() && this.pendingUploads().length === 0) return;
 
-    // Refused here rather than by the server, and without touching the draft:
-    // the text stays in the box so it can be shortened instead of retyped. The
-    // server checks the same limit — this only saves the round trip and gives a
-    // count the API error cannot (it says "too long", not "by how much").
+    // Recusa aqui sem mexer no rascunho. O servidor checa o mesmo limite; aqui só
+    // se poupa a ida e volta e se mostra por quanto passou.
     const max = resolveMaxMessageLength(channel);
 
     if (content.length > max) {
@@ -1085,18 +965,13 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       return;
     }
 
-    // Captured before the box is disabled. Disabling a focused element blurs it,
-    // and re-enabling does not hand focus back — which is why sending a message
-    // meant clicking the box again before the next one could be typed. Restoring
-    // it unconditionally would be wrong: someone who tabbed away, or opened the
-    // emoji picker, while the request was in flight should keep the cursor where
-    // they put it. `contains` covers both ways in, the textarea for an Enter and
-    // the send button for a click.
+    // Antes de desabilitar: desabilitar tira o foco e reabilitar não o devolve.
+    // Só restaura se o foco estava no composer (textarea ou botão de envio).
     const hadFocus = Boolean(this.element && this.element.contains(document.activeElement));
 
     this.sending = true;
 
-    // Clear before the request resolves so typing can continue immediately.
+    // Limpa antes da resposta para a digitação continuar na hora.
     state.clearDraft(channelId, threadId ?? null);
     this.resize();
 
@@ -1117,14 +992,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         await state.send(channelId, content, {
           threadId: threadId ?? null,
           replyToId: replyingTo ? Number(replyingTo.id()) : null,
-          // Only when the reply was staged by "reply in thread". This used to be
-          // inferred from the reply being branchable at all, which made every
-          // ordinary reply in a threading-enabled channel open a thread and left
-          // no way to simply reply.
-          //
-          // The rest still guards it: only from the channel composer, and only
-          // when the target can actually be branched — `createThread` inside a
-          // thread would ask for a nested one, which the policy refuses.
+          // Só com "responder em thread", no composer do canal e com alvo
+          // ramificável: a policy recusa thread aninhada.
           createThread:
             state.branchingFrom(channelId, threadId ?? null) &&
             Boolean(replyingTo) &&
@@ -1134,23 +1003,16 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
         });
       }
 
-      // The channel's own cooldown, restarted from what the send just consumed.
-      // Editing an existing message does not: slow mode is about how often you
-      // speak, not how often you correct yourself.
-      //
-      // `slowModeRemaining` is exemption-aware and so covers the load path, but
-      // this one reads the channel's raw setting — without the same check, a
-      // holder of `bypassSlowMode` sends once and is then locked out for the full
-      // window by the interface alone, while the server would have taken the next
-      // message happily. The channel says the same for its owner and the
-      // moderators they appointed, who are exempt here but not forum-wide.
+      // Reinicia a espera após enviar, não após editar. Lê o valor cru do canal,
+      // então checa as isenções (`bypassSlowMode` global e dono/moderadores do
+      // canal) como o servidor faz.
       if (!editing && !app.forum.attribute('canBypassChatSlowMode') && !channel.bypassesSlowMode()) {
         this.startCooldown(Number(channel.slowModeSeconds() ?? 0));
       }
 
       onSent?.();
     } catch (e: any) {
-      // Hand the text back rather than losing it, and surface why.
+      // Devolve o texto ao campo e mostra o motivo.
       state.setDraft(channelId, content, threadId ?? null);
 
       const detail = e?.response?.errors?.[0]?.detail;
@@ -1159,15 +1021,14 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     } finally {
       this.sending = false;
 
-      // Sync, so the textarea is enabled again by the time focus is asked for —
-      // calling focus() on a still-disabled element does nothing at all.
+      // Síncrono: focus() num elemento ainda desabilitado não faz nada.
       m.redraw.sync();
 
       if (hadFocus) this.textarea?.focus();
     }
   }
 
-  // ── Uploads ────────────────────────────────────────────────────────────────
+  // ── Uploads ──
 
   protected pendingUploads(): Upload[] {
     const { channel, state, threadId } = this.attrs;
@@ -1183,7 +1044,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
 
-    // Reset immediately so picking the same file twice still fires a change.
+    // Zera para escolher o mesmo arquivo de novo ainda disparar change.
     input.value = '';
 
     if (files.length === 0) return;
@@ -1200,10 +1061,8 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
       try {
         const body = new FormData();
         body.append('file', file);
-        // Where this is going to be posted. The server uses it to put a file
-        // meant for a private channel on the private disk from the start, rather
-        // than on the public one and moving it on send. Sending still enforces
-        // the rule — this is the hint, not the gate.
+        // Indica o destino para o servidor já gravar arquivo de canal privado no
+        // disco privado. É só uma dica; o envio ainda aplica a regra.
         body.append('channelId', String(channelId));
 
         const payload = await app.request<any>({
@@ -1231,8 +1090,7 @@ export default class ChatComposer extends Component<ChatComposerAttrs> {
 
     state.removePendingUpload(Number(channel.id()), threadId ?? null, id);
 
-    // Discard it server-side too, so a cancelled attachment does not wait for the
-    // retention sweep.
+    // Descarta no servidor também, sem esperar a limpeza por retenção.
     app
       .request({
         method: 'DELETE',

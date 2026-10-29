@@ -17,17 +17,10 @@ export interface BookmarksListAttrs extends ComponentAttrs {
 }
 
 /**
- * The messages the actor has bookmarked, across every channel.
+ * Mensagens salvas pelo usuário, de todos os canais.
  *
- * The bookmark button has been on every message row from the start, and the filter
- * behind this has been in the API just as long — but nothing ever listed them, so
- * bookmarking was a one-way action: you could save a message and then had no way to
- * find it again. This is the other half.
- *
- * Rows are summaries rather than full ChatMessage components on purpose. A message
- * row draws reply, edit and pin actions from its own capability flags, and those
- * only make sense next to the conversation they belong to; here the useful action
- * is "take me to it", so each row is a link to the message in its channel.
+ * Linhas são resumos, não ChatMessage: responder, editar e fixar só fazem sentido
+ * junto da conversa. Aqui cada linha leva à mensagem no canal.
  */
 export default class BookmarksList extends Component<BookmarksListAttrs> {
   private messages: Message[] = [];
@@ -72,9 +65,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
             {at ? <span>{humanTime(at)}</span> : null}
           </div>
 
-          {/* Plain text, not the rendered HTML: a bookmark list is for scanning, and
-              a saved message with a code block or an image would otherwise dominate
-              the list it is one row of. */}
+          {/* Texto puro: um bloco de código ou imagem dominaria a lista. */}
           <div className="ChatBookmarks-excerpt">{this.excerpt(message)}</div>
         </button>
 
@@ -90,8 +81,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
   }
 
   protected excerpt(message: Message): string {
-    // Shared with the pinned bar and the other one-line previews, so a bookmarked
-    // announcement reads as its title rather than as `**[title](/d/1)**`.
+    // Mesma prévia da barra de fixadas: mostra o título, não `**[title](/d/1)**`.
     const text = messagePreview(message, 160);
 
     if (text === '') {
@@ -119,9 +109,8 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
   }
 
   /**
-   * Opens the channel the message lives in, and its thread when it has one — a
-   * bookmarked thread reply is not in the channel window, so routing to the channel
-   * alone would land somewhere the message is not.
+   * Abre o canal e, se houver, a thread: uma resposta de thread não está na janela
+   * do canal.
    */
   protected open(message: Message): void {
     const channelId = message.channelId();
@@ -149,8 +138,7 @@ export default class BookmarksList extends Component<BookmarksListAttrs> {
         body: { data: { attributes: {} } },
       });
 
-      // Dropped from the list rather than re-fetched: the endpoint toggles, so a
-      // successful call means it is no longer bookmarked.
+      // O endpoint alterna; sucesso significa que deixou de estar salva.
       this.messages = this.messages.filter((m) => Number(m.id()) !== id);
       message.pushAttributes({ isBookmarked: false });
     } catch {

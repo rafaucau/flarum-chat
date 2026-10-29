@@ -12,11 +12,10 @@ interface PromotedData {
 }
 
 /**
- * "X made you a moderator of #channel."
+ * "X tornou você moderador de #canal."
  *
- * The stored data is ids only; the channel's name is read from the
- * notification's subject, which the notification list loads through the
- * channel's own visibility rules. The recipient is a member, so it is there.
+ * Os dados guardados são só ids; o nome vem do subject, que a lista de
+ * notificações carrega pelas regras de visibilidade do canal.
  */
 export default class ModeratorPromotedNotification extends Notification {
   icon(): string {
@@ -45,7 +44,7 @@ export default class ModeratorPromotedNotification extends Notification {
   }
 }
 
-/** The notification's channel id, from its data or its subject. */
+/** Id do canal, vindo dos dados ou do subject. */
 export function channelIdOf(notification: Notification): number | null {
   const data = (notification.attrs.notification.content() as PromotedData | null) ?? {};
   const subject = notification.attrs.notification.subject() as Channel | null;
@@ -54,14 +53,14 @@ export function channelIdOf(notification: Notification): number | null {
   return id ? Number(id) : null;
 }
 
-/** The channel's name as the reader sees it, or the chat's own title. */
+/** Nome do canal como o leitor o vê, ou o título do chat. */
 export function channelNameOf(notification: Notification): string {
   const subject = notification.attrs.notification.subject() as Channel | null;
 
   return subject?.displayName?.() || (app.translator.trans('ramon-chat.forum.nav.chat', {}, true) as string);
 }
 
-/** Who sent the notification, or "Someone". */
+/** Quem enviou a notificação, ou "Alguém". */
 export function fromName(notification: Notification): string {
   const user = notification.attrs.notification.fromUser();
 
@@ -69,8 +68,8 @@ export function fromName(notification: Notification): string {
 }
 
 /**
- * Opens the drawer when that is the reader's preference instead of following
- * the href, the same choice the header button makes.
+ * Abre o drawer em vez de seguir o href quando essa é a preferência do leitor,
+ * igual ao botão do cabeçalho.
  */
 export function openChannelFromNotification(notification: Notification, e: MouseEvent): void {
   const channelId = channelIdOf(notification);

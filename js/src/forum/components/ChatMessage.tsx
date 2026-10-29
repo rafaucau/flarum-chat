@@ -27,47 +27,35 @@ import { loadFlagMessageModal, loadImageLightbox } from '../utils/lazy';
 
 export interface ChatMessageAttrs extends ComponentAttrs {
   message: Message;
-  /** The row above, used to decide grouping. */
+  /** Linha anterior, usada para agrupar. */
   previous?: Message | null;
   state: ChatState;
   onReply?: (message: Message) => void;
   onEdit?: (message: Message) => void;
   onOpenThread?: (message: Message) => void;
-  /**
-   * Suppresses the "N replies" strip. Set inside the thread panel itself, where
-   * the root message would otherwise offer to open the thread you are already
-   * reading — and, with no handler wired, do nothing when clicked.
-   */
+  /** Esconde a faixa "N respostas"; usado dentro do próprio painel da thread. */
   hideThreadIndicator?: boolean;
 }
 
 /**
- * The one-click reaction on the hover bar.
- *
- * `+1` (👍) rather than a heart, so the quick reaction means the same thing here
- * as a Like does on a post — Flarum's own convention. Any other emoji is still
- * reachable through the picker, and hearts already stored on old messages keep
- * rendering as hearts.
+ * Reação de um clique na barra de hover. `+1` (👍), como o Like de um post no
+ * Flarum; os demais emojis ficam no seletor.
  */
 const LIKE_REACTION = '+1';
 
 /**
- * One row in the message stream.
- *
- * Grouping, mention highlighting and tombstones are all decided from the model
- * rather than passed in, so a row rendered from a realtime push looks identical
- * to one rendered from a fetch.
+ * Uma linha do stream. Agrupamento, destaque de menção e lápides vêm do model,
+ * para uma linha vinda do realtime ficar igual a uma vinda de fetch.
  */
 export default class ChatMessage extends Component<ChatMessageAttrs> {
   view(): Mithril.Children {
     const { message, previous, state } = this.attrs;
 
     const deleted = Boolean(message.isDeleted());
-    // Open reports, which only a moderator is served.
+    // Denúncias abertas; só moderadores recebem.
     const reports = deleted ? 0 : Number(message.flagsCount() ?? 0);
 
-    // A pinned or reported message never collapses into the run above it:
-    // grouping hides the meta row, which is where both are stated.
+    // Fixada ou denunciada não agrupa: o agrupamento esconde a linha de meta.
     const grouped = message.isGroupedWith(previous) && !message.isPinned() && reports === 0;
     const selected = state.selected.has(Number(message.id()));
     const rank = grouped ? null : messageRank(message);
@@ -84,14 +72,10 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
           'ChatMessage--flagged': reports > 0,
           'ChatMessage--mentioned': !deleted && message.mentionsActor(),
           'ChatMessage--selected': selected,
-          // A bot post that stands for something elsewhere — currently only a new
-          // discussion. The row stays an ordinary message: same avatar, same
-          // timestamp, same reactions. Only its content block is drawn as a quoted
-          // card, which is what distinguishes "here is a thing over there" from
-          // somebody talking.
+          // Post do bot que anuncia algo de fora (hoje, só nova discussão). Só o
+          // conteúdo vira card; o resto é uma mensagem comum.
           'ChatMessage--announcement': !deleted && message.isBot() && Boolean(message.systemKey()),
-          // Only meaningful on an ungrouped row, which is the one showing an
-          // avatar for the halo to sit on.
+          // Só em linha não agrupada, que é a que mostra avatar.
           'ChatMessage--online': !grouped && isOnline(message.user() || null),
         })}
         data-id={message.id()}
@@ -102,37 +86,27 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         <div className="ChatMessage-body">
           {grouped ? null : (
             <div className="ChatMessage-meta">
-              {/* The author's rank in this room, before the name the way a
-                  forum rank sits before it. A rank set not to show as a tag
-                  colours the name instead. */}
+              {/* Rank do autor no canal, antes do nome. Sem tag, o rank colore o nome. */}
               {rank?.showBadge ? rankTag(rank, 'ChatMessage-rank') : null}
 
               <span {...rankNameAttrs(rank)} className={classList('ChatMessage-author', rankNameAttrs(rank).className)}>
                 {authorLink(message)}
               </span>
 
-              {/* ramon/verified, when installed. Placed where that extension puts
-                  it on a post — right after the name — so a verified member is
-                  marked the same way wherever they are talking. */}
+              {/* ramon/verified, se instalado, logo após o nome como nos posts. */}
               {message.isBot() ? null : verifiedBadge(message.user())}
 
-              {/* Stated, not implied. A message with a name and an avatar reads as a
-                  person by default, and the one thing a reader needs to know here is
-                  that nobody typed it — so the badge is part of the identity rather
-                  than a decoration on top of it. */}
+              {/* Deixa explícito que ninguém digitou esta mensagem. */}
               {message.isBot() ? <span className="ChatMessage-botTag">{app.translator.trans('ramon-chat.forum.bot.tag')}</span> : null}
               {message.createdAt() ? <span className="ChatMessage-time">{humanTime(message.createdAt()!)}</span> : null}
-              {/* A pin is channel-wide, so it is stated on the row itself and not
-                  only in the pinned list — otherwise nobody scrolling past would
-                  know why the message is highlighted. */}
+              {/* Fixar vale para o canal todo, por isso aparece também na linha. */}
               {!deleted && message.isPinned() ? (
                 <span className="ChatMessage-pinMark" title={String(message.pinnedAt() ?? '')}>
                   <i className="fas fa-thumbtack" aria-hidden="true" />
                   {app.translator.trans('ramon-chat.forum.message.pinned')}
                 </span>
               ) : null}
-              {/* For moderators already in the room: which messages are waiting
-                  on them, without opening the queue to find out. */}
+              {/* Para moderadores: quais mensagens têm denúncia pendente. */}
               {reports > 0 ? (
                 <Link
                   className="ChatMessage-flagMark"
@@ -151,11 +125,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
           {this.replyPreview(message)}
           {deleted ? this.tombstone(message) : this.content(message)}
-          {/* Attachments before reactions. A reaction is *about* the message, so
-              it belongs after everything the message is made of — and an
-              image-only message put the pill above a 300px picture, which read as
-              a badge on the row rather than a response to the picture nobody had
-              scrolled to yet. Stickers render through the same block. */}
+          {/* Anexos antes das reações: a reação é sobre a mensagem inteira. Figurinhas
+              usam o mesmo bloco. */}
           {deleted ? null : this.uploads(message)}
           {deleted ? null : this.reactions(message)}
           {deleted ? null : this.threadIndicator(message)}
@@ -167,14 +138,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * Deleted rows keep their place in the stream. Removing them would silently
-   * reflow the conversation and make replies to them incoherent.
+   * Mensagens apagadas mantêm o lugar no stream; removê-las deixaria as respostas
+   * a elas sem sentido.
    */
   protected tombstone(message: Message): Mithril.Children {
-    // Decided by who removed it, never by whether the text was withheld. Those
-    // are different questions: a message its author deleted is withheld from
-    // everyone else as well, so keying off redaction announced every ordinary
-    // self-deletion to the channel as a moderator removal.
+    // Decide por quem removeu, não por o texto estar oculto: mensagem apagada pelo
+    // autor também fica oculta para os demais.
     if (!message.isModeratorDeleted()) {
       return (
         <div className="ChatMessage-tombstone">
@@ -185,13 +154,11 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       );
     }
 
-    // `hasOne` yields false when the relationship was not included — a realtime
-    // push carries no relations, so the unnamed wording is the fallback rather
-    // than a separate case.
+    // `hasOne` devolve false sem a relação incluída (push do realtime não traz
+    // relações); aí vale o texto sem nome.
     const moderator = message.deletedBy() || null;
 
-    // Naming them is the point: "removed by a moderator" leaves the author with
-    // no idea who to ask.
+    // Nomeia o moderador para o autor saber a quem perguntar.
     return (
       <div className="ChatMessage-tombstone">
         <span>
@@ -208,16 +175,10 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * The picture an announced discussion opened with, drawn at the head of the
-   * card the way a link preview leads with a favicon.
+   * Imagem da discussão anunciada, no topo do card. Só em anúncios do bot.
    *
-   * Only for bot announcements: an ordinary message showing its own attachments
-   * already has the uploads row, and a second copy of the same image at the top
-   * would be noise.
-   *
-   * The URL is filtered again here even though the server already accepted only
-   * http(s). It lands in an `src`, the payload travels through JSON:API to get
-   * here, and "the server checked" is a property of today's server.
+   * A URL é filtrada de novo (só http/https) mesmo o servidor já filtrando: vai
+   * parar num `src`.
    */
   protected announcementIcon(message: Message): Mithril.Children {
     if (!message.isBot() || !message.systemKey()) return null;
@@ -233,21 +194,15 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         src={url}
         alt=""
         loading="lazy"
-        // A picture that fails to load must not leave a broken-image glyph in
-        // the middle of the card; removing the node is cleaner than styling it.
+        // Remove a imagem quebrada em vez de deixar o ícone de erro no card.
         onerror={(e: Event) => (e.target as HTMLElement)?.remove()}
       />
     );
   }
 
   /**
-   * Removes the row for good.
-   *
-   * Offered on the tombstone rather than in the hover bar: a channel that has
-   * collected tombstones is where this is wanted, and putting an irreversible
-   * action next to "reply" and "react" is asking for a mis-click.
-   *
-   * The confirmation names what is lost, because "are you sure?" does not.
+   * Remove a linha de vez. Fica na lápide, não na barra de hover, longe de
+   * "responder" e "reagir", por ser irreversível.
    */
   protected purgeButton(message: Message): Mithril.Children {
     if (!message.canForceDelete()) return null;
@@ -287,29 +242,20 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     return (
       <div className="ChatMessage-content">
         {this.announcementIcon(message)}
-        {/* `contentHtml` is the server's own render: Message uses Flarum's
-            `HasFormattedContent`, so this string came out of the s9e/TextFormatter
-            pipeline that also produces post bodies. Trusting it here is the same
-            move core makes to render a post, and the alternative — re-parsing
-            formatter output into a vnode tree — would have to reimplement the
-            renderer to gain nothing. The raw `content` is never trusted; it is
-            rendered as a text node on the branch below. */}
+        {/* `contentHtml` é renderizado pelo servidor via `HasFormattedContent`
+            (s9e/TextFormatter), como o corpo de um post; o core confia nele do mesmo
+            jeito. O `content` cru nunca passa por m.trust: vira nó de texto. */}
         {/* nosemgrep: github.semgrep.flarum-v2-m-trust */}
         {html ? m.trust(html) : message.content()}
-        {/* The "edited" marker states a fact, it is not a control: it says the row
-            was changed and when, the same thing core's post marker says. Rendered
-            as <time> so the exact timestamp is carried in `datetime` for anything
-            reading the markup, with the relative form as the visible text — the
-            absolute one on its own tells a reader nothing at a glance. */}
+        {/* Marcador "editada" como <time>: data exata em `datetime`, relativa no texto. */}
         {message.isEdited() ? this.editedMark(message) : null}
       </div>
     );
   }
 
   /**
-   * Renders the "edited" marker. `editedAt` can be absent on a row the socket
-   * patched before the API answered, so the bare word is the fallback rather
-   * than a marker that says "edited Invalid Date".
+   * Marcador "editada". `editedAt` pode faltar numa linha atualizada pelo socket
+   * antes da API responder; aí mostra só a palavra.
    */
   protected editedMark(message: Message): Mithril.Children {
     const at = message.editedAt();
@@ -349,11 +295,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * Opens the image viewer over the page.
-   *
-   * Mounted on a node appended to the body rather than rendered inside the row:
-   * the message stream is `overflow: auto`, and a full-screen overlay inside it
-   * would be clipped to the scroller.
+   * Abre o visualizador de imagens. Montado num nó do body: dentro do stream
+   * (`overflow: auto`) o overlay seria cortado.
    */
   protected async openLightbox(images: any[], index: number): Promise<void> {
     const ImageLightbox = (await loadImageLightbox()).default;
@@ -378,19 +321,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * The author's avatar with their group badges on it.
-   *
-   * `user.badges()` is core's own list — the same call `PostUser` makes — so a
-   * group's icon, colour and tooltip come from wherever the admin set them, and
-   * an extension that adds to `User.prototype.badges` shows up here for free
-   * rather than having to know the chat exists.
-   *
-   * The wrapper is only added when there is something to draw: it exists to
-   * position the badges over the avatar, and an empty one on every row would put
-   * a positioning context in the gutter for nothing.
+   * Avatar com os badges de grupo. Usa `user.badges()` como o `PostUser`, então
+   * extensões que estendem `User.prototype.badges` aparecem aqui também. O wrapper
+   * só existe quando há badge.
    */
   protected avatar(message: Message): Mithril.Children {
-    // The bot has no account and therefore no groups, so it never has badges.
+    // O bot não tem conta nem grupos.
     const user = message.isBot() ? null : message.user() || null;
     const badges = user ? user.badges().toArray() : [];
 
@@ -417,17 +353,9 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * The preview of the replied-to message, above the body.
-   *
-   * Clicking it jumps to the original: that is what the quote already suggests,
-   * and without it the reader has to scroll hunting for a 120-character excerpt.
-   * When the original is outside the loaded window the click says so instead of
-   * doing nothing, so the silence does not look like a broken button.
-   *
-   * The element is a `button` rather than the former `div`: only then is it
-   * reachable by keyboard and announced as actionable. The author's name is still
-   * a link to the profile, so a click on it is let through instead of becoming a
-   * jump.
+   * Prévia da mensagem respondida. O clique pula para a original ou avisa se ela
+   * está fora da janela carregada. É `button` para funcionar no teclado; o clique
+   * no nome do autor segue para o perfil.
    */
   protected replyPreview(message: Message): Mithril.Children {
     const target = message.replyTo();
@@ -474,10 +402,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       <div className="ChatReactions">
         {emojis.map((emoji) => {
           const entry = summary[emoji];
-          // A reaction is stored as a bare shortcode, and Flamoji's canonical
-          // triggers use exactly the character set the reaction endpoint
-          // accepts — so a custom emoji reacts fine, and only rendering it was
-          // missing. Without this the chip printed `:kappa:` as text.
+          // A reação é gravada como shortcode; emoji customizado do Flamoji precisa
+          // ser resolvido para não aparecer como `:kappa:`.
           const custom = customEmoji(emoji);
 
           return (
@@ -493,10 +419,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
                 this.react(message, emoji);
               }}
             >
-              {/* The like is drawn as the thumbs-up glyph, not 👍: it is the same
-                  affordance flarum/likes uses on a post, and a font icon inherits
-                  the chip's colour where an emoji stays fixed. Every other
-                  reaction is a real emoji and renders as one. */}
+              {/* Like como ícone, não 👍: igual ao flarum/likes e herda a cor do chip. */}
               {emoji === LIKE_REACTION ? (
                 <i className="ChatReactions-icon fas fa-thumbs-up" aria-hidden="true" />
               ) : custom ? (
@@ -513,8 +436,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   protected uploads(message: Message): Mithril.Children {
-    // `hasMany` yields `false` when unloaded, and its entries are optional when a
-    // related record has not been pushed to the store yet.
+    // `hasMany` devolve `false` sem carregar, e itens podem faltar no store.
     const related = message.uploads();
 
     if (!related) return null;
@@ -523,18 +445,14 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     if (uploads.length === 0) return null;
 
-    // The viewer steps between images, so it needs the images alone — a file
-    // attachment in the middle would otherwise be a gap in the sequence.
+    // O visualizador navega só entre imagens.
     const images = uploads.filter((upload) => upload.isImage());
 
     return (
       <div className="ChatUploads">
         {uploads.map((upload, position) =>
           upload.isImage() ? (
-            // A button, not a link: this opens a viewer over the conversation
-            // rather than navigating away. It used to be `target="_blank"`, which
-            // threw the reader out to look at a picture and left them to find
-            // their way back.
+            // Botão, não link: abre o visualizador sem sair da conversa.
             <button
               type="button"
               key={upload.id()}
@@ -549,8 +467,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
                 className="ChatUploads-image"
                 src={safeFileUrl(upload.url())}
                 alt={upload.fileName()}
-                // Intrinsic size from the stored dimensions, so the row does not
-                // reflow as the image loads.
+                // Dimensões gravadas, para a linha não pular ao carregar a imagem.
                 width={upload.width() ?? undefined}
                 height={upload.height() ?? undefined}
                 loading="lazy"
@@ -573,7 +490,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
     const thread = message.thread();
 
-    // Only the thread's root carries the indicator; replies live inside the panel.
+    // Só a raiz da thread tem o indicador.
     if (!thread || thread.originalMessageId() !== Number(message.id())) return null;
 
     const last = thread.lastMessage();
@@ -609,7 +526,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
           className={classList('ChatMessage-action', {
             'ChatMessage-action--active': liked,
           })}
-          // Filled while liked, outlined otherwise — the same read as flarum/likes.
+          // Cheio quando curtido, contorno quando não, como no flarum/likes.
           icon={liked ? 'fas fa-thumbs-up' : 'far fa-thumbs-up'}
           {...iconLabel(app.translator.trans(liked ? 'ramon-chat.forum.message.unlike' : 'ramon-chat.forum.message.like', {}, true))}
           onclick={() => this.react(message, LIKE_REACTION)}
@@ -663,9 +580,8 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       );
     }
 
-    // Entering selection mode. Offered on every readable row, because quoting a
-    // conversation elsewhere is not a moderator-only act — only *moving* is, and
-    // that button is gated separately inside the selection bar.
+    // Modo de seleção em toda linha legível: só mover exige moderação, e isso é
+    // checado na barra de seleção.
     items.push(
       <Button
         className="ChatMessage-action"
@@ -689,11 +605,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
           className={classList('ChatMessage-action', {
             'ChatMessage-action--active': pinned,
           })}
-          // The struck-through pin on an already-pinned message: the icon shows
-          // what the click does, not what the message currently is. Colour alone
-          // said "this is pinned" and left the reader to guess that pressing it
-          // again undoes that — and the accent is invisible to anyone who cannot
-          // separate it from the resting colour.
+          // O ícone mostra o que o clique faz (desafixar), não o estado atual.
           icon={pinned ? 'fas fa-thumbtack-slash' : 'fas fa-thumbtack'}
           {...iconLabel(app.translator.trans(pinned ? 'ramon-chat.forum.message.unpin' : 'ramon-chat.forum.message.pin', {}, true))}
           onclick={() => this.pin(message)}
@@ -701,9 +613,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
       );
     }
 
-    // Reporting. Last in the row and never the default action, because it is the
-    // one here that involves another person's time: it opens a queue item a
-    // moderator has to read and decide on.
+    // Denunciar fica por último: gera trabalho para um moderador.
     if (message.canFlag()) {
       const reported = Boolean(message.isFlagged());
 
@@ -735,11 +645,10 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
     return <div className="ChatMessage-actions">{items}</div>;
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Ações ──
 
   protected async react(message: Message, emoji: string): Promise<void> {
-    // Optimistic toggle: reactions are the highest-frequency interaction and a
-    // round-trip before feedback feels broken.
+    // Otimista: reação é a interação mais frequente.
     const summary = { ...(message.reactionSummary() ?? {}) };
     const entry = summary[emoji] ?? { count: 0, reacted: false };
 
@@ -762,7 +671,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
 
       app.store.pushPayload(payload);
     } catch (e) {
-      // Put the server's version back rather than guessing at a rollback.
+      // Volta à versão do servidor em vez de adivinhar o rollback.
       message.pushAttributes({ reactionSummary: message.reactionSummary() });
     } finally {
       m.redraw();
@@ -789,11 +698,7 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
   }
 
   /**
-   * Toggles the pin.
-   *
-   * Optimistic like the reaction toggle, and rolled back from the server's own
-   * response rather than from a guess — a failed pin must not leave the row
-   * claiming to be pinned to the one person who clicked.
+   * Alterna a fixação, de forma otimista; numa falha volta ao estado do servidor.
    */
   protected async pin(message: Message): Promise<void> {
     const was = Boolean(message.isPinned());
@@ -831,22 +736,12 @@ export default class ChatMessage extends Component<ChatMessageAttrs> {
         isDeleted: true,
         content: null,
         contentHtml: null,
-        // Stated rather than left to the next fetch. Deleting is optimistic, so
-        // until then this row renders from whatever the client last set — and a
-        // tombstone that guesses is how "removed by a moderator" ended up on
-        // messages people had deleted themselves.
+        // Definido já: a exclusão é otimista e a lápide precisa saber quem removeu.
         isModeratorDeleted: Number((message.user() || null)?.id() ?? 0) !== Number(app.session.user?.id() ?? 0),
       });
 
-      // What the optimistic push above cannot state: `canForceDelete` and its
-      // siblings are the server's answer for this actor, and deleting is what
-      // makes purging possible in the first place — the flag was false when the
-      // row was last read and nothing here can honestly flip it.
-      //
-      // Not covered by the realtime handler that does the same job: the
-      // message-changed broadcast excludes the actor, so the one person who just
-      // moderated is the one it never reaches. That is why the control appeared
-      // only after a reload.
+      // `canForceDelete` e afins só o servidor responde. O broadcast de mensagem
+      // alterada exclui quem agiu, então o realtime não atualiza este usuário.
       refreshMessageCapabilities(Number(message.id()));
     } catch (e) {
       app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.message.delete_failed'));
