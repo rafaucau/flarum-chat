@@ -232,6 +232,12 @@ class ChannelRanksTest extends TestCase
             'icon not fa'         => [['name' => 'A', 'color' => '#123456', 'icon' => 'glyphicon glyphicon-star'], 'icon'],
             'icon two classes'    => [['name' => 'A', 'color' => '#123456', 'icon' => 'fas fa-star fa-spin'], 'icon'],
             'show badge string'   => [['name' => 'A', 'color' => '#123456', 'showBadge' => 'yes'], 'showBadge'],
+            // Cargos não se passam pela equipe do fórum.
+            'staff word'          => [['name' => 'Administrator', 'color' => '#123456'], 'name'],
+            'staff word inside'   => [['name' => 'Admin do Fórum', 'color' => '#123456'], 'name'],
+            'staff word accented' => [['name' => 'MODERADORA', 'color' => '#123456'], 'name'],
+            'forum group name'    => [['name' => 'mods', 'color' => '#123456'], 'name'],
+            'forum group plural'  => [['name' => 'Moderators', 'color' => '#123456'], 'name'],
         ];
     }
 
@@ -248,6 +254,13 @@ class ChannelRanksTest extends TestCase
         $this->assertSame(422, $response->getStatusCode(), (string) $response->getBody());
         $this->assertSame('/data/attributes/'.$field, json_decode((string) $response->getBody(), true)['errors'][0]['source']['pointer']);
         $this->assertSame(0, $this->database()->table('chat_channel_ranks')->count());
+    }
+
+    public function test_an_ordinary_name_that_only_contains_a_staff_word_is_accepted(): void
+    {
+        $this->seed();
+
+        $this->assertSame(200, $this->rank(self::OWNER, '', ['name' => 'Modo turbo', 'color' => '#123456'])->getStatusCode());
     }
 
     public function test_a_name_of_exactly_thirty_two_characters_is_accepted_however_wide(): void

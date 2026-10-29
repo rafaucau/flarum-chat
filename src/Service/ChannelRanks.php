@@ -12,6 +12,7 @@ namespace Ramon\Chat\Service;
 use Carbon\Carbon;
 use Flarum\Foundation\ValidationException;
 use Flarum\Locale\Translator;
+use Flarum\Group\Group;
 use Flarum\User\User;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Events\Dispatcher as Events;
@@ -35,6 +36,9 @@ use WeakMap;
  */
 class ChannelRanks
 {
+    /** Palavras que só a equipe usa num cargo (comparadas sem acento e sem caixa). */
+    public const RESERVED_WORDS = ['admin', 'admins', 'administrator', 'administrators', 'administrador', 'administradora', 'administradores', 'moderator', 'moderators', 'moderador', 'moderadora', 'moderadores', 'mod', 'mods', 'staff', 'equipe', 'team'];
+
     public const CACHE_TTL = 86400;
 
     /**
@@ -127,7 +131,7 @@ class ChannelRanks
             ->whereNull('builtin')
             ->max('position') + 1;
 
-        $this->applyAttributes($rank, $attributes, creating: true);
+        $this->applyAttributes($rank, $attributes, creating: true, actor: $actor);
         $rank->save();
 
         $this->changed($channel, $actor);
@@ -145,7 +149,7 @@ class ChannelRanks
     {
         $rank = $this->find($channel, $target);
 
-        $this->applyAttributes($rank, $attributes, creating: false);
+        $this->applyAttributes($rank, $attributes, creating: false, actor: $actor);
 
         if (! $rank->exists || $rank->isDirty()) {
             $rank->save();
@@ -284,7 +288,7 @@ class ChannelRanks
      *
      * @param  array<string, mixed>  $attributes
      */
-    protected function applyAttributes(ChannelRank $rank, array $attributes, bool $creating): void
+    protected function applyAttributes(ChannelRank $rank, array $attributes, bool $creating, ?User $actor = null): void
     {
         $errors = [];
         $builtin = $rank->isBuiltin();
@@ -297,6 +301,8 @@ class ChannelRanks
                 || ($name === null || $name === '') && ! $builtin
                 || is_string($name) && mb_strlen($name) > ChannelRank::NAME_MAX) {
                 $errors['name'] = $this->translator->trans('ramon-chat.api.rank_name_invalid', ['max' => ChannelRank::NAME_MAX]);
+            } elseif (is_string($name) && $name !== '' && $this->impersonatesStaff($name, $actor)) {
+                $errors['name'] = $this->translator->trans('ramon-chat.api.rank_name_reserved');
             } else {
                 $rank->name = $name === '' ? null : $name;
             }
@@ -429,5 +435,30 @@ class ChannelRanks
     protected function key(int $channelId): string
     {
         return 'ramon-chat.ranks.'.$channelId;
+    }
+
+    /**
+     * Um cargo é só um rótulo dentro do canal, mas aparece antes do nome de quem
+     * fala: chamado de "Administrador" ou com o nome de um grupo do fórum, ele se
+     * passa pela equipe. Admins e a moderação do chat podem usar esses nomes.
+     */
+    protected function impersonatesStaff(string $name, ?User $actor): bool
+    {
+        if ($actor !== null && ($actor->isAdmin() || $actor->hasPermission('ramon-chat.moderate'))) {
+            return false;
+        }
+
+        $normalize = fn (string $text): string => mb_strtolower((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', \Illuminate\Support\Str::ascii($text)));
+        $words = array_filter(explode(' ', $normalize($name)));
+
+        if (array_intersect($words, self::RESERVED_WORDS) !== []) {
+            return true;
+        }
+
+        $needle = trim($normalize($name));
+
+        return Group::query()->get(['name_singular', 'name_plural'])->contains(
+            fn (Group $group) => in_array($needle, [trim($normalize((string) $group->name_singular)), trim($normalize((string) $group->name_plural))], true)
+        );
     }
 }

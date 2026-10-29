@@ -59,6 +59,7 @@ ramon-chat:
     # Channel ranks
     rank_limit: "A channel can have at most {max} ranks."
     rank_name_invalid: "Rank names must be 1 to {max} characters long."
+    rank_name_reserved: That name belongs to the forum staff. Pick another one for this rank.
     rank_color_invalid: "Choose a colour in the form #RRGGBB."
     rank_icon_invalid: The icon must be a Font Awesome class, such as fas fa-star.
     rank_flag_invalid: That is not a valid on or off value.

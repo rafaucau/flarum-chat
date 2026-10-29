@@ -54,6 +54,7 @@ ramon-chat:
     # Cargos de canal
     rank_limit: "Um canal pode ter no máximo {max} cargos."
     rank_name_invalid: "O nome do cargo deve ter de 1 a {max} caracteres."
+    rank_name_reserved: Esse nome é da equipe do fórum. Escolha outro para o cargo.
     rank_color_invalid: "Escolha uma cor no formato #RRGGBB."
     rank_icon_invalid: O ícone deve ser uma classe Font Awesome, como fas fa-star.
     rank_flag_invalid: Esse não é um valor válido de ligado ou desligado.
