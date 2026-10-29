@@ -55,6 +55,8 @@ Optional companions: `flarum/tags` unlocks category scoped channels, `flarum/rea
 - Everything the frontend does goes through the `/api/chat/*` endpoints, so channels, messages and membership can also be driven from outside.
 - Adding someone to a channel (`POST /api/chat-channels/{id}/members`) creates an invitation, not a membership. The invitee answers at `POST /api/chat/invites/{channelId}/accept` or `/decline`; a manager can withdraw one at `POST /api/chat-channels/{id}/invites/cancel`. Joining a public channel with a pending invitation accepts it. An invitee to a private channel sees the channel's row (so the invitation can be answered) and none of its messages until they accept.
 - Every membership change reaches the people it concerns over `flarum/realtime` as `ramonChat.membership`, so a channel appears in the sidebar the moment its invitation is accepted and disappears the moment someone is removed, on every open tab.
+- Members (not administrators) are held to a few limits so one account cannot flood everyone else: at most 20 new direct conversations and 10 new channels an hour, 30 uploads every 10 minutes with at most 20 waiting to be sent, 10 attachments per message and 20 reports an hour. A message that names more than 10 people notifies none of them directly, as Discourse does.
+- A one-to-one conversation that already has messages stays between its two people: new members can only be invited into a group conversation or an empty one. Moving messages never widens their audience: nothing leaves a direct conversation, and a private channel's messages only move into another private one.
 - `tests/E2E/` holds end-to-end suites that run against a live forum, websocket included; see its README.
 
 ## Storing attachments with FoF Upload
