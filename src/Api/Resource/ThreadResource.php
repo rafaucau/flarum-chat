@@ -240,14 +240,14 @@ class ThreadResource extends AbstractDatabaseResource
 
             // ── Per-actor tracking state ─────────────────────────────────────
             Schema\Integer::make('notificationLevel')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->notification_level
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->notification_level
                     ?? ThreadUser::LEVEL_NEVER),
 
             Schema\Integer::make('unreadCount')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->unread_count ?? 0),
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->unread_count ?? 0),
 
             Schema\Integer::make('lastReadMessageId')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->last_read_message_id ?? 0),
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->last_read_message_id ?? 0),
 
             Schema\Boolean::make('isParticipating')
                 ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor()) !== null),

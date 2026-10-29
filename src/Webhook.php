@@ -93,11 +93,13 @@ class Webhook extends AbstractModel
         return $key;
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
@@ -105,6 +107,8 @@ class Webhook extends AbstractModel
 
     /**
      * The account deliveries are posted as. Null posts as the chat's bot.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {

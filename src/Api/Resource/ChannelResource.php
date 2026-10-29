@@ -1079,24 +1079,24 @@ class ChannelResource extends AbstractDatabaseResource
 
             // ── Per-actor membership state ───────────────────────────────────
             Schema\Boolean::make('isFollowing')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->following
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->following
                     ?? $c->includes($context->getActor())),
 
             Schema\Boolean::make('isMuted')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->muted ?? false),
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->muted ?? false),
 
             Schema\Integer::make('notificationLevel')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->notification_level
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->notification_level
                     ?? ChannelUser::LEVEL_MENTIONS),
 
             Schema\Integer::make('lastReadMessageId')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->last_read_message_id ?? 0),
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->last_read_message_id ?? 0),
 
             Schema\Integer::make('unreadCount')
                 ->get(fn (Channel $c, Context $context) => $this->unread->unreadFor($c, $this->membership($c, $context->getActor()))),
 
             Schema\Integer::make('unreadMentionsCount')
-                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())?->unread_mentions_count ?? 0),
+                ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->unread_mentions_count ?? 0),
 
             // ── Capability flags, so the client never renders a dead control ──
             Schema\Boolean::make('canPostMessage')

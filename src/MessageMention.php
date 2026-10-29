@@ -57,16 +57,19 @@ class MessageMention extends AbstractModel
         return in_array($this->type, [self::TYPE_HERE, self::TYPE_ALL], true);
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<Group, $this> */
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class, 'group_id');

@@ -50,16 +50,19 @@ class ChannelTransfer extends AbstractModel
         'confirmed_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function fromUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'from_user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function toUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'to_user_id');

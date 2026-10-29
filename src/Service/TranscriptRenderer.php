@@ -47,8 +47,8 @@ class TranscriptRenderer
         }
 
         foreach ($messages as $message) {
-            $author = $message->user?->display_name
-                ?? $message->webhook?->username
+            $author = $message->user->display_name
+                ?? $message->webhook->username
                 ?? '?';
 
             $timestamp = $message->created_at?->toIso8601String() ?? '';
@@ -86,7 +86,7 @@ class TranscriptRenderer
                 continue;
             }
 
-            $author = $message->user?->display_name ?? $message->webhook?->username ?? '?';
+            $author = $message->user->display_name ?? $message->webhook->username ?? '?';
             $time = $message->created_at?->format('Y-m-d H:i') ?? '';
 
             $lines[] = "[$time] $author: ".strip_tags((string) $message->content);

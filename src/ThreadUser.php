@@ -45,11 +45,13 @@ class ThreadUser extends AbstractModel
         'unread_count'         => 'integer',
     ];
 
+    /** @return BelongsTo<Thread, $this> */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'thread_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

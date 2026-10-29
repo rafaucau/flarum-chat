@@ -55,7 +55,7 @@ class MembershipManager
 
             $isNew = $membership === null;
             $wasGone = $membership !== null && $membership->left_at !== null;
-            $wasHidden = $membership !== null && (bool) $membership->hidden;
+            $wasHidden = $membership !== null && $membership->isHidden();
 
             if ($isNew) {
                 $membership = new ChannelUser();
@@ -67,7 +67,7 @@ class MembershipManager
 
             $membership->following = true;
             $membership->left_at = null;
-            $membership->hidden = $hidden;
+            $membership->setAttribute('hidden', $hidden);
 
             if ($notificationLevel !== null) {
                 $membership->notification_level = $notificationLevel;
@@ -131,7 +131,7 @@ class MembershipManager
                 return null;
             }
 
-            $wasHidden = (bool) $membership->hidden;
+            $wasHidden = $membership->isHidden();
 
             $membership->following = false;
             $membership->left_at = Carbon::now();

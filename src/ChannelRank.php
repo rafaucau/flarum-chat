@@ -68,6 +68,7 @@ class ChannelRank extends AbstractModel
         return [self::BUILTIN_OWNER, self::BUILTIN_MODERATOR];
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');

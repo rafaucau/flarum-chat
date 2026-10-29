@@ -79,7 +79,7 @@ class Thread extends AbstractModel
 
         $thread->channel_id = $channel->id;
         $thread->original_message_id = $originalMessage->id;
-        $thread->creator_id = $creator?->id ?? $originalMessage->user_id;
+        $thread->creator_id = $creator->id ?? $originalMessage->user_id;
         $thread->status = self::STATUS_OPEN;
         $thread->replies_count = 0;
 
@@ -101,26 +101,31 @@ class Thread extends AbstractModel
         return $this->isOpen() && ! $this->isDeleted();
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function originalMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'original_message_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function lastMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'last_message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
     }
 
+    /** @return HasMany<Message, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'thread_id');

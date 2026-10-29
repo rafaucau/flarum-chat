@@ -72,11 +72,13 @@ class ChannelUser extends AbstractModel
         return [self::LEVEL_NEVER, self::LEVEL_MENTIONS, self::LEVEL_ALWAYS];
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

@@ -49,7 +49,7 @@ class MentionResolver
         // the accessor, which would unparse it back to author-facing text.
         $raw = $message->getAttributes()['content'] ?? '';
 
-        if ($raw === '' || $raw === null) {
+        if ($raw === '') {
             return collect();
         }
 

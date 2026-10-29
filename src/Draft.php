@@ -44,16 +44,19 @@ class Draft extends AbstractModel
         'thread_id'  => 'integer',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Thread, $this> */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'thread_id');

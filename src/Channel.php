@@ -348,6 +348,7 @@ class Channel extends AbstractModel
         return $this->max_message_length ?: $forumDefault;
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
@@ -369,21 +370,25 @@ class Channel extends AbstractModel
         return $this->isCategory() && (int) $this->creator_id === (int) $user->id;
     }
 
+    /** @return HasMany<Message, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'channel_id');
     }
 
+    /** @return HasMany<Thread, $this> */
     public function threads(): HasMany
     {
         return $this->hasMany(Thread::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function lastMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'last_message_id');
     }
 
+    /** @return HasMany<Webhook, $this> */
     public function webhooks(): HasMany
     {
         return $this->hasMany(Webhook::class, 'channel_id');
@@ -407,6 +412,8 @@ class Channel extends AbstractModel
      * channel, most of the forum, which the members tab could never load. The
      * constraint is in SQL rather than on the instance so it holds for eager
      * loads too, which build the relation from a blank model.
+     *
+     * @return BelongsToMany<User, $this>
      */
     public function participants(): BelongsToMany
     {
@@ -441,11 +448,13 @@ class Channel extends AbstractModel
         return $this->participants();
     }
 
+    /** @return HasMany<ChannelUser, $this> */
     public function memberships(): HasMany
     {
         return $this->hasMany(ChannelUser::class, 'channel_id');
     }
 
+    /** @return HasMany<ChannelInvite, $this> */
     public function invites(): HasMany
     {
         return $this->hasMany(ChannelInvite::class, 'channel_id');
@@ -454,6 +463,8 @@ class Channel extends AbstractModel
     /**
      * Who was invited and has not yet answered, for the members tab of whoever
      * manages the channel.
+     *
+     * @return BelongsToMany<User, $this>
      */
     public function invitedUsers(): BelongsToMany
     {
@@ -467,6 +478,8 @@ class Channel extends AbstractModel
      * Unconstrained here, like `actorMembership()`: only the endpoint knows who
      * the actor is, and it is the one that constrains the eager load. Nothing
      * but `pendingInviteFor()` should read this relation.
+     *
+     * @return HasOne<ChannelInvite, $this>
      */
     public function actorInvite(): HasOne
     {
@@ -549,6 +562,8 @@ class Channel extends AbstractModel
      * it directly off a model would give you an arbitrary member's row, which is
      * why nothing but `membershipFor()` — which checks whose row it got — touches
      * it.
+     *
+     * @return HasOne<ChannelUser, $this>
      */
     public function actorMembership(): HasOne
     {

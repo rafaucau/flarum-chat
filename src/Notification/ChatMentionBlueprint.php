@@ -85,7 +85,7 @@ class ChatMentionBlueprint implements BlueprintInterface, MailableInterface
     public function getEmailSubject(TranslatorInterface $translator): string
     {
         return $translator->trans('ramon-chat.email.mentioned.subject', [
-            'channel' => $this->message->channel?->name
+            'channel' => $this->message->channel->name
                 ?? $translator->trans('ramon-chat.email.mentioned.direct_channel'),
         ]);
     }

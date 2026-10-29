@@ -28,7 +28,7 @@ use Ramon\Chat\Formatter\ResolvesMentionedPosts;
  * @property int $channel_id
  * @property int|null $user_id
  * @property int|null $thread_id
- * @property int|null $number
+ * @property int|\Illuminate\Database\Query\Expression|null $number
  * @property int|null $reply_to_id
  * @property string|null $content
  * @property string|null $parsed_content
@@ -269,71 +269,85 @@ class Message extends AbstractModel implements Formattable
             && $this->thread->original_message_id === $this->id;
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function editedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'edited_by_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function deletedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function pinnedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pinned_by_id');
     }
 
+    /** @return BelongsTo<Thread, $this> */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'thread_id');
     }
 
+    /** @return BelongsTo<self, $this> */
     public function replyTo(): BelongsTo
     {
         return $this->belongsTo(self::class, 'reply_to_id');
     }
 
+    /** @return BelongsTo<Webhook, $this> */
     public function webhook(): BelongsTo
     {
         return $this->belongsTo(Webhook::class, 'webhook_id');
     }
 
+    /** @return HasMany<MessageReaction, $this> */
     public function reactions(): HasMany
     {
         return $this->hasMany(MessageReaction::class, 'message_id');
     }
 
+    /** @return HasMany<Upload, $this> */
     public function uploads(): HasMany
     {
         return $this->hasMany(Upload::class, 'message_id');
     }
 
+    /** @return HasMany<MessageMention, $this> */
     public function mentions(): HasMany
     {
         return $this->hasMany(MessageMention::class, 'message_id');
     }
 
+    /** @return HasMany<MessageRevision, $this> */
     public function revisions(): HasMany
     {
         return $this->hasMany(MessageRevision::class, 'message_id');
     }
 
+    /** @return HasMany<Bookmark, $this> */
     public function bookmarks(): HasMany
     {
         return $this->hasMany(Bookmark::class, 'message_id');
     }
 
+    /** @return HasMany<MessageFlag, $this> */
     public function flags(): HasMany
     {
         return $this->hasMany(MessageFlag::class, 'message_id');

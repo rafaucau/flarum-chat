@@ -48,11 +48,13 @@ class MessageRevision extends AbstractModel implements Formattable
         'created_at'   => 'datetime',
     ];
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function editedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'edited_by_id');
