@@ -423,6 +423,22 @@ class ChannelResource extends AbstractDatabaseResource
                         ->whereIn('id', $ids)
                         ->get();
 
+                    // O mesmo teto de quem abre a conversa direta vale para quem
+                    // entra depois, convites pendentes contados.
+                    if ($channel->isDirect()) {
+                        $present = $channel->memberships()->whereNull('left_at')->pluck('user_id')
+                            ->merge($channel->invites()->pluck('user_id'));
+                        $newcomers = $users->pluck('id')->diff($present);
+
+                        if ($present->unique()->count() + $newcomers->count() > Channel::MAX_DIRECT_PARTICIPANTS) {
+                            throw new ValidationException([
+                                'userIds' => $this->translator->trans('ramon-chat.api.direct_too_many', [
+                                    'max' => Channel::MAX_DIRECT_PARTICIPANTS,
+                                ]),
+                            ]);
+                        }
+                    }
+
                     // Every invite is a notification in someone else's bell, so the
                     // inviter is held to a budget per hour. Charged for everyone asked
                     // rather than for the invites that end up created: deciding which

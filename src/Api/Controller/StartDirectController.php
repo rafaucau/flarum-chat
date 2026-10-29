@@ -36,7 +36,7 @@ use Throwable;
  */
 class StartDirectController implements RequestHandlerInterface
 {
-    protected const MAX_PARTICIPANTS = 20;
+    protected const MAX_PARTICIPANTS = Channel::MAX_DIRECT_PARTICIPANTS;
 
     public function __construct(
         protected Events $events,

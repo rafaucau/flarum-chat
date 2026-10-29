@@ -79,6 +79,9 @@ class Channel extends AbstractModel
      */
     public const TYPE_DIRECT = 'direct';
 
+    /** Teto de participantes de uma conversa direta, quem a abriu incluído. */
+    public const MAX_DIRECT_PARTICIPANTS = 20;
+
     public const STATUS_OPEN = 'open';
     public const STATUS_CLOSED = 'closed';
     public const STATUS_ARCHIVED = 'archived';
@@ -446,6 +449,12 @@ class Channel extends AbstractModel
     public function directParticipants(): BelongsToMany
     {
         return $this->participants();
+    }
+
+    /** Quem está na conversa agora, contando os membros ocultos. */
+    public function activeParticipantCount(): int
+    {
+        return $this->memberships()->whereNull('left_at')->count();
     }
 
     /** @return HasMany<ChannelUser, $this> */

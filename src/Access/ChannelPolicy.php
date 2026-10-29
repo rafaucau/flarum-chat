@@ -271,9 +271,14 @@ class ChannelPolicy extends AbstractPolicy
     public function manageMembers(User $actor, Channel $channel): ?bool
     {
         if ($channel->isDirect()) {
-            if ($channel->creator_id === $actor->id && $channel->membershipFor($actor) !== null) {
-                return true;
+            if ($channel->creator_id !== $actor->id || $channel->membershipFor($actor) === null) {
+                return $this->ownership->moderates($actor, $channel) ? true : null;
             }
+
+            // Como no Discourse: uma conversa a dois que já tem mensagens é dos
+            // dois. Chamar uma terceira pessoa entregaria o histórico, e tirar a
+            // outra apagaria o acesso dela; só grupos e conversas vazias mudam.
+            return $channel->messages_count === 0 || $channel->activeParticipantCount() > 2;
         }
 
         return $this->ownership->moderates($actor, $channel) ? true : null;
