@@ -121,7 +121,9 @@ class MessagePolicy extends AbstractPolicy
             return true;
         }
 
-        if ($message->channel !== null && $this->ownership->moderates($actor, $message->channel)) {
+        if ($message->channel !== null
+            && $this->ownership->moderates($actor, $message->channel)
+            && ! $this->authorOutranks($actor, $message)) {
             return true;
         }
 
@@ -343,5 +345,33 @@ class MessagePolicy extends AbstractPolicy
 
         return $message->created_at !== null
             && $message->created_at->greaterThan(Carbon::now()->subMinutes($minutes));
+    }
+
+    /**
+     * A mesma hierarquia de `removeMember`: quem modera o canal não apaga a
+     * mensagem de quem está acima (admins e moderadores do chat), e um
+     * moderador do canal não apaga a do dono nem a de outro moderador. O
+     * apagar leva os anexos junto, e restaurar é só para a moderação do chat.
+     */
+    protected function authorOutranks(User $actor, Message $message): bool
+    {
+        $author = $message->user;
+
+        if ($author === null || (int) $author->id === (int) $actor->id) {
+            return false;
+        }
+
+        if ($author->isAdmin() || $author->hasPermission('ramon-chat.moderate')) {
+            return true;
+        }
+
+        $channel = $message->channel;
+
+        if ($channel === null || $this->ownership->controls($actor, $channel)) {
+            return false;
+        }
+
+        return (int) $channel->creator_id === (int) $author->id
+            || $channel->membershipFor($author)?->isModerator() === true;
     }
 }

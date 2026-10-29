@@ -1504,6 +1504,13 @@ class ChannelResource extends AbstractDatabaseResource
 
         $membership = $channel->membershipFor($user);
 
+        // Membro oculto é, para quem não vê ocultos, um não membro, como em
+        // `removeMember`: a resposta diferente denunciava quem inspeciona, e
+        // promovê-lo anunciava o nome dele à sala.
+        if ($membership !== null && $membership->isHidden() && ! $this->ownership->seesHiddenMembers($actor)) {
+            $membership = null;
+        }
+
         if ($membership === null || $membership->hasLeft()) {
             throw new ValidationException([
                 'userId' => $this->translator->trans('ramon-chat.api.not_a_member'),
