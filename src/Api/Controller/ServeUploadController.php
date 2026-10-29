@@ -169,8 +169,13 @@ class ServeUploadController implements RequestHandlerInterface
         }
 
         if ($m[1] === '') {
-            // A suffix range: the last N bytes.
+            // A suffix range: the last N bytes. Zero of them is unsatisfiable
+            // (RFC 9110), not an empty 206.
             $length = min((int) $m[2], $size);
+
+            if ($length === 0) {
+                return false;
+            }
 
             return [$size - $length, $size - 1];
         }

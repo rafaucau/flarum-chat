@@ -181,6 +181,19 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertSame(substr(base64_decode(self::PNG), 0, 4), (string) $served->getBody());
     }
 
+    public function test_an_empty_suffix_range_is_unsatisfiable(): void
+    {
+        $upload = $this->upload(self::MEMBER, self::CH_PRIVATE);
+
+        $served = $this->send(
+            $this->request('GET', '/api/chat/uploads/'.$upload['id'].'/file', ['authenticatedAs' => self::MEMBER])
+                ->withQueryParams(['id' => $upload['id']])
+                ->withHeader('Range', 'bytes=-0')
+        );
+
+        $this->assertStatus(416, $served);
+    }
+
     public function test_making_a_channel_private_moves_what_was_posted_in_it(): void
     {
         $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
