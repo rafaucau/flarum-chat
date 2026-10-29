@@ -15,11 +15,8 @@ use Flarum\Search\SearchState;
 use Ramon\Chat\Message;
 
 /**
- * `filter[q]=term` — message search, within one channel when combined with
- * `filter[channel]`, or across every channel the actor can see otherwise.
- *
- * The searcher's visibility scope already constrains the query, so cross-channel
- * search cannot reach channels the actor has no access to.
+ * `filter[q]=termo`: busca de mensagens, num canal com `filter[channel]` ou em
+ * todos os visíveis. O scope do searcher já restringe a visibilidade.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -38,13 +35,11 @@ class MessageTextFilter implements FilterInterface
             return;
         }
 
-        // addcslashes over the LIKE metacharacters, so searching for "100%" does
-        // not degenerate into matching every message.
+        // Escapa os curingas do LIKE: buscar "100%" não casa com tudo.
         $like = '%'.addcslashes($term, '\\%_').'%';
 
         $state->getQuery()
-            // Neither a tombstone nor a system message is something a user means
-            // to find, so search never returns them.
+            // Apagadas e de sistema nunca são o que se procura.
             ->whereNull('chat_messages.deleted_at')
             ->where('chat_messages.type', Message::TYPE_TEXT)
             ->where('chat_messages.content', $negate ? 'not like' : 'like', $like);

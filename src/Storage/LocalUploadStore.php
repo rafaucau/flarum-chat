@@ -17,9 +17,8 @@ use Ramon\Chat\Service\UploadPrivacy;
 use Ramon\Chat\Upload;
 
 /**
- * The chat's own disks: `chat` under the webroot and `chat-private` under
- * storage. Which of the two is read from the row's `is_private`, so the same
- * store serves both and a row can never point at the wrong one.
+ * Os discos do chat: `chat` no webroot e `chat-private` em storage. O disco sai
+ * do `is_private` da linha, então ela nunca aponta para o errado.
  */
 class LocalUploadStore implements UploadStore
 {
@@ -30,8 +29,8 @@ class LocalUploadStore implements UploadStore
 
     public function put(Upload $upload, $stream, string $extension): void
     {
-        // Random basename: the client filename is kept only as a display label,
-        // never as a path component, so traversal and collisions are impossible.
+        // Nome aleatório: o do cliente é só rótulo, nunca path, então não há
+        // traversal nem colisão.
         $path = sprintf('%s/%s.%s', Carbon::now()->format('Y/m'), Str::random(28), $extension);
 
         if (! $this->disk($upload)->writeStream($path, $stream)) {

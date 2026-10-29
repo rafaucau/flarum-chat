@@ -17,19 +17,16 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelInvite;
 
 /**
- * Creates and ends invites to a channel.
+ * Cria e encerra convites para um canal.
  *
- * Being added to a channel became a question: whoever manages it invites, and
- * the invitee joins or declines. The membership is only born on acceptance,
- * and MembershipManager is what creates it; here only the invite itself
- * exists.
+ * Quem gerencia convida, e o convidado aceita ou recusa. A membership só nasce
+ * no aceite, pelo MembershipManager; aqui existe só o convite.
  */
 class InvitationManager
 {
     /**
-     * How long a decline lasts: within this interval the same channel does not
-     * invite the same person again, and a "no" does not turn into a queue of
-     * notifications. Administrators are exempt, as from every chat limit.
+     * Quanto dura uma recusa: nesse intervalo o canal não convida a mesma pessoa
+     * de novo, para um "não" não virar fila de notificações. Admins ficam isentos.
      */
     public const DECLINE_COOLDOWN_SECONDS = 86400;
 
@@ -41,12 +38,9 @@ class InvitationManager
     }
 
     /**
-     * Whether the invitee could join the channel, setting aside the fact that
-     * it is private. The invite answers for privacy; the rest still applies:
-     * chat must be enabled for the account, a closed channel takes nobody, and
-     * a channel tied to a restricted category still requires the category's
-     * permission. An invite cannot become a side door around a forum
-     * permission.
+     * Se o convidado poderia entrar no canal, tirando o fato de ser privado. O
+     * resto vale: chat habilitado, canal aberto e permissão na categoria
+     * restrita. Convite não é porta lateral para uma permissão do fórum.
      */
     public function mayEnter(User $actor, Channel $channel): bool
     {
@@ -74,19 +68,16 @@ class InvitationManager
     }
 
     /**
-     * Invites whoever is not yet a member, not already invited, and has not
-     * declined recently.
+     * Convida quem ainda não é membro, não foi convidado e não recusou há pouco.
      *
-     * A hidden member counts as a member only for whoever may know they exist
-     * (ChannelOwnership::seesHiddenMembers). For everyone else they are invited
-     * like anyone else: skipping the person would reveal their presence through
-     * the difference in the response, and they can simply decline the invite.
+     * Membro oculto só conta como membro para quem pode saber dele
+     * (ChannelOwnership::seesHiddenMembers); para os outros é convidado normalmente,
+     * senão a diferença na resposta o revelaria.
      *
-     * One query for everyone's membership, one for their invites and one
-     * insert for the lot: a request may ask up to fifty people at once.
-     *
+     * Uma consulta de memberships, uma de convites e um insert só: uma requisição
+     * pode convidar até cinquenta pessoas.
      * @param  iterable<User>  $users
-     * @return ChannelInvite[] The invites created, in the order received.
+     * @return ChannelInvite[] os convites criados, na ordem recebida
      */
     public function invite(Channel $channel, iterable $users, User $inviter): array
     {
@@ -158,8 +149,8 @@ class InvitationManager
     }
 
     /**
-     * Consumes the user's invite, handing it back to whoever will create the
-     * membership. Null when there was no invite.
+     * Consome o convite do usuário e o entrega a quem vai criar a membership.
+     * Null se não havia convite.
      */
     public function accept(Channel $channel, User $user): ?ChannelInvite
     {
@@ -188,12 +179,10 @@ class InvitationManager
     }
 
     /**
-     * All of the channel's pending invites made by the same inviter.
+     * Os convites pendentes do canal feitos pelo mesmo autor.
      *
-     * It is the set the notification sync needs: the NotificationSyncer
-     * matches notifications by type, subject and sender, and receives the
-     * full list of who should still have theirs.
-     *
+     * É o conjunto que o NotificationSyncer precisa: casa por tipo, subject e
+     * remetente e recebe a lista completa de quem ainda deve ter a notificação.
      * @return User[]
      */
     public function pendingUsersInvitedBy(Channel $channel, ?User $inviter): array
@@ -217,9 +206,12 @@ class InvitationManager
     {
         return ChannelInvite::query()->getConnection()->transaction(function () use ($channel, $user) {
             /** @var ChannelInvite|null $invite */
+            // Travado: dois aceites em paralelo leriam o mesmo convite e ambos anunciariam
+            // a entrada. O segundo espera e não acha nada.
             $invite = ChannelInvite::query()
                 ->where('channel_id', $channel->id)
                 ->where('user_id', $user->id)
+                ->lockForUpdate()
                 ->with('inviter')
                 ->first();
 

@@ -11,20 +11,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Slow mode: the minimum gap between one person's messages in a channel.
+ * Slow mode: intervalo mínimo entre mensagens da mesma pessoa no canal.
  *
- * Per channel rather than forum-wide, which is the whole point — a support room
- * and a chatter room want different rhythms, and the existing
- * `max_messages_per_second` is a flood guard for the whole install, not a
- * moderation tool a channel owner can reach for.
- *
- * Seconds, with 0 meaning off. Discord stores it the same way, and seconds are
- * what the interface offers: 5s, 30s, 1m, and so on.
+ * Por canal, porque ritmos diferem; `max_messages_per_second` é proteção contra
+ * flood da instalação inteira. Em segundos; 0 desliga.
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         if ($schema->hasColumn('chat_channels', 'slow_mode_seconds')) {
             return;

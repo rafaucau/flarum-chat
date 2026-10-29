@@ -12,27 +12,12 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Removes permissions granted to the Administrator group.
+ * Remove permissões concedidas ao grupo Administrator.
  *
- * Three of this extension's migrations granted their permission to
- * `Group::ADMINISTRATOR_ID`, which is redundant — `User::hasPermission()`
- * short-circuits for administrators, so they already hold every permission — and
- * has a visible cost: core's PermissionDropdown builds its label as
- *
- *     [badgeForId(Group.ADMINISTRATOR_ID), groupIds.map(badgeForId)]
- *
- * The Administrator badge is always prepended, so a permission explicitly held by
- * group 1 renders that badge twice. That is the "duplicated permissions" in the
- * admin panel: not duplicate rows, but the same group listed by both halves of
- * that expression.
- *
- * No extension shipped with Flarum grants to the Administrator group; they grant
- * to members or moderators and let the admin bypass do the rest. The original
- * migrations have been corrected too, so a fresh install never creates these rows
- * and this migration finds nothing to remove.
- *
- * Nobody loses access: an administrator could already do all three things by
- * virtue of being an administrator.
+ * Redundantes (`hasPermission()` já libera admins) e visíveis: o
+ * PermissionDropdown do core sempre prefixa o badge de admin, que aparecia
+ * duplicado. As migrations originais foram corrigidas; numa instalação nova
+ * esta não acha nada. Ninguém perde acesso.
  */
 return [
     'up' => function (Builder $schema) {
@@ -48,8 +33,6 @@ return [
     },
 
     'down' => function (Builder $schema) {
-        // Deliberately not reinstated. Putting the rows back would restore the
-        // duplicate badge without restoring any capability, and `down` should not
-        // recreate a defect.
+        // Não restaura: devolveria o badge duplicado sem devolver capacidade alguma.
     },
 ];

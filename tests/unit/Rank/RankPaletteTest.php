@@ -14,8 +14,8 @@ use PHPUnit\Framework\TestCase;
 use Ramon\Chat\Rank\RankPalette;
 
 /**
- * Any color chosen for a rank stays readable: in the badge text, and as the
- * name color on the light and dark themes.
+ * Qualquer cor escolhida para um rank continua legível: no texto do selo e
+ * como cor do nome nos temas claro e escuro.
  */
 class RankPaletteTest extends TestCase
 {

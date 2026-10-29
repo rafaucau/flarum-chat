@@ -8,19 +8,18 @@
  */
 
 /*
- * Helper for the ownership-transfer suite, development forum only.
+ * Helper da suíte de transferência de posse, só para o fórum de desenvolvimento.
  *
- * A transfer's code goes out by email and only its hash is kept in the
- * database, on purpose: no HTTP route reveals it. So the suite can type a
- * code, this script boots the application and writes the hash of a known code
- * onto the channel's pending transfer. It is a test file, outside src/, that
- * the forum never serves.
+ * O código da transferência vai por e-mail e só o hash fica no banco, de
+ * propósito: nenhuma rota HTTP o revela. Para a suíte poder digitar um código,
+ * este script sobe a aplicação e grava o hash de um código conhecido na
+ * transferência pendente do canal. Fica fora de src/ e o fórum nunca o serve.
  *
  *     php tests/E2E/lib/transfer-helper.php code <channelId> <code>
  *     php tests/E2E/lib/transfer-helper.php reset <userId> [<userId> ...]
  *
- * `reset` zeroes these users' hourly limit on started transfers, so running
- * the suite twice in the same hour does not hit it.
+ * `reset` zera o limite por hora de transferências iniciadas desses usuários,
+ * para a suíte poder rodar duas vezes na mesma hora.
  */
 
 use Flarum\Foundation\Site;

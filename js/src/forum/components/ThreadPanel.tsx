@@ -1,34 +1,32 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import type Message from "../../common/models/Message";
-import type Thread from "../../common/models/Thread";
-import type ChatState from "../state/ChatState";
-import ChatMessage from "./ChatMessage";
-import ChatComposer from "./ChatComposer";
-import { MessageStreamSkeleton } from "./Skeletons";
-import iconLabel from "../utils/iconLabel";
+import type Channel from '../../common/models/Channel';
+import type Message from '../../common/models/Message';
+import type Thread from '../../common/models/Thread';
+import type ChatState from '../state/ChatState';
+import ChatMessage from './ChatMessage';
+import ChatComposer from './ChatComposer';
+import { MessageStreamSkeleton } from './Skeletons';
+import iconLabel from '../utils/iconLabel';
 
 export interface ThreadPanelAttrs extends ComponentAttrs {
   channel: Channel;
   threadId: number;
   state: ChatState;
-  /** Invoked when the panel is dismissed, so the route can drop the thread. */
+  /** Chamado ao fechar o painel, para a rota largar a thread. */
   onClose: () => void;
 }
 
 /**
- * A thread's replies, beside the channel.
+ * Respostas de uma thread, ao lado do canal.
  *
- * The channel stream shows a thread as one root message with a reply indicator —
- * the API's channel filter drops the replies — so this panel is the only place
- * they are readable. It is a narrower ChannelView: same rows, same composer, but
- * scoped to `filter[thread]` and without the unread divider, since a thread keeps
- * no read marker of its own.
+ * O filtro de canal da API omite as respostas, então só aparecem aqui. É um
+ * ChannelView com `filter[thread]` e sem divisor de não lidas: thread não tem
+ * marcador de leitura próprio.
  */
 export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   private scroller: HTMLElement | null = null;
@@ -46,7 +44,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
 
     super.onbeforeupdate(vnode);
 
-    // Switching threads inside the same instance: reset and reload.
+    // Troca de thread na mesma instância.
     if (previousId !== undefined && vnode.attrs.threadId !== previousId) {
       this.pinned = true;
       this.lastRenderedCount = 0;
@@ -57,13 +55,12 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   oncreate(vnode: Mithril.VnodeDOM<ThreadPanelAttrs>): void {
     super.oncreate(vnode);
 
-    this.scroller = vnode.dom.querySelector(".ChatThreadPanel-stream");
+    this.scroller = vnode.dom.querySelector('.ChatThreadPanel-stream');
     this.scrollToBottom();
   }
 
   onupdate(): void {
-    const count = this.attrs.state.threadStream(this.attrs.threadId).messages
-      .length;
+    const count = this.attrs.state.threadStream(this.attrs.threadId).messages.length;
 
     if (count > this.lastRenderedCount && this.pinned) {
       this.scrollToBottom();
@@ -75,7 +72,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   view(): Mithril.Children {
     const { channel, threadId, state, onClose } = this.attrs;
     const stream = state.threadStream(threadId);
-    const thread = app.store.getById<Thread>("chat-threads", String(threadId));
+    const thread = app.store.getById<Thread>('chat-threads', String(threadId));
 
     return (
       <div className="ChatThreadPanel">
@@ -83,43 +80,28 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
           <i className="fas fa-comments" aria-hidden="true" />
 
           <span className="ChatThreadPanel-title">
-            {/* displayTitle() falls back to an excerpt of the root message, so an
-                untitled thread is still identifiable. */}
-            {thread
-              ? thread.displayTitle()
-              : app.translator.trans("ramon-chat.forum.thread.title")}
+            {/* displayTitle() cai num trecho da mensagem raiz se não houver título. */}
+            {thread ? thread.displayTitle() : app.translator.trans('ramon-chat.forum.thread.title')}
           </span>
 
           <Button
             className="Button Button--icon Button--flat"
             icon="fas fa-xmark"
-            {...iconLabel(
-              app.translator.trans("ramon-chat.forum.thread.close", {}, true),
-            )}
+            {...iconLabel(app.translator.trans('ramon-chat.forum.thread.close', {}, true))}
             onclick={onClose}
           />
         </div>
 
-        <div
-          className="ChatThreadPanel-stream"
-          onscroll={(e: Event) => this.onScroll(e)}
-        >
-          {stream.loading && stream.messages.length === 0
-            ? MessageStreamSkeleton(4)
-            : null}
+        <div className="ChatThreadPanel-stream" onscroll={(e: Event) => this.onScroll(e)}>
+          {stream.loading && stream.messages.length === 0 ? MessageStreamSkeleton(4) : null}
 
           {stream.loadedInitial && stream.messages.length === 0 ? (
-            <div className="ChatBrowse-empty">
-              {app.translator.trans("ramon-chat.forum.thread.no_replies")}
-            </div>
+            <div className="ChatBrowse-empty">{app.translator.trans('ramon-chat.forum.thread.no_replies')}</div>
           ) : null}
 
-          {/* onReply/onEdit are wired even though the panel has no thread of its
-              own to open: a row whose action buttons do nothing is worse than a row
-              without them, and ChatMessage draws them from the message's own
-              capability flags. `onOpenThread` is deliberately absent — the policy
-              refuses to nest a thread inside a thread, so canCreateThread is false
-              on every row here and the button is never drawn. */}
+          {/* ChatMessage desenha os botões pelas flags da mensagem, então onReply/onEdit
+              precisam estar ligados. Sem `onOpenThread`: a policy não aninha threads,
+              e canCreateThread é false em toda linha daqui. */}
           {stream.messages.map((message, index) => (
             <ChatMessage
               key={message.id()}
@@ -133,12 +115,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
           ))}
         </div>
 
-        <ChatComposer
-          channel={channel}
-          state={state}
-          threadId={threadId}
-          onSent={() => this.onSent()}
-        />
+        <ChatComposer channel={channel} state={state} threadId={threadId} onSent={() => this.onSent()} />
       </div>
     );
   }
@@ -146,8 +123,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
   protected load(): void {
     const { state, threadId } = this.attrs;
 
-    // The record itself, for the title — the panel can be reached by URL without
-    // the channel stream having loaded the root message it hangs off.
+    // Para o título: pela URL, o painel abre sem o stream ter carregado a raiz.
     state.findThread(threadId).then(() => m.redraw());
 
     state.loadThread(threadId).catch(() => {});
@@ -167,10 +143,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
     }
   }
 
-  /**
-   * Reply and edit are staged against this panel's scope, so the channel composer
-   * below is unaffected.
-   */
+  /** Resposta e edição ficam no escopo do painel, sem afetar o composer do canal. */
   protected reply(message: Message): void {
     const { state, channel, threadId } = this.attrs;
 
@@ -182,7 +155,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
     const { state, channel, threadId } = this.attrs;
 
     state.setEditing(Number(channel.id()), message, threadId);
-    state.setDraft(Number(channel.id()), message.content() ?? "", threadId);
+    state.setDraft(Number(channel.id()), message.content() ?? '', threadId);
     m.redraw();
   }
 

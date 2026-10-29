@@ -13,6 +13,7 @@ use Flarum\Discussion\Discussion;
 use Flarum\Post\Event\Posted;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\Tags\Tag;
+use Flarum\User\Guest;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher as Events;
 use Ramon\Chat\Access\AudienceProbe;
@@ -21,38 +22,15 @@ use Ramon\Chat\Event\MessageWasSent;
 use Ramon\Chat\Message;
 
 /**
- * Posts a note in the channel when a discussion is started in its bound category.
+ * Avisa no canal quando uma discussão é aberta na categoria vinculada.
  *
- * The counterpart to JoinChannelsOnReply: that one grows the channel's membership
- * from the category, this one carries the category's activity into the channel, so
- * a room bound to #support actually hears when someone opens a support thread.
+ * Só o primeiro post conta: `Posted` dispara a cada resposta. Por padrão o aviso
+ * sai pelo bot do chat (nome e avatar do admin); se o admin escolher uma conta
+ * real, vira uma mensagem comum dela.
  *
- * ## Why only the first post
- *
- * `Posted` fires for every reply. Only the discussion's opening post announces a
- * *new discussion*; without that check the channel would receive a line for every
- * message in the forum, which is the failure mode this feature is most likely to
- * have.
- *
- * ## Who it is posted as
- *
- * By default the chat's own bot: an ordinary message with no human author, drawn
- * with the name and avatar set in admin. An earlier version posted grey system
- * narration instead, which was wrong for this — a system line has nowhere to go,
- * and the whole point of an announcement is the link.
- *
- * An admin can instead nominate a real account to announce as, in which case this
- * posts a completely ordinary message from that user and no bot exists in the
- * conversation at all.
- *
- * ## Who may read it
- *
- * The announcement copies the title, an excerpt and the first image out of the
- * forum and into a room with its own audience, so it is only posted where every
- * reader of that room could already open the discussion. `Posted` fires for a
- * discussion still waiting for approval, for a private (byobu) one and for one
- * carrying a second, restricted tag; none of those may surface in a channel
- * bound to an open category. See audienceMaySee().
+ * Título, trecho e imagem saem do fórum para outra audiência, então só publica
+ * onde todo leitor do canal já poderia abrir a discussão: nada pendente de
+ * aprovação, privado (byobu) ou com tag restrita extra. Ver audienceMaySee().
  */
 class AnnounceDiscussions
 {
@@ -66,7 +44,7 @@ class AnnounceDiscussions
     {
         $post = $event->post;
 
-        // `number` is 1 only for the post that opened the discussion.
+        // `number` é 1 só no post que abriu a discussão.
         if ((int) ($post->number ?? 0) !== 1) {
             return;
         }
@@ -105,38 +83,28 @@ class AnnounceDiscussions
 
             $body = $this->body($discussion, $excerpt);
 
-            // An announcer chosen in admin makes this an ordinary message from an
-            // ordinary account: a real avatar, a real profile link, and no BOT tag,
-            // because there is no bot involved. The tag is a property of the
-            // authorless message type, not a label bolted on — so choosing a user
-            // removes it by construction rather than by another setting to forget.
+            // Com um anunciante escolhido no admin, é mensagem comum de uma conta real:
+            // sem selo BOT, que pertence ao tipo de mensagem sem autor.
             $announcer = $this->announcer();
 
             $message = $announcer !== null
-                ? Message::build($channel, $announcer, $body)
+                ? Message::build($channel, $announcer, $body, parseAs: new Guest())
                 : Message::buildBot(
                     $channel,
                     'discussion_started',
                     $body,
                     [
                         'title' => $discussion->title,
-                        // The id, not a rendered URL: a URL baked in now would
-                        // outlive a change of forum address.
+                        // O id, não a URL: uma URL gravada agora não sobreviveria a uma troca de endereço.
                         'discussionId' => (int) $discussion->id,
                         'username' => $event->actor?->display_name,
                         'userId'   => $event->actor?->id !== null ? (int) $event->actor->id : null,
 
-                        // Snapshotted rather than read live. An announcement is a
-                        // record of what was posted, so editing the opening post
-                        // later should not rewrite history in the channel — and
-                        // reading it live would mean a query per announcement on
-                        // every scroll of the stream.
+                        // Snapshot, não leitura ao vivo: o aviso registra o que foi publicado, e ler
+                        // ao vivo custaria uma consulta por aviso a cada rolagem.
                         'excerpt'  => $excerpt,
 
-                        // The post's first picture, shown as a small mark at the
-                        // head of the card — the way a link preview leads with a
-                        // favicon. Snapshotted with the rest: an announcement is a
-                        // record of what was posted.
+                        // A primeira imagem do post, como marca no topo do card; também em snapshot.
                         'image'    => $image,
                     ]
                 );
@@ -145,25 +113,18 @@ class AnnounceDiscussions
 
             $channel->refreshMetadata()->save();
 
-            // Broadcast and unread-count fan-out ride on the same event ordinary
-            // messages use, so the announcement behaves like any other arrival.
+            // Mesmo evento das mensagens comuns: broadcast e não lidas iguais.
             $this->events->dispatch(new MessageWasSent($message, $event->actor));
         }
     }
 
     /**
-     * Whether the least-privileged reader of the channel can view the discussion.
+     * Se o leitor menos privilegiado do canal pode ver a discussão.
      *
-     * A tag-bound channel is readable by anyone who may use the chat and holds
-     * `viewForum` on its tag and the tag's parent. Nothing more is guaranteed of
-     * its readers, private channel or not, so that is the account asked. The
-     * discussion is then looked up through core's own visibility scope, which is
-     * what folds in every rule other extensions add: all of the discussion's
-     * tags, byobu recipients, approval, hiding.
-     *
-     * The explicit checks before the query are a second line, not the rule: they
-     * answer the common cases without a query, and they hold even if a scope that
-     * should have excluded the discussion is not registered.
+     * Esse leitor tem `useChat` e `viewForum` na tag e na mãe; a discussão é buscada
+     * com o scope de visibilidade do core, que inclui as regras de outras extensões
+     * (tags, byobu, aprovação, ocultação). As checagens antes da consulta são uma
+     * segunda linha e poupam a consulta nos casos comuns.
      */
     protected function audienceMaySee(object $channel, object $discussion): bool
     {
@@ -171,8 +132,7 @@ class AnnounceDiscussions
             return false;
         }
 
-        // Null when flarum/approval is not installed, and then there is nothing
-        // to wait for.
+        // Null sem o flarum/approval; aí não há o que esperar.
         $approved = $discussion->is_approved ?? null;
 
         if ($approved !== null && ! (bool) $approved) {
@@ -191,8 +151,8 @@ class AnnounceDiscussions
             $granted[] = 'tag'.$tag->parent_id.'.viewForum';
         }
 
-        // The same answer for the tags already in memory, without a query: a
-        // restricted tag the channel's readers are not known to hold.
+        // O mesmo para as tags já em memória, sem consulta: tag restrita que os
+        // leitores do canal não têm garantida.
         try {
             foreach ($discussion->tags ?? [] as $other) {
                 if ($other->is_restricted && ! in_array('tag'.$other->id.'.viewForum', $granted, true)) {
@@ -211,15 +171,10 @@ class AnnounceDiscussions
     }
 
     /**
-     * The account announcements are posted as, or null to use the bot.
+     * A conta que publica os avisos, ou null para o bot.
      *
-     * Resolved on every announcement rather than cached: the setting can change
-     * between one discussion and the next, and a stale announcer would keep posting
-     * as somebody the admin has already replaced.
-     *
-     * A configured id that no longer resolves — the account was deleted — falls back
-     * to the bot rather than dropping the announcement. Losing the attribution is a
-     * smaller failure than losing the notice entirely.
+     * Sem cache: a configuração pode mudar entre uma discussão e outra. Id que não
+     * existe mais cai no bot; perder a autoria é melhor que perder o aviso.
      */
     protected function announcer(): ?User
     {
@@ -233,14 +188,9 @@ class AnnounceDiscussions
     }
 
     /**
-     * The prose the announcement carries.
-     *
-     * Markdown, so it goes through the same formatter every other message uses and
-     * comes out as an ordinary message — a bold link and a paragraph, not a special
-     * layout the stream has to know about. The URL is relative so it stays valid if
-     * the forum moves, and the title is escaped: a discussion titled with brackets
-     * and parentheses would otherwise close the link early and let the rest of the
-     * title become markup.
+     * O texto do aviso, em Markdown, para passar pelo formatter como qualquer
+     * mensagem. URL relativa para sobreviver a mudança de endereço; o título é
+     * escapado para que colchetes e parênteses não fechem o link e virem markup.
      */
     protected function body(object $discussion, ?string $excerpt): string
     {
@@ -256,29 +206,25 @@ class AnnounceDiscussions
     }
 
     /**
-     * The post's first image, to head the announcement card with.
+     * A primeira imagem do post, para o topo do card.
      *
-     * Markdown, BBCode and HTML all appear in post source, so all three are
-     * looked for. Only http(s) is accepted: the value ends up in an `src`, and a
-     * `javascript:` or `data:` URL there is the one thing that must never happen.
-     *
-     * Any image type the browser draws is fine — svg, png, jpeg, webp — so this
-     * does not filter on extension. A URL that turns out not to be an image
-     * simply fails to load and the card renders without a mark.
+     * Procura Markdown, BBCode e HTML. Só http(s): o valor vai para um `src`, e
+     * `javascript:` ou `data:` ali não pode acontecer. Não filtra por extensão; o
+     * que não for imagem só falha ao carregar.
      */
     protected function firstImage(object $post): ?string
     {
         $content = (string) ($post->content ?? '');
 
-        if ($content === '') {
+        // Código não é imagem: um `![x](url)` dentro de crase ou bloco é texto e não
+        // pode virar imagem carregada por todo o canal.
+        $content = (string) preg_replace(['/```.*?(```|$)/s', '/~~~.*?(~~~|$)/s', '/`[^`\n]*`/', '/\[code\].*?(\[\/code\]|$)/is'], ' ', $content);
+
+        if (trim($content) === '') {
             return null;
         }
 
-        // Every syntax is searched, and the winner is the one that appears
-        // earliest in the text — not the one whose pattern happens to be tried
-        // first. Ordering by syntax picked a markdown badge halfway down a post
-        // over the BBCode logo at the very top, which is not what "the first
-        // image" means to anyone reading it.
+        // Vence a ocorrência mais cedo no texto, não a sintaxe testada primeiro.
         $patterns = [
             '/!\[[^\]]*\]\(\s*([^)\s]+)/',            // ![alt](url)
             '/\[img\b[^\]]*\]\s*([^\[\s]+)/i',        // [img]url[/img]
@@ -289,9 +235,8 @@ class AnnounceDiscussions
         $bestAt = PHP_INT_MAX;
 
         foreach ($patterns as $pattern) {
-            // Every occurrence, not the first. With `preg_match` a rejected
-            // candidate exhausted its whole syntax: one `javascript:` image at the
-            // top of a post hid every real markdown image below it.
+            // Todas as ocorrências: um candidato rejeitado não pode esconder as
+            // imagens válidas da mesma sintaxe abaixo dele.
             if (! preg_match_all($pattern, $content, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
                 continue;
             }
@@ -300,8 +245,7 @@ class AnnounceDiscussions
                 [$url, $at] = $m[1];
                 $url = trim($url);
 
-                // Only http(s): the value ends up in an `src`, and `javascript:`
-                // or `data:` there is the one thing that must never happen.
+                // Só http(s): o valor vai para um `src`.
                 if (! preg_match('~^https?://~i', $url)) {
                     continue;
                 }
@@ -311,8 +255,7 @@ class AnnounceDiscussions
                     $bestAt = $at;
                 }
 
-                // Ordered within a pattern, so the first accepted one is the
-                // earliest this syntax can offer.
+                // Ordenadas dentro do padrão; a primeira aceita é a mais cedo desta sintaxe.
                 break;
             }
         }
@@ -321,26 +264,13 @@ class AnnounceDiscussions
     }
 
     /**
-     * A short plain-text opening of the post, for the announcement card.
+     * Começo do post em texto simples, para o card.
      *
-     * Built from the raw content rather than the rendered HTML: formatting needs a
-     * request context this listener does not have, and the card wants text anyway.
-     *
-     * ## Why this is more than a couple of regexes
-     *
-     * Whatever comes out of here is appended to a markdown body and then rendered.
-     * Anything left half-stripped is not inert text — it is live markup a second
-     * time around. Two shapes proved that:
-     *
-     *  - `[![CI](shield.svg)](target)`, an image inside a link. A single pass with
-     *    `[^\]]*` cannot reach past the inner `]`, so it consumed the first half
-     *    and left `![CI](target)` behind — which the formatter then rendered as an
-     *    image. Collapsing has to repeat until the text stops changing.
-     *  - A post written in HTML. Markdown stripping never touched `<img src=…>`,
-     *    so the tag survived into the announcement and drew a picture there.
-     *
-     * So: strip, repeat, and then neutralise what remains rather than trusting the
-     * strip to have been complete.
+     * Feito do conteúdo cru: formatar exige contexto de requisição, e o card quer
+     * texto. O resultado é anexado a um corpo Markdown e renderizado de novo, então
+     * sobra parcial vira markup: imagem dentro de link (`[![CI](a)](b)`) exige
+     * repetir até estabilizar, e HTML (`<img>`) precisa sair. No fim, neutraliza o
+     * que restou em vez de confiar na remoção.
      */
     protected function excerpt(object $post): ?string
     {
@@ -350,21 +280,19 @@ class AnnounceDiscussions
             return null;
         }
 
-        // Quotes first, and while they are still line-shaped. Stripping the
-        // leading ">" as punctuation later would leave the quoted words behind and
-        // pass off someone else's sentence as this post's opening.
+        // Citações primeiro, ainda em linhas: senão sobraria a frase de outra pessoa
+        // como abertura deste post.
         $content = preg_replace('/\[quote[^\]]*\].*?\[\/quote\]/is', ' ', $content) ?? $content;
         $content = preg_replace('/<blockquote.*?<\/blockquote>/is', ' ', $content) ?? $content;
         $content = preg_replace('/^[ 	]*>[^
 ]*$/m', ' ', $content) ?? $content;
 
-        // Fenced and inline code: the contents are rarely a useful opening line and
-        // frequently contain the very characters this is trying to remove.
+        // Código: raramente é uma boa abertura e traz justamente os caracteres a remover.
         $content = preg_replace('/```.*?```/s', ' ', $content) ?? $content;
         $content = preg_replace('/`[^`]*`/', ' ', $content) ?? $content;
 
-        // Links and images, innermost first, until nothing changes. Bounded so a
-        // pathological post cannot spin here.
+        // Links e imagens, de dentro para fora, até estabilizar; com limite para
+        // post patológico não travar aqui.
         for ($pass = 0; $pass < 6; $pass++) {
             $collapsed = preg_replace('/!?\[([^\[\]]*)\]\([^)\s]*(?:\s+[^)]*)?\)/', '$1', $content) ?? $content;
 
@@ -375,26 +303,21 @@ class AnnounceDiscussions
             $content = $collapsed;
         }
 
-        // `[img]` before the generic BBCode strip, and with its contents. The
-        // generic pass removes the *tags*, and a BBCode image carries its URL as
-        // the tag's content — so an announcement opened with a bare
-        // `https://…/icon.svg` sitting in the middle of the sentence.
+        // `[img]` antes da remoção genérica de BBCode e com o conteúdo: a URL fica
+        // dentro da tag e sobraria solta no meio da frase.
         $content = preg_replace('/\[img\b[^\]]*\].*?\[\/img\]/is', ' ', $content) ?? $content;
 
-        // HTML and BBCode. A post is source text, not rendered output, so both can
-        // be present verbatim — and an `<img>` that survives here is drawn in the
-        // channel.
+        // HTML e BBCode: o post é fonte, e um `<img>` que sobrar é desenhado no canal.
         $content = preg_replace('/<[^>]*>/', ' ', $content) ?? $content;
         $content = preg_replace('/\[\/?[a-z*][^\]]*\]/i', ' ', $content) ?? $content;
 
-        // Emphasis, headings, list bullets and horizontal rules.
+        // Ênfase, títulos, marcadores e linhas horizontais.
         $content = preg_replace('/^[ 	]*(?:[-*+]|\d+\.)\s+/m', ' ', $content) ?? $content;
         $content = preg_replace('/[`*_~]+/', '', $content) ?? $content;
         $content = preg_replace('/^\s*#+\s*/m', ' ', $content) ?? $content;
 
-        // What is left is meant to be text. These are the characters that could
-        // still start markup once this is appended to the message body, and by now
-        // none of them belongs to anything.
+        // O que sobrou deve ser texto: escapa os caracteres que ainda poderiam abrir
+        // markup ao ser anexado ao corpo.
         $content = str_replace(['[', ']', '<', '>', '`'], '', $content);
 
         $content = trim(preg_replace('/\s+/u', ' ', $content) ?? $content);
@@ -409,8 +332,8 @@ class AnnounceDiscussions
     }
 
     /**
-     * @see JoinChannelsOnReply::tagIdsFor() — same reasoning, including why
-     * `method_exists` cannot be used on the dynamically registered relation.
+     * @see JoinChannelsOnReply::tagIdsFor() — mesmo motivo, inclusive por que
+     * `method_exists` não serve para a relação registrada dinamicamente.
      *
      * @return int[]
      */

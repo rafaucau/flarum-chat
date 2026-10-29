@@ -1,17 +1,12 @@
-import ChatState from "./ChatState";
+import ChatState from './ChatState';
 
 /**
- * The process-wide chat state.
+ * Estado global do chat. Singleton para que a gaveta, a página e os handlers de
+ * realtime vejam os mesmos canais e marcadores de leitura.
  *
- * A singleton rather than per-component state so the drawer, the full-screen page
- * and the realtime handlers all observe the same channels, streams and read
- * markers. Two instances would drift the moment either one marked a message read.
- *
- * Bound to a named const before exporting. Flarum's `autoExportLoader` rewrites
- * the default export into a `flarum.reg.add()` call by scanning the source for
- * the default-export keyword, so the exported value has to be a plain identifier
- * — a constructor call in that position (and even the phrase appearing in a
- * comment) makes the loader emit invalid code.
+ * Fica numa const nomeada antes de exportar: o `autoExportLoader` do Flarum
+ * reescreve a exportação padrão procurando a palavra-chave no fonte, e só aceita
+ * um identificador simples ali (nem a frase pode aparecer num comentário).
  */
 const chatState = new ChatState();
 

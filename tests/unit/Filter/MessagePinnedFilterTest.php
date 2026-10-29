@@ -21,9 +21,9 @@ class MessagePinnedFilterTest extends QueryTestCase
     }
 
     /**
-     * `pinned_at IS NOT NULL` is the single source of truth for a pin. Reading
-     * `pinned_by_id` instead would drop pins whose author was later deleted, since
-     * that column is ON DELETE SET NULL.
+     * `pinned_at IS NOT NULL` é a única fonte de verdade de um pin. Ler
+     * `pinned_by_id` perderia pins cujo autor foi apagado, já que a coluna é
+     * ON DELETE SET NULL.
      */
     public function test_truthy_value_keeps_only_pinned_messages(): void
     {
@@ -44,8 +44,8 @@ class MessagePinnedFilterTest extends QueryTestCase
     }
 
     /**
-     * Negation has to compose with the value rather than override it, so that
-     * `filter[-pinned]=1` and `filter[pinned]=0` mean the same thing.
+     * A negação compõe com o valor em vez de sobrescrevê-lo, para
+     * `filter[-pinned]=1` e `filter[pinned]=0` significarem o mesmo.
      */
     public function test_negation_inverts_the_predicate(): void
     {
@@ -66,8 +66,8 @@ class MessagePinnedFilterTest extends QueryTestCase
     }
 
     /**
-     * An unparseable value must leave the query alone rather than guessing. A filter
-     * that silently defaulted to "pinned only" would hide the rest of a channel.
+     * Valor ilegível deixa a query como está. Um filtro que caísse em "só fixadas"
+     * esconderia o resto do canal.
      */
     public function test_unparseable_value_adds_no_predicate(): void
     {

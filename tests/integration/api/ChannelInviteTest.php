@@ -18,19 +18,17 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Channel invites, end to end.
+ * Convites de canal, de ponta a ponta.
  *
- * Being added to a channel became a question. These tests pin down the three
- * answers and what each leaves behind: inviting creates an invite and a
- * notification, and nothing else; accepting creates the membership, narrates
- * the arrival and clears the notification from the bell; declining notifies
- * the owner and the inviter, and leaves the private channel as invisible as
- * before. Whoever manages can withdraw the invite, and an invite never
- * bypasses a restricted category's permission.
+ * Ser adicionado a um canal é uma pergunta. Convidar cria o convite e uma
+ * notificação, e nada mais; aceitar cria a membership, narra a chegada e limpa
+ * a notificação do sino; recusar avisa o dono e quem convidou, e o canal
+ * privado continua invisível. Quem gerencia pode retirar o convite, e convite
+ * nunca fura a permissão de uma categoria restrita.
  *
- * Run in separate processes for the reason ChannelAccessMatrixTest documents:
- * the class enables flarum-tags, and the static registry of scopers survives
- * between boots within the same process.
+ * Processos separados pelo motivo descrito em ChannelAccessMatrixTest: a classe
+ * liga o flarum-tags, e o registro estático de scopers sobrevive entre boots
+ * no mesmo processo.
  */
 #[RunTestsInSeparateProcesses]
 class ChannelInviteTest extends TestCase
@@ -77,8 +75,8 @@ class ChannelInviteTest extends TestCase
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'viewForum'],
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.use'],
                 ['group_id' => 101, 'permission' => 'ramon-chat.moderate'],
-                // The managers can see the restricted category; the invitee
-                // cannot, which is what the last test is about.
+                // Quem gerencia vê a categoria restrita; o convidado não, que é o assunto
+                // do último teste.
                 ['group_id' => 101, 'permission' => 'tag2.viewForum'],
                 ['group_id' => 102, 'permission' => 'tag2.viewForum'],
             ],
@@ -193,8 +191,8 @@ class ChannelInviteTest extends TestCase
 
         $this->assertSame(404, $message->getStatusCode());
 
-        // The notification can be listed only because the row is visible: core
-        // hides notifications whose subject the reader cannot see.
+        // A notificação só aparece porque a linha é visível: o core esconde
+        // notificações cujo assunto o leitor não vê.
         $bell = $this->send(
             $this->request('GET', '/api/notifications', [
                 'authenticatedAs' => self::INVITEE,
@@ -207,6 +205,33 @@ class ChannelInviteTest extends TestCase
         );
 
         $this->assertContains('chatChannelInvite', $types);
+    }
+
+    public function test_an_invitee_does_not_see_who_is_inside(): void
+    {
+        $this->invite(self::CH_PRIVATE, self::INVITER, self::INVITEE);
+
+        $show = $this->send(
+            $this->request('GET', '/api/chat-channels/'.self::CH_PRIVATE, [
+                'authenticatedAs' => self::INVITEE,
+            ])->withQueryParams(['include' => 'participants'])
+        );
+
+        $this->assertSame(200, $show->getStatusCode());
+
+        $document = json_decode((string) $show->getBody(), true);
+
+        $this->assertSame([], array_values(array_filter($document['included'] ?? [], fn ($row) => $row['type'] === 'users')));
+        $this->assertSame([], $document['data']['attributes']['moderatorIds'] ?? []);
+        $this->assertArrayNotHasKey('rankBook', $document['data']['attributes']);
+
+        $users = $this->send(
+            $this->request('GET', '/api/users', [
+                'authenticatedAs' => self::INVITEE,
+            ])->withQueryParams(['filter' => ['chatChannel' => (string) self::CH_PRIVATE]])
+        );
+
+        $this->assertSame([], json_decode((string) $users->getBody(), true)['data'] ?? []);
     }
 
     public function test_joining_a_private_channel_with_an_invitation_accepts_it(): void
@@ -265,7 +290,7 @@ class ChannelInviteTest extends TestCase
 
         $attributes = json_decode((string) $accept->getBody(), true)['data']['attributes'];
 
-        // The record as the client needs it to draw the composer at once.
+        // O registro como o cliente precisa para desenhar o composer na hora.
         $this->assertTrue($attributes['isFollowing']);
         $this->assertTrue($attributes['canPostMessage']);
         $this->assertFalse($attributes['isInvited']);
@@ -440,6 +465,29 @@ class ChannelInviteTest extends TestCase
         $this->assertSame(403, $accept->getStatusCode());
         $this->assertFalse($this->isMember(self::CH_RESTRICTED, self::INVITEE));
         $this->assertSame(1, $this->invites(self::CH_RESTRICTED, self::INVITEE)->count(), 'a refused accept keeps the invite for later');
+    }
+
+    public function test_removal_ends_an_invitation_the_member_never_used(): void
+    {
+        // Convidado e, por outro caminho (resposta na categoria), já membro.
+        $this->assertSame(200, $this->invite(self::CH_PRIVATE, self::INVITER, self::INVITEE)->getStatusCode());
+        $this->database()->table('chat_channel_user')->insert($this->membership(self::CH_PRIVATE, self::INVITEE));
+
+        $removed = $this->send($this->request('POST', '/api/chat-channels/'.self::CH_PRIVATE.'/members/remove', [
+            'authenticatedAs' => self::OWNER,
+            'json'            => ['data' => ['attributes' => ['userId' => self::INVITEE]]],
+        ]));
+
+        $this->assertSame(200, $removed->getStatusCode(), (string) $removed->getBody());
+        $this->assertSame(0, $this->invites(self::CH_PRIVATE, self::INVITEE)->count());
+
+        // O convite antigo não serve mais de porta de volta.
+        $accepted = $this->send($this->request('POST', '/api/chat/invites/'.self::CH_PRIVATE.'/accept', [
+            'authenticatedAs' => self::INVITEE,
+        ])->withQueryParams(['id' => (string) self::CH_PRIVATE]));
+
+        $this->assertNotSame(200, $accepted->getStatusCode());
+        $this->assertFalse($this->isMember(self::CH_PRIVATE, self::INVITEE));
     }
 
     private function invite(int $channel, int $actor, int $user): \Psr\Http\Message\ResponseInterface

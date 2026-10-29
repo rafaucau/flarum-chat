@@ -17,12 +17,9 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Removes the uploaded bot avatar, mirroring core's DeleteLogoController.
- *
- * The setting is cleared before the file is deleted. If the delete fails — a
- * permissions problem on the assets disk, say — the forum is left pointing at
- * nothing rather than at a file it believes exists, which degrades to the initial
- * fallback instead of a broken image.
+ * Remove o avatar do bot, como o DeleteLogoController do core. A setting é limpa
+ * antes de apagar o arquivo: se o delete falhar, o fórum cai no fallback de
+ * iniciais em vez de apontar para uma imagem quebrada.
  */
 class DeleteBotAvatarController extends AbstractDeleteController
 {

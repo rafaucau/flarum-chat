@@ -1,60 +1,41 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat components
+// Componentes do chat
 //
-// Structure mirrors the component tree in js/src/forum/components, so a rule is
-// always findable from the element it styles.
-// ─────────────────────────────────────────────────────────────────────────────
+// A ordem segue a árvore de js/src/forum/components.
 
-// ── Header trigger ───────────────────────────────────────────────────────────
-// The speech bubble that sits beside search, per Discourse.
-//
-// The unread count carries core's `.Bubble.HeaderDropdownBubble` and is styled
-// entirely by core — including the `@phone` offset that moves it clear of the
-// icon when the header becomes a list of rows inside the drawer. Nothing about
-// its placement is repeated here; overriding one edge of an absolutely positioned
-// box that core anchors by the other is what produced the full-width grey slab.
+// ── Botão do header ──
+// O contador usa `.Bubble.HeaderDropdownBubble` e é estilizado só pelo core,
+// inclusive o offset do `@phone`; sobrescrever uma das bordas de um box que o core
+// ancora pela outra estica o badge.
 .ChatNavButton {
-  // The bubble is `position: absolute`, so the button has to be its containing
-  // block — core's `.Dropdown` provides this for the bell and for
-  // flarum/messages' dropdown; we are a bare button and provide it ourselves.
+  // O bubble é `position: absolute`; o `.Dropdown` do core dá o containing block ao
+  // sino, e este botão precisa dar o seu.
   position: relative;
 
-  // The same treatment core gives a HeaderDropdown toggle — the flag and bell
-  // beside us — so the chat icon matches them in size and spacing instead of
-  // falling back to the generic .Button padding, which is larger.
-  //
-  // Scoped to the same breakpoint core scopes it to: on a phone the header moves
-  // into the drawer and its controls show their labels, so hiding ours there would
-  // leave an unlabelled icon in a list of named rows.
-  //
-  // And scoped to the icon being drawn at all. The mixin hides .Button-label, so
-  // applying it unconditionally left an empty 36px circle on desktop whenever the
-  // admin turned the icon off — a button with neither icon nor text.
+  // O mesmo tratamento do toggle de HeaderDropdown do core, para casar com o sino e
+  // a bandeira. Só no breakpoint do core: no celular o header vira lista com labels.
+  // E só com ícone: o mixin esconde `.Button-label` e sobraria um círculo vazio.
   &.hasIcon {
     @media @tablet-up {
       .Button--icon();
     }
   }
 
-  // The gap core puts between a header control's icon and its label, applied at
-  // the same place core applies it (`.HeaderDropdown .Dropdown-toggle`). Only
-  // visible in the drawer, where the label is shown — without it the icon and the
-  // word sit flush against each other, unlike every row around them.
+  // O gap do core entre ícone e label (`.HeaderDropdown .Dropdown-toggle`); só
+  // aparece no drawer, onde o label é exibido.
   .Button-label {
     margin-left: 7px;
   }
 }
 
-// ── Drawer ───────────────────────────────────────────────────────────────────
-// Floating panel pinned bottom-right, over whatever page is open.
+// ── Drawer ──
+// Painel flutuante no canto inferior direito, sobre qualquer página.
 .ChatDrawer {
   position: fixed;
   right: 16px;
   bottom: 0;
-  // Just above the forum composer (1020) and the theme's reply bubble, which
-  // share its layer, so a parked bubble never covers the conversation; still
-  // under dropdowns, modals, alerts and tooltips (1030+). The composer comes
-  // forward only while it is being used, see utils/stacking.ts.
+  // Logo acima do composer do fórum (1020) e do bubble de resposta do tema, e
+  // abaixo de dropdowns, modais, alertas e tooltips (1030+). O composer só vem para a
+  // frente enquanto está em uso (utils/stacking.ts).
   z-index: ~"calc(var(--zindex-composer, 1020) + 5)";
 
   display: flex;
@@ -76,7 +57,7 @@
     overflow: hidden;
   }
 
-  // The box shown for the moment between opening and the UI chunk arriving.
+  // Entre abrir e o chunk da UI chegar.
   &--loading {
     align-items: center;
     justify-content: center;
@@ -100,19 +81,10 @@
     color: var(--avocado-text-dark);
   }
 
-  // With a channel open the title is a button — it opens the channel's details,
-  // the way the full-screen header's title does — so it has to shed the UA's
-  // button chrome and stop looking like a control it is not.
-  //
-  // The hover treatment is `.ChatChannel-title`'s, deliberately: this bar now
-  // does that one's job, and the two are the same gesture on the same object. It
-  // briefly had an underline instead, which was a third style belonging to
-  // neither. The negative margin is the same trick as well — it pulls the pill's
-  // left edge back so the text keeps the position it had without one.
-  //
-  // Type stays the drawer's own 13px rather than the header's 15px: this bar is
-  // 48px tall and carries five controls beside the name, where the full-screen
-  // header has a whole row to itself.
+  // Com canal aberto o título é um botão que abre os detalhes, como no header da
+  // tela cheia; perde o chrome de botão do navegador. Hover igual ao de
+  // `.ChatChannel-title`, mesmo gesto no mesmo objeto. Fica nos 13px do drawer: a
+  // barra tem 48px e cinco controles ao lado.
   &-title--channel {
     .chat-flex-row(8px);
     padding: 4px 8px;
@@ -133,9 +105,8 @@
     min-width: 0;
   }
 
-  // The mark beside the name. Sized like the sidebar's rather than the
-  // full-screen header's: this bar is 44px tall and carries five controls beside
-  // it, so the mark is an identifier here, not a heading.
+  // Tamanho do sidebar, não do header da tela cheia: aqui a marca identifica, não
+  // encabeça.
   &-icon {
     .chat-flex-center();
     flex-shrink: 0;
@@ -150,19 +121,16 @@
     flex-shrink: 0;
   }
 
-  // The channel's own actions, before the window controls and separated from
-  // them: one group acts on the conversation, the other on the panel showing it,
-  // and running six icons together reads as one undifferentiated row.
+  // Ações do canal antes dos controles da janela e separadas deles: um grupo age
+  // na conversa, o outro no painel.
   &-channelMenu {
     display: flex;
     margin-right: 4px;
     padding-right: 4px;
     border-right: 1px solid var(--avocado-border-soft);
 
-    // Right-aligned. The toggle sits four controls from the right edge of a
-    // 320px panel, and a menu dropping left-aligned under it would hang off the
-    // side — Flarum's default alignment assumes a toggle with the page's width
-    // to its right.
+    // Alinhado à direita: o toggle fica a quatro controles da borda de um painel de
+    // 320px, e o alinhamento padrão do Flarum faria o menu vazar.
     .Dropdown-menu {
       right: 0;
       left: auto;
@@ -175,22 +143,18 @@
     min-height: 0; // lets the message list scroll instead of the drawer growing
   }
 
-  // No mobile rules. Below `@chat-mobile-breakpoint` this panel is not rendered
-  // at all — `ChatDrawer.view()` returns `.ChatFab` instead. It used to go
-  // edge-to-edge and `100dvh` here, which covered the header, the phone toolbar
-  // and its drawer toggle: the forum underneath became unreachable until the
-  // chat was closed.
+  // Sem regras mobile: abaixo de `@chat-mobile-breakpoint` este painel não é
+  // renderizado (`ChatDrawer.view()` devolve `.ChatFab`).
 }
 
-// ── Floating button ──────────────────────────────────────────────────────────
-// What an open drawer looks like on a phone: a bubble over the page instead of a
-// panel replacing it. Tapping it opens the full-screen chat.
+// ── Botão flutuante ──
+// O drawer aberto no celular: um bubble sobre a página. Tocar abre o chat em tela
+// cheia.
 .ChatFab {
   position: fixed;
   right: 16px;
 
-  // Clear of the composer, which core pins to the bottom of the viewport, and of
-  // the home-indicator strip on a notched phone.
+  // Livre do composer, que o core fixa embaixo, e da faixa do home indicator.
   bottom: ~"calc(16px + env(safe-area-inset-bottom, 0px))";
 
   z-index: var(--avocado-z-dropdown);
@@ -217,8 +181,8 @@
     }
   }
 
-  // Unread, on the bubble itself — the only thing on screen that can report it
-  // while the conversation is not open.
+  // Não lidas no próprio bubble, a única coisa na tela que pode mostrá-las com a
+  // conversa fechada.
   &-badge {
     position: absolute;
     top: -2px;
@@ -239,9 +203,8 @@
     color: #fff;
   }
 
-  // Deliberately small and quiet: dismissing is the rarer action, and a second
-  // full-sized control beside the first would read as a choice between two
-  // equals.
+  // Pequeno de propósito: dispensar é a ação mais rara, e outro controle do mesmo
+  // tamanho pareceria uma escolha entre iguais.
   &-dismiss {
     position: absolute;
     top: -6px;
@@ -259,14 +222,11 @@
   }
 }
 
-// ── Phone toolbar ────────────────────────────────────────────────────────────
-// Core owns the appearance of `.App-titleControl` and `.App-primaryControl` —
-// their position in the bar, their size, their colour — but only inside
-// `@media @phone`, because that bar exists only there. Above the breakpoint the
-// elements are left unstyled, which in `.ChatPage` means stray flex items wedged
-// between the toolbar and the sidebar. Hidden rather than conditionally
-// rendered: a JS check on viewport width does not survive a resize without a
-// redraw, and this is a media query's job.
+// ── Toolbar do celular ──
+// O core só estiliza `.App-titleControl` e `.App-primaryControl` dentro de
+// `@media @phone`. Acima disso eles sobrariam como itens flex soltos no
+// `.ChatPage`; escondidos por media query porque um teste de largura em JS não
+// sobrevive a um resize sem redraw.
 .ChatToolbarTitle,
 .ChatToolbarBack {
   @media @tablet-up {
@@ -274,15 +234,10 @@
   }
 }
 
-// ── Full-screen page ─────────────────────────────────────────────────────────
-// The one chat surface that fills the screen. The class is set on `<body>` from
-// `ChatPage` (see the note there); the rules live in
-// `.chat-suppress-page-chrome()`, which explains what is being suppressed and
-// why.
-//
-// The drawer no longer takes part: on a phone it is the floating button, which
-// sits over the page rather than replacing it, so the page keeps its footer and
-// its scrolling.
+// ── Página em tela cheia ──
+// A classe vai no `<body>` a partir da `ChatPage`; as regras e o motivo estão em
+// `.chat-suppress-page-chrome()`. O drawer não participa: no celular ele é o botão
+// flutuante.
 body.ChatFullPage {
   .chat-suppress-page-chrome();
 }
@@ -297,32 +252,23 @@ body.ChatFullPage {
     flex: 1;
     min-width: 0;
 
-    // The containing block for the thread panel, which goes `position: absolute;
-    // inset: 0` below the mobile breakpoint to cover the channel instead of
-    // squeezing beside it.
+    // Containing block da thread, que abaixo do breakpoint mobile vira
+    // `position: absolute; inset: 0` sobre o canal.
     position: relative;
   }
 
   @media (max-width: @chat-mobile-breakpoint) {
-    // `--header-height-phone`, not `--header-height`: core pads `.App` with the
-    // phone value at this width, so using the desktop one leaves the page a few
-    // pixels short of the viewport.
+    // `--header-height-phone`, não `--header-height`: nesta largura o core usa o
+    // valor de celular no padding do `.App`.
     //
-    // And `dvh` over the top of `vh`, as a progressive override — a browser that
-    // does not know the unit drops the declaration and keeps the `vh` above it.
-    // On a phone `100vh` is the viewport with the URL bar *retracted*, so with
-    // `vh` alone the composer sits under the browser's URL bar until the page is
-    // scrolled. Both are kept so browsers without `dvh` still get a height.
+    // `dvh` depois de `vh` como override progressivo: no celular `100vh` é a viewport
+    // com a barra de URL recolhida, e o composer ficaria sob ela. Navegador sem `dvh`
+    // descarta a declaração e fica com o `vh`.
     height: ~"calc(100vh - var(--header-height-phone, 46px))";
     height: ~"calc(100dvh - var(--header-height-phone, 46px))";
 
-    // On mobile the sidebar and the channel are separate views rather than
-    // adjacent panes; the router decides which is mounted.
-    //
-    // `.ChatSidebar`, not `&-sidebar`: the page renders the component, which
-    // carries its own class — there has never been a `ChatPage-sidebar` element
-    // for this to match. So the sidebar kept `width: 280px; flex-shrink: 0` on a
-    // phone and sat in a 390px viewport with a dead column beside it.
+    // No celular sidebar e canal são telas separadas; o router decide qual monta.
+    // `.ChatSidebar`, não `&-sidebar`: o componente leva a própria classe.
     .ChatSidebar,
     &-main {
       flex: 1 1 100%;
@@ -332,9 +278,8 @@ body.ChatFullPage {
   }
 }
 
-// What a broken subtree looks like. Deliberately plain: it is an apology, not a
-// feature, and it should read as "this part is unavailable" rather than draw the
-// eye away from the parts that still work.
+// Como fica uma subárvore quebrada. Discreto de propósito: deve dizer "esta parte
+// está indisponível" sem tirar a atenção do que ainda funciona.
 .ChatErrorBoundary {
   .chat-flex-row(@chat-space-sm);
   flex: 1;
@@ -350,18 +295,11 @@ body.ChatFullPage {
   }
 }
 
-// ── Keyboard focus ───────────────────────────────────────────────────────────
-// The chat draws most of its controls as bare `<button>` elements — quick links,
-// channel rows, reaction chips, sticker tiles, reason pills, the bookmark body.
-// Core styles `.Button`, and none of these are one, so before this the stylesheet
-// carried 27 `:hover` rules and a single `:focus-visible`: every one of those
-// controls was invisible to anyone driving the interface from the keyboard.
-//
-// One rule rather than a focus state written 27 times. Written per-component it
-// would be wrong in a month — the next control added would simply not have one,
-// which is how it got this way.
-//
-// `:focus-visible`, not `:focus`: a mouse click should not leave a ring behind.
+// ── Foco por teclado ──
+// Muitos controles do chat são `<button>` puros (links rápidos, linhas de canal,
+// chips de reação, stickers…) que o core não estiliza. Uma regra só, para o próximo
+// controle já nascer com foco visível. `:focus-visible` para o clique do mouse não
+// deixar anel.
 .ChatPage,
 .ChatDrawer,
 .ChatFab,
@@ -369,22 +307,18 @@ body.ChatFullPage {
 .ChatLightbox,
 .ChatStickerPicker,
 .EmojiPicker {
-  // Buttons and links only. Form fields are deliberately excluded: a text box
-  // already announces focus with its caret and core's own `FormControl` styling,
-  // so a ring around it is a second answer to a question nobody asked — and on
-  // the composer, which is a large field, it read as a box drawn around the
-  // whole thing.
+  // Só botões e links: campos já mostram foco pelo cursor e pelo `FormControl` do
+  // core, e no composer o anel contornaria tudo.
   button:focus-visible,
   a:focus-visible,
   [tabindex]:focus-visible {
-    // Outline rather than a border or box-shadow: it does not take part in
-    // layout, so nothing shifts by a pixel when focus lands.
+    // Outline não entra no layout, então nada se mexe quando o foco chega.
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
 }
 
-// ── Sidebar ──────────────────────────────────────────────────────────────────
+// ── Sidebar ──
 .ChatSidebar {
   display: flex;
   flex-direction: column;
@@ -394,8 +328,6 @@ body.ChatFullPage {
   background: var(--body-bg);
 
   &-top {
-    // Not `.chat-flex-row()` — these stack. There is no column mixin, and adding
-    // one for a single use would be a worse trade than two plain declarations.
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -404,11 +336,8 @@ body.ChatFullPage {
     border-bottom: 1px solid var(--avocado-border-soft);
   }
 
-  // "My Threads" and "Search" links above the channel list.
-  // Navigation, not content. These sit above the channel list and compete with it
-  // for attention, so they are deliberately quieter: medium weight instead of bold,
-  // muted until hovered or current. Three bold rows read as the most important
-  // thing in the sidebar, which they are not — the channels are.
+  // Links "Minhas threads" e "Busca" acima da lista. Navegação, não conteúdo: mais
+  // discretos que os canais, em peso médio e apagados até hover ou ativo.
   &-quickLink {
     .chat-flex-row(10px);
     width: 100%;
@@ -427,24 +356,18 @@ body.ChatFullPage {
       color: var(--avocado-text-dark);
     }
 
-    // Which view you are in. Without this the sidebar looked identical whether you
-    // were reading a channel, your threads or your bookmarks — the one thing a
-    // navigation list exists to tell you.
+    // Indica em que tela o usuário está.
     &--active {
-      // The strong text colour, not the accent. A quick link's resting state is
-      // muted, so the active one has to brighten — but `--primary-color` on the
-      // selected background is a saturated colour on a dark surface, and in the
-      // dark theme the active link came out dimmer than the inactive ones. The
-      // channel rows below say the same thing with background and weight alone,
-      // and now these agree with them.
+      // Cor forte do texto, não a de destaque: `--primary-color` sobre o fundo
+      // selecionado ficava mais apagado que os inativos no tema escuro. Combina com as
+      // linhas de canal abaixo.
       color: var(--avocado-text-dark);
       background: var(--chat-row-selected-bg);
       font-weight: 800;
     }
 
     &-icon {
-      // A fixed column so the labels line up regardless of glyph width — the
-      // magnifier and the bookmark are noticeably narrower than the bubbles.
+      // Coluna fixa para os labels alinharem, seja qual for a largura do glifo.
       flex-shrink: 0;
       width: 18px;
       font-size: 14px;
@@ -457,7 +380,7 @@ body.ChatFullPage {
       opacity: 1;
     }
 
-    // Open reports, and the only count a quick link carries.
+    // Denúncias abertas; o único contador de um link rápido.
     &-badge {
       margin-left: auto;
       flex-shrink: 0;
@@ -489,11 +412,7 @@ body.ChatFullPage {
     text-transform: uppercase;
     color: var(--avocado-muted-label);
 
-    // The browse / create affordances. Only the first is pushed to the right —
-    // giving every one of them `margin-left: auto` works by accident (the first
-    // absorbs the free space and the rest have none left to take), but it reads
-    // as though each were meant to be pushed, and the gap from the row mixin is
-    // what should separate them.
+    // Só o primeiro vai para a direita; o gap do mixin de linha separa os demais.
     &-action:first-of-type {
       margin-left: auto;
     }
@@ -513,18 +432,12 @@ body.ChatFullPage {
     }
   }
 
-  // ── Phone ──────────────────────────────────────────────────────────────────
-  // The sidebar is a 280px column beside a conversation on a desktop, and the
-  // whole page on a phone. The same 13px labels and 6px rows that read as dense
-  // in a column read as *tiny* full-bleed, and none of them was a 44px touch
-  // target — the minimum both Apple's and Google's guidelines put on a control
-  // driven by a fingertip.
-  //
-  // Only the full-screen page is affected: the drawer, which also renders this
-  // component, exists only above this breakpoint (see ChatDrawer).
+  // ── Celular ──
+  // No celular o sidebar ocupa a página inteira, e os labels de 13px e linhas de 6px
+  // ficam pequenos demais; os alvos precisam de 44px. Só afeta a página em tela cheia:
+  // o drawer não existe abaixo deste breakpoint.
   @media (max-width: @chat-mobile-breakpoint) {
-    // Nothing sits to its right at this width, so the divider would be a line
-    // down the edge of the screen.
+    // Nada fica à direita nesta largura; o divisor seria uma linha na borda da tela.
     border-right: 0;
 
     &-top {
@@ -558,9 +471,8 @@ body.ChatFullPage {
       font-size: @chat-font-meta;
 
       &-action {
-        // A 12px glyph with 2px of padding is a 16px target. These are the two
-        // controls that create and find channels — the sidebar's only actions —
-        // and they were the smallest things on the page.
+        // Glifo de 12px com 2px de padding dá alvo de 16px, pequeno demais para as
+        // únicas ações do sidebar.
         .chat-flex-center();
         width: 40px;
         height: 40px;
@@ -572,7 +484,7 @@ body.ChatFullPage {
   }
 }
 
-// A channel row in the sidebar.
+// Linha de canal no sidebar.
 .ChatChannelRow {
   .chat-flex-row(8px);
   width: 100%;
@@ -594,7 +506,7 @@ body.ChatFullPage {
     font-weight: 800;
   }
 
-  // Muted channels stay listed but visually recede.
+  // Canais silenciados continuam listados, mas recuam.
   &--muted {
     opacity: 0.55;
   }
@@ -624,24 +536,21 @@ body.ChatFullPage {
     font-weight: 800;
     text-align: center;
 
-    // A mention badge is the one case that earns colour in the sidebar.
+    // Badge de menção é o único caso que ganha cor no sidebar.
     &--mention {
       background: var(--chat-unread-line);
       color: #fff;
     }
   }
 
-  // The avatar stack a direct channel gets in place of a glyph is styled with
-  // the slot it lives in — see `.ChatChannelIcon--avatars`, which serves the
-  // header, the Browse card and the info modal from the same rule. It used to be
-  // here, which is why those three drew a hash instead of a face.
+  // A pilha de avatares de conversa direta é estilizada pelo slot em que fica
+  // (`.ChatChannelIcon--avatars`), que serve header, card do Browse e modal de info.
   &--online .ChatChannelIcon--avatars .Avatar:first-child {
     .chat-online-ring(2px);
   }
 
-  // Same reasoning as `.ChatSidebar`'s phone block: full-bleed, these rows are
-  // the page's primary navigation and have to be thumb-sized. 48px is the row
-  // height core itself uses for a tappable list item in the drawer.
+  // Como no bloco de celular do `.ChatSidebar`: em tela cheia estas linhas são a
+  // navegação principal. 48px é a altura que o core usa para itens tocáveis no drawer.
   @media (max-width: @chat-mobile-breakpoint) {
     min-height: 48px;
     padding: @chat-space-sm 12px;
@@ -663,18 +572,16 @@ body.ChatFullPage {
       font-size: @chat-font-label;
     }
 
-    // `& &-lock` rather than `&-lock`: the marks' size is set further down by a
-    // rule shared with Browse, which comes later in the file and would win a
-    // tie. Nesting them under the row raises the specificity instead of moving a
-    // rule away from the block it belongs to.
+    // `& &-lock` em vez de `&-lock`: o tamanho das marcas vem de uma regra
+    // compartilhada com o Browse, mais adiante no arquivo, que venceria o empate.
+    // Aninhar aumenta a especificidade sem mover a regra.
     & &-lock,
     & &-mute {
       font-size: @chat-font-label;
     }
 
-    // Thumb-sized with the rest of the row. Overrides the em-based default on
-    // `.ChatChannelIcon--avatars`, which follows the slot's font-size and would
-    // otherwise shrink the faces just as the row grows.
+    // Sobrescreve o default em em de `.ChatChannelIcon--avatars`, que encolheria os
+    // rostos justo quando a linha cresce.
     .ChatChannelIcon--avatars .Avatar {
       width: @chat-avatar-size;
       height: @chat-avatar-size;
@@ -686,7 +593,7 @@ body.ChatFullPage {
   }
 }
 
-// ── Channel view ─────────────────────────────────────────────────────────────
+// ── Canal ──
 .ChatChannel {
   display: flex;
   flex-direction: column;
@@ -703,21 +610,16 @@ body.ChatFullPage {
     background: var(--body-bg);
   }
 
-  // The title is a button: clicking it opens the info panel, per Discourse.
-  //
-  // Icon beside a two-line stack, rather than one row of icon + name +
-  // description. On one row the name and the description competed for the same
-  // width, and the flex line resolved it by cutting the name — "Ge… Conversa do
-  // dia a …" named nothing, and in a drawer it got as far as "Canal Priva". Two
-  // lines give each its own width, so the name is only ever shortened when the
-  // header itself is too narrow for it.
+  // O título é um botão que abre o painel de info. Ícone ao lado de duas linhas
+  // (nome e descrição) para cada uma ter sua largura; o nome só é cortado quando o
+  // header não comporta nem ele.
   &-title {
     .chat-flex-row(8px);
     flex: 1;
     min-width: 0;
 
-    // Not `.chat-truncate()`: `white-space: nowrap` on the button would stop the
-    // stack below from being two lines at all. The children truncate themselves.
+    // Não `.chat-truncate()`: `white-space: nowrap` no botão impediria as duas linhas.
+    // Os filhos truncam a si mesmos.
     overflow: hidden;
 
     padding: 4px 8px;
@@ -736,11 +638,8 @@ body.ChatFullPage {
     }
   }
 
-  // The emoji, picture or hash. Its own element so the clipping the icon slot
-  // needs can be addressed by class — it used to be reached as
-  // `.ChatChannel-title > span:first-child`, and since an emoji renders as a
-  // bare text node rather than a span, that selector matched the *name* and
-  // clipped it with `text-overflow: clip`, i.e. mid-word and with no ellipsis.
+  // Emoji, imagem ou hash, num elemento próprio: um emoji é text node, então
+  // seletores como `> span:first-child` pegariam o nome.
   &-icon {
     flex-shrink: 0;
     line-height: 1;
@@ -753,8 +652,8 @@ body.ChatFullPage {
     justify-content: center;
     gap: 1px;
 
-    // Both are required for the truncation below: without `min-width: 0` a flex
-    // item refuses to shrink past its content, and the ellipsis never appears.
+    // Os dois são necessários: sem `min-width: 0` o item flex não encolhe abaixo do
+    // conteúdo e a reticência nunca aparece.
     flex: 1;
     min-width: 0;
   }
@@ -765,9 +664,8 @@ body.ChatFullPage {
     line-height: 1.25;
   }
 
-  // Secondary: quieter, and shown on a phone too. Hiding it there was the right
-  // call while it sat on the same line as the name and stole its width; on its
-  // own line it costs the name nothing.
+  // Secundária: mais discreta e visível também no celular, já que em linha própria
+  // não tira largura do nome.
   &-description {
     .chat-truncate();
     max-width: 100%;
@@ -782,11 +680,9 @@ body.ChatFullPage {
     flex-shrink: 0;
   }
 
-  // WhatsApp's arrangement: a slim strip under the header carrying the pinned
-  // message. Present in the drawer too, which has no room for the pinned panel.
-  // The strip itself is no longer the button. Past the first pin it carries two
-  // of them — jump to the newest, and open the panel with all of them — and a
-  // button inside a button is invalid, so the strip became their container.
+  // Faixa fina sob o header com a mensagem fixada, também no drawer, que não tem
+  // espaço para o painel. A faixa é só o container: com mais de uma fixada ela tem
+  // dois botões, e botão dentro de botão é inválido.
   &-pinnedBar {
     .chat-flex-row(0);
     flex-shrink: 0;
@@ -794,8 +690,7 @@ body.ChatFullPage {
     border-bottom: 1px solid var(--avocado-border-soft);
     background: var(--chat-pinned-bg);
 
-    // The bar's own padding moved onto the jump button so its hover covers the
-    // whole strip rather than a box inset within it.
+    // O padding fica no botão de pular, para o hover cobrir a faixa toda.
     &-jump {
       .chat-flex-row(10px);
       flex: 1;
@@ -807,18 +702,12 @@ body.ChatFullPage {
       cursor: pointer;
 
       &:disabled {
-        // Still shown, just inert: the message is pinned but not in the loaded
-        // window, so there is nowhere to jump to yet.
+        // Visível mas inerte: a mensagem está fixada, mas fora da janela carregada.
         cursor: default;
       }
 
-      // The extension's hover token, the same one the sidebar rows and the
-      // drawer's title use. It replaced a `filter: brightness(0.97)`, which was
-      // correct while the strip was a single button — it darkened the strip's
-      // own paint — and stopped being correct the moment the strip was split in
-      // two: a filter only acts on what the element itself paints, so the half
-      // that is transparent could not be given the same effect, and the two
-      // halves of one bar hovered differently.
+      // O token de hover dos outros controles. Um `filter` não serve: a faixa é
+      // dividida em duas metades e o filter só age no que o próprio elemento pinta.
       &:hover:not(:disabled) {
         background: var(--chat-row-hover-bg);
       }
@@ -837,9 +726,8 @@ body.ChatFullPage {
       color: var(--avocado-muted-label);
     }
 
-    // The way into the full list. Drawn as a count and a chevron rather than a
-    // second thumbtack: the strip's own icon already says "pinned", and what
-    // this adds is how many more there are.
+    // Entrada para a lista completa: contagem e chevron, já que o ícone da faixa já
+    // diz "fixada".
     &-all {
       .chat-flex-row(4px);
       flex-shrink: 0;
@@ -852,28 +740,20 @@ body.ChatFullPage {
       font-size: 12px;
       color: var(--avocado-muted-label);
 
-      // Identical to the jump half's, so the two halves of one strip hover as
-      // one surface rather than as a bar and a widget sitting in it.
+      // Igual ao da metade de pular, para a faixa reagir como uma superfície só.
       &:hover {
         background: var(--chat-row-hover-bg);
         color: var(--avocado-text-dark);
       }
 
-      // While the panel it opens is on screen. Colour, not a background: that is
-      // what `.ChatChannel-headerAction--active` does for the same toggle in the
-      // channel header, and it is the only thing that can be layered here — the
-      // strip is already painted `--chat-pinned-bg`, so a second translucent
-      // tint over it read as a third colour belonging to neither state.
+      // Com o painel aberto. Cor, não fundo, como em `.ChatChannel-headerAction--active`:
+      // a faixa já é pintada com `--chat-pinned-bg`, e outro tom viraria uma terceira cor.
       &--active {
         color: var(--primary-color);
 
-        // A second signal, because the first one cannot be relied on: on a forum
-        // whose accent is near-black — this one ships `--primary-color: #383838`
-        // — the active colour lands within a shade of the hover colour and the
-        // state is invisible. Rotation is shape rather than paint, so it reads
-        // whatever the accent is and cannot clash with the tint the strip is
-        // already painted with. Points down while the list it opens is showing,
-        // the way a disclosure control does.
+        // Segundo sinal: com destaque quase preto (`--primary-color: #383838`) a cor
+        // ativa fica a um tom do hover. Rotação é forma, não tinta, então funciona com
+        // qualquer destaque. Aponta para baixo com a lista aberta.
         .fa-angle-right {
           transform: rotate(90deg);
         }
@@ -885,8 +765,7 @@ body.ChatFullPage {
       font-variant-numeric: tabular-nums;
     }
 
-    // The rotation eases only for readers who have not asked for less motion;
-    // without the preference it simply snaps, which is still the correct state.
+    // Rotação animada só sem reduced-motion.
     .fa-angle-right {
       .chat-motion-safe({
         transition: transform var(--avocado-t-fast);
@@ -894,10 +773,9 @@ body.ChatFullPage {
     }
   }
 
-  // Wraps the scroller so the scroll-down button has something to anchor to that
-  // is neither the composer (whose height moves with the text in it) nor the
-  // scroller (whose content moves under it). Takes the flex sizing the stream
-  // needs from its parent and passes it straight on.
+  // Envolve o scroller para o botão de descer ancorar em algo que não seja o
+  // composer (altura variável) nem o scroller (conteúdo que se move). Repassa o
+  // dimensionamento flex do pai.
   &-streamWrap {
     position: relative;
     display: flex;
@@ -906,9 +784,9 @@ body.ChatFullPage {
     min-height: 0;
   }
 
-  // The way back to the newest message, drawn only while the stream is not
-  // following it — see ChannelView.scrollDownButton(). Inset from the corner
-  // rather than flush to it, so it never sits on a message's own right edge.
+  // Volta para a mensagem mais nova; só aparece quando o stream não a segue
+  // (ChannelView.scrollDownButton()). Recuado do canto para não ficar sobre a borda
+  // de uma mensagem.
   &-scrollDown {
     position: absolute;
     right: 16px;
@@ -922,12 +800,9 @@ body.ChatFullPage {
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 
-    // The tint is layered over the opaque base rather than replacing it.
-    // `--chat-row-hover-bg` is `rgba(0, 0, 0, 0.035)` — meant to darken a row it
-    // sits on top of — so assigning it to `background` left the button 3.5%
-    // black over the conversation behind it, which reads as the thing turning
-    // transparent under the cursor. A background-image composites over the
-    // background-color instead.
+    // O tom vai por cima da base opaca: `--chat-row-hover-bg` é preto a 3.5% para
+    // escurecer uma linha, e como `background` o botão ficaria transparente. Um
+    // background-image compõe sobre o background-color.
     &:hover {
       background-image: linear-gradient(
         var(--chat-row-hover-bg),
@@ -947,20 +822,16 @@ body.ChatFullPage {
     min-height: 0;
     padding: 12px 0;
 
-    // The stream is anchored to the bottom: new messages should not push the
-    // reading position when the user is already at the latest message.
+    // Ancorado embaixo: mensagens novas não deslocam a leitura de quem já está na
+    // última.
     overflow-anchor: auto;
     display: flex;
     flex-direction: column;
 
-    // Deliberately NOT `justify-content: flex-end`. In a scrollable flex
-    // container that pushes overflowing items past the *start* edge, and no
-    // browser lets you scroll there — the scroll origin stays pinned to the top
-    // of the content box. The older messages render, and are unreachable.
-    //
-    // An auto margin on the first item gives the same bottom anchoring while a
-    // short channel has slack, and collapses to zero once the content overflows,
-    // so scrolling up keeps working.
+    // NÃO usar `justify-content: flex-end`: num container flex rolável isso joga o
+    // excesso para antes do início, onde nenhum navegador deixa rolar, e as mensagens
+    // antigas ficam inalcançáveis. Uma margem auto no primeiro item ancora embaixo
+    // enquanto sobra espaço e zera quando o conteúdo transborda.
     justify-content: flex-start;
 
     > :first-child {
@@ -968,8 +839,8 @@ body.ChatFullPage {
     }
   }
 
-  // Shown when the channel is closed or archived — the composer is replaced
-  // rather than merely disabled, so the reason is legible.
+  // Canal fechado ou arquivado: o composer é substituído, não só desabilitado,
+  // para o motivo ficar claro.
   &-frozen {
     .chat-flex-row(8px);
     margin: 8px 12px 12px;
@@ -979,8 +850,8 @@ body.ChatFullPage {
     font-size: @chat-font-label;
     color: var(--avocado-muted-label);
 
-    // The join variant is an invitation, not a notice: solid border and a real
-    // button, so it does not read as the same dead-end as "this channel is closed".
+    // Convite para entrar, não aviso: borda sólida e botão de verdade, para não
+    // parecer o mesmo beco sem saída de "canal fechado".
     &--join {
       border-style: solid;
       color: var(--avocado-text-dark);
@@ -991,16 +862,15 @@ body.ChatFullPage {
       }
     }
 
-    // An open invitation carries two answers. Wrapped in their own row so they
-    // break together below the sentence on a narrow drawer instead of the
-    // sentence being squeezed between them.
+    // Convite pendente tem duas respostas, numa linha própria, para quebrarem juntas
+    // abaixo da frase num drawer estreito.
     &--invited {
       flex-wrap: wrap;
       border-color: var(--primary-color);
     }
 
-    // Archived: the notice links to the transcript, and offers the way back
-    // out to whoever may take it. Wraps for the same reason as above.
+    // Arquivado: o aviso leva à transcrição e oferece a saída a quem pode
+    // desarquivar. Quebra linha pelo mesmo motivo.
     &--archived {
       flex-wrap: wrap;
 
@@ -1019,10 +889,9 @@ body.ChatFullPage {
       }
     }
 
-    // Slow mode is the one variant that ends by itself. Solid border and full
-    // text colour so it reads as a state the channel is in rather than as the
-    // dead-end the dashed ones announce, and the seconds change under the reader
-    // — a dashed, faded box counting down would look broken.
+    // Modo lento é a única variante que acaba sozinha: borda sólida e cor plena,
+    // porque os segundos mudam diante do leitor e uma caixa tracejada contando
+    // pareceria quebrada.
     &--slow {
       border-style: solid;
       color: var(--avocado-text-dark);
@@ -1035,7 +904,7 @@ body.ChatFullPage {
   }
 }
 
-// Date separator between days.
+// Separador de datas.
 .ChatDateSeparator {
   .chat-flex-row(10px);
   margin: @chat-message-group-gap 16px;
@@ -1058,8 +927,8 @@ body.ChatFullPage {
   }
 }
 
-// The "new messages" rule. Coloured and labelled, so it is not mistaken for a
-// date separator.
+// Divisor de "mensagens novas". Colorido e com texto para não ser confundido com
+// o separador de datas.
 .ChatUnreadDivider {
   .chat-flex-row(10px);
   margin: @chat-message-group-gap 16px;
@@ -1082,7 +951,7 @@ body.ChatFullPage {
   }
 }
 
-// ── Message ──────────────────────────────────────────────────────────────────
+// ── Mensagem ──
 .ChatMessage {
   position: relative;
   display: flex;
@@ -1090,8 +959,8 @@ body.ChatFullPage {
   padding: 3px 16px;
   margin-top: @chat-message-group-gap;
 
-  // Consecutive messages from the same author collapse: no repeated avatar or
-  // name, and a tighter gap.
+  // Mensagens seguidas do mesmo autor se agrupam: sem avatar e nome repetidos, e
+  // com gap menor.
   &--grouped {
     margin-top: @chat-message-gap;
   }
@@ -1100,7 +969,7 @@ body.ChatFullPage {
     background: var(--chat-row-hover-bg);
   }
 
-  // Addressed to you.
+  // Endereçada ao leitor.
   &--mentioned {
     background: var(--chat-mention-bg);
     box-shadow: inset 3px 0 0 var(--chat-mention-border);
@@ -1110,24 +979,22 @@ body.ChatFullPage {
     background: var(--chat-row-selected-bg);
   }
 
-  // Pinned by a moderator: channel-wide, so it is marked on the row and not only
-  // in the pinned panel.
+  // Fixada por um moderador: vale para o canal todo, então é marcada na linha e não
+  // só no painel.
   &--pinned {
     background: var(--chat-pinned-bg);
     box-shadow: inset 3px 0 0 var(--chat-pinned-border);
   }
 
-  // Reported, for moderators. After pinned so its bar wins on a row that is
-  // both: the report is the one asking for someone to act.
+  // Denunciada, para moderadores. Depois de fixada para a barra dela vencer: a
+  // denúncia é a que pede ação.
   &--flagged {
     box-shadow: inset 3px 0 0 var(--chat-flagged-border);
   }
 
-  // Applied while the stream jumps to a row — from the pinned bar or from a
-  // reply preview — so it is obvious which message was meant once the scroll
-  // settles. O fundo e a barra lateral vivem os dois dentro do keyframe: numa
-  // linha já tingida (menção, fixada) só o fundo quase não se move, e fora da
-  // animação a barra sobreviveria ao fundo.
+  // Aplicada quando o stream salta para uma linha, para ficar claro qual era a
+  // mensagem. Fundo e barra lateral vivem os dois no keyframe: numa linha já tingida
+  // só o fundo quase não muda, e fora da animação a barra sobreviveria ao fundo.
   &--flash {
     animation: chat-flash @chat-jump-highlight ease-out;
   }
@@ -1166,13 +1033,9 @@ body.ChatFullPage {
     }
   }
 
-  // Group badges, on the avatar rather than beside the name. The gutter is a
-  // fixed @chat-avatar-size column and the meta row is already carrying the name,
-  // the bot tag, the verified tick and the timestamp — a badge there would push
-  // the timestamp off a narrow row. Overlapping the avatar costs no width.
-  //
-  // The wrapper is the positioning context the badges sit in. It is the size of
-  // the avatar exactly, so the offsets below can be read against the picture.
+  // Badges de grupo sobre o avatar, não ao lado do nome: a linha de meta já tem
+  // nome, selo de bot, verificado e horário, e um badge ali empurraria o horário.
+  // O wrapper tem exatamente o tamanho do avatar, para os offsets abaixo.
   &-avatar {
     position: relative;
     display: block;
@@ -1180,42 +1043,35 @@ body.ChatFullPage {
     height: @chat-avatar-size;
   }
 
-  // On the low corner of the avatar, the side the message body is not on.
-  //
-  // Core puts a post's badges above the picture, and that was tried here: at the
-  // chat's 32px avatar it reads as an emblem pinned on top of the face, and a
-  // column of them down a message list draws the eye away from the text. Low and
-  // small sits closer to how the rest of this row is weighted.
+  // No canto de baixo do avatar, do lado oposto ao corpo. Acima da foto, como o
+  // core faz nos posts, parecia um emblema sobre o rosto no avatar de 32px.
   &-badges {
     position: absolute;
     right: -4px;
     bottom: -3px;
-    // Four packed badges are 35px against a 32px containing block, and without
-    // this the fourth drops to a second line halfway up the avatar.
+    // Quatro badges compactados dão 35px num bloco de 32px; sem isto o quarto desce
+    // para outra linha.
     white-space: nowrap;
-    // Doesn't intercept the click that opens the profile; core sets the same on
-    // .PostUser-badges, and `badges--packed` restores it on each Badge so the
-    // tooltip still answers to a hover.
+    // Não intercepta o clique que abre o perfil; o core faz o mesmo em
+    // .PostUser-badges, e `badges--packed` devolve o evento a cada Badge para o tooltip.
     pointer-events: none;
 
     .Badge {
-      // Core's 20px is sized against a post's avatar and its own generous
-      // spacing. Scaled to the same proportion of the avatar it sits on.
+      // Os 20px do core são para o avatar de post; aqui na mesma proporção do avatar.
       .Badge--size(14px);
-      // It overlaps the picture, so it needs an edge against it — core has no
-      // equivalent because its badge hangs clear of the avatar.
+      // Sobrepõe a foto, então precisa de uma borda contra ela; no core o badge fica
+      // fora do avatar.
       box-shadow: 0 0 0 2px var(--body-bg);
     }
 
-    // Half of each badge stays visible. Core hides 65% of a 20px one, which at
-    // 14px would leave 5px of icon — too little to tell two groups apart.
+    // Metade de cada badge visível. O core esconde 65% de um de 20px, o que em 14px
+    // deixaria 5px de ícone.
     &.badges--packed {
       --packing-space: 7px;
     }
   }
 
-  // In a grouped message the gutter holds the timestamp on hover instead of an
-  // avatar, which is how Discourse keeps dense runs scannable.
+  // Em mensagem agrupada a coluna do avatar mostra o horário no hover.
   &--grouped &-gutter {
     .chat-flex-center();
     align-items: flex-start;
@@ -1254,8 +1110,8 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // Only on the tombstone, and quiet: an irreversible action should be reachable,
-  // not inviting. It brightens on hover like the other row actions do.
+  // Só no tombstone, e discreto: ação irreversível deve ser alcançável, não
+  // convidativa.
   &-purge {
     flex-shrink: 0;
     opacity: 0;
@@ -1283,13 +1139,13 @@ body.ChatFullPage {
       margin-bottom: 0;
     }
 
-    // Chat lines are short; full paragraph spacing wastes vertical space.
+    // Linhas de chat são curtas; espaçamento de parágrafo desperdiça altura.
     p {
       margin-bottom: 4px;
     }
   }
 
-  // An inline note, not a control: it states that the row was edited and when.
+  // Nota inline, não controle.
   &-editedMark {
     font-size: 11px;
     color: var(--avocado-muted-label);
@@ -1297,7 +1153,7 @@ body.ChatFullPage {
     white-space: nowrap;
   }
 
-  // Deleted message tombstone.
+  // Tombstone de mensagem apagada.
   &-tombstone {
     .chat-flex-row(@chat-space-sm);
     justify-content: space-between;
@@ -1307,9 +1163,8 @@ body.ChatFullPage {
     color: var(--chat-tombstone-color);
   }
 
-  // Inline reply preview above the message body. It is a button — clicking it
-  // jumps to the message being answered — so the browser's own button chrome is
-  // stripped and the quote look is kept.
+  // Preview da resposta acima do corpo. É um botão (salta para a mensagem
+  // respondida), então o chrome de botão do navegador sai.
   &-replyTo {
     .chat-flex-row(6px);
     width: fit-content;
@@ -1338,7 +1193,7 @@ body.ChatFullPage {
     }
   }
 
-  // Hover action bar, top-right.
+  // Barra de ações no hover, no canto superior direito.
   &-actions {
     position: absolute;
     top: -12px;
@@ -1371,24 +1226,22 @@ body.ChatFullPage {
       color: var(--avocado-text-dark);
     }
 
-    // Currently liked. Matches the reaction chip's active state rather than
-    // inventing a third "on" colour.
+    // Curtida ativa: mesmo estado ativo do chip de reação, sem uma terceira cor.
     &--active {
       color: var(--primary-color);
     }
   }
 
-  // Every message sits on the left, the sender's included — the Discord model.
-  // A mirrored right-hand column reads well for a two-person conversation and
-  // poorly for a busy channel, where it splits one thread of talk into two.
+  // Toda mensagem fica à esquerda, inclusive a do remetente: espelhar à direita
+  // funciona para duas pessoas, mas divide a conversa num canal movimentado.
 }
 
-// The header's pinned toggle, while the panel is open.
+// Toggle de fixadas do header, com o painel aberto.
 .ChatChannel-headerAction--active {
   color: var(--primary-color);
 }
 
-// Reaction chips under a message.
+// Chips de reação sob a mensagem.
 .ChatReactions {
   .chat-flex-row(4px);
   flex-wrap: wrap;
@@ -1412,7 +1265,7 @@ body.ChatFullPage {
       border-color: var(--avocado-muted-icon);
     }
 
-    // The actor's own reaction.
+    // Reação do próprio leitor.
     &--active {
       background: var(--chat-reaction-bg-active);
       border-color: var(--primary-color);
@@ -1425,8 +1278,8 @@ body.ChatFullPage {
     }
   }
 
-  // The like chip's icon, which inherits the chip's colour — including the
-  // active state — where an emoji glyph would not.
+  // Ícone do chip de curtida; herda a cor do chip, inclusive no ativo, o que um
+  // emoji não faria.
   &-icon {
     font-size: 12px;
   }
@@ -1436,7 +1289,7 @@ body.ChatFullPage {
   }
 }
 
-// Attachments.
+// Anexos.
 .ChatUploads {
   display: flex;
   flex-wrap: wrap;
@@ -1448,7 +1301,7 @@ body.ChatFullPage {
     max-height: 240px;
     border-radius: @chat-radius-sm;
     border: 1px solid var(--avocado-border-subtle);
-    // Set from the stored width/height so the row does not reflow on load.
+    // Definido pela largura/altura salvas, para a linha não fazer reflow.
     background: var(--avocado-surface-1);
   }
 
@@ -1471,7 +1324,7 @@ body.ChatFullPage {
   }
 }
 
-// Thread indicator strip below a threaded root message.
+// Faixa de thread sob a mensagem raiz.
 .ChatThreadIndicator {
   .chat-flex-row(8px);
   margin-top: 6px;
@@ -1501,24 +1354,18 @@ body.ChatFullPage {
   }
 }
 
-// ── Composer ─────────────────────────────────────────────────────────────────
+// ── Composer ──
 .ChatComposer {
   flex-shrink: 0;
   padding: 8px 12px 12px;
   background: var(--body-bg);
 
-  // The containing block for .ChatAutocomplete, which sits at `bottom: 100%` so
-  // the suggestion list opens upwards over the stream rather than downwards off
-  // the bottom of the panel.
+  // Containing block do .ChatAutocomplete, que fica em `bottom: 100%` para a lista
+  // abrir para cima, sobre o stream.
   position: relative;
 
-  // A column: the text on top, its controls on a row underneath.
-  //
-  // It used to be a row — textarea, then counter, then buttons — which gave the
-  // controls a strip the full height of the composer. The text wrapped at ~75%
-  // of the width and the remaining quarter stood empty all the way up, so a
-  // long message never used the box it was typed into. Stacking them costs one
-  // short row of height and gives the text the entire width.
+  // Coluna: o texto em cima e os controles numa linha abaixo, para o texto usar a
+  // largura toda.
   &-shell {
     display: flex;
     flex-direction: column;
@@ -1534,30 +1381,23 @@ body.ChatFullPage {
     }
   }
 
-  // Counter and buttons, right-aligned under the text.
+  // Contador e botões, à direita, sob o texto.
   &-bar {
     .chat-flex-row(@chat-space-xs);
     justify-content: flex-end;
     flex-shrink: 0;
   }
 
-  // Auto-growing textarea, capped so the composer cannot eat the stream.
-  //
-  // The cap is a share of the viewport as well as a pixel count, whichever is
-  // smaller. `resize()` sets an inline height of the full content — 16820px for
-  // a long paste — and only this keeps it down; on a short window 220px of that
-  // is most of the panel, and the conversation the composer belongs to gets a
-  // couple of lines. Escaped, because LESS reads `min(220px, 30vh)` as its own
-  // function and errors on the mixed units.
+  // Textarea que cresce, com teto para não engolir o stream. O teto é o menor
+  // entre pixels e fração da viewport: `resize()` põe inline a altura total do
+  // conteúdo e só isto a segura. Escapado porque o LESS lê `min(220px, 30vh)` como
+  // função própria e falha com unidades mistas.
   &-input {
-    // Full width of the shell, now that nothing sits beside it.
     width: 100%;
     min-height: @chat-composer-min-height;
     max-height: @chat-composer-max-height;
     max-height: ~"min(@{chat-composer-max-height}, 30vh)";
-    // Tighter than the 10px it carried as a row child: the controls no longer
-    // sit beside the text needing to be cleared, and the row below adds its own
-    // height. Enough for one 21px line without clipping (21 + 12 < min-height).
+    // Suficiente para uma linha de 21px sem cortar (21 + 12 < min-height).
     padding: 6px 0;
     border: 0;
     background: none;
@@ -1577,11 +1417,8 @@ body.ChatFullPage {
     }
   }
 
-  // A row of buttons, not a button. It carried `.chat-icon-circle(30px)` together
-  // with the buttons inside it, which fixed the container to 30px while the send
-  // button beside it is 32px — so in an `align-items: flex-end` row their bases
-  // lined up and their centres did not, and the paperclip read as sitting lower
-  // than the plane.
+  // Uma linha de botões, não um botão: com `.chat-icon-circle` aqui o container
+  // teria 30px ao lado dos 32px do enviar e os centros desalinhariam.
   &-tools {
     display: flex;
     align-items: center;
@@ -1589,16 +1426,13 @@ body.ChatFullPage {
     flex-shrink: 0;
   }
 
-  // No bottom offset any more: both used to be flex-end children of a row shell
-  // and needed 6px to sit on the last line of text. They are now on their own
-  // row, where that margin is just a gap under the composer.
   &-tools,
   &-send {
     margin-bottom: 0;
   }
 
   &-tool {
-    // The same box as the send button, so the two are interchangeable on the row.
+    // Mesmo box do botão de enviar, para os dois serem intercambiáveis na linha.
     .chat-icon-circle(@chat-composer-button; transparent);
     border: 0;
     color: var(--avocado-muted-icon);
@@ -1616,23 +1450,17 @@ body.ChatFullPage {
   }
 
   &-send {
-    // `--button-primary-*`, not `--primary-color` + `--header-color`. The latter
-    // pair silently self-destructs: core defines --header-color as the primary
-    // colour itself unless the admin turns on the coloured header, so on a plain
-    // header the icon was drawn in exactly the button's own background colour and
-    // vanished. These two are the pair core computes for a primary-filled button,
-    // with the text colour chosen by YIQ contrast against the fill.
+    // `--button-primary-*`, não `--primary-color` + `--header-color`: sem header
+    // colorido o core define --header-color como a própria primária, e o ícone some no
+    // fundo. Este par é o que o core calcula para botão primário, com texto por
+    // contraste YIQ.
     .chat-icon-circle(@chat-composer-button; var(--button-primary-bg, var(--primary-color)));
     border: 0;
     color: var(--button-primary-color, #fff);
     cursor: pointer;
 
-    // No optical nudge. There was a `translate(1px, -1px)` here, added on the
-    // theory that the paper plane's ink sits low-left of its box — an assumption I
-    // never measured, and it pushed the glyph visibly high and right. Font Awesome
-    // already centres the glyph in its em box; the mixin above handles the rest.
-    //
-    // The bottom offset is declared with `-tools` above, not here.
+    // Sem ajuste óptico: o Font Awesome já centraliza o glifo no em box. O offset
+    // inferior está em `-tools` acima.
 
     &:disabled {
       opacity: 0.35;
@@ -1640,7 +1468,7 @@ body.ChatFullPage {
     }
   }
 
-  // Reply / edit context bar above the input.
+  // Barra de contexto de resposta/edição acima do input.
   &-context {
     .chat-flex-row(8px);
     margin-bottom: 6px;
@@ -1661,7 +1489,7 @@ body.ChatFullPage {
     }
   }
 
-  // Pending attachments, before send.
+  // Anexos pendentes, antes do envio.
   &-pending {
     display: flex;
     flex-wrap: wrap;
@@ -1669,17 +1497,12 @@ body.ChatFullPage {
     margin-bottom: 6px;
   }
 
-  // Character counter, only rendered as the limit approaches. Lives inside the
-  // shell, immediately left of the tools, so it is bounded by the field it
-  // counts — outside it, the drawer's edge clipped it.
-  //
-  // `flex-end` on the shell puts it on the tools' baseline, which is where the
-  // eye already is when reaching for send.
+  // Contador de caracteres, só perto do limite. Fica dentro do shell, à esquerda
+  // dos controles; fora dele a borda do drawer o cortava.
   &-counter {
     flex-shrink: 0;
-    // On the controls row, so it lines up with the buttons by default and
-    // needs no offset of its own. `margin-right: auto` keeps it at the left
-    // end of that row, away from the send button it is warning about.
+    // Na linha dos controles, já alinhado aos botões. `margin-right: auto` o mantém
+    // longe do botão de enviar.
     margin-right: auto;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
@@ -1690,10 +1513,8 @@ body.ChatFullPage {
       font-weight: 800;
     }
 
-    // Past the limit the send will be refused, so the count stops being a hint
-    // and becomes the reason nothing happens when the button is pressed. A
-    // pill, not just red text: at 11px a colour change alone reads as "nearly
-    // there".
+    // Acima do limite o envio será recusado; vira pílula porque em 11px só a cor
+    // parece "quase lá".
     &--over {
       padding: 1px 8px;
       border-radius: @chat-radius-pill;
@@ -1705,7 +1526,7 @@ body.ChatFullPage {
 
 }
 
-// Autocomplete dropdown for @mentions and :emoji:.
+// Autocomplete de @menções e :emoji:.
 .ChatAutocomplete {
   position: absolute;
   bottom: 100%;
@@ -1747,7 +1568,7 @@ body.ChatFullPage {
   }
 }
 
-// Typing indicator.
+// Indicador de digitação.
 .ChatTyping {
   .chat-flex-row(6px);
   min-height: 18px;
@@ -1781,14 +1602,10 @@ body.ChatFullPage {
   30%           { opacity: 1;    transform: translateY(-2px); }
 }
 
-// The jump-to-message highlight. Holds for most of its life and only then fades:
-// the scroll is smooth, so a highlight that starts fading immediately is already
-// half gone by the time the row settles under the eye. Fading at all — rather
-// than toggling off — keeps it reading as "here" instead of as a state the row
-// is now stuck in.
-// A barra e o fundo esvaem juntos. Deixar a barra fora da animação — só na
-// classe — fazia ela ficar acesa até o timer do JS tirar a classe, ou seja mais
-// tempo que o fundo, e a linha terminava com um traço roxo sozinho.
+// Destaque do salto para mensagem. Fica aceso quase todo o tempo e só então
+// esvai: o scroll é suave, e um destaque que começa a sumir na hora já está pela
+// metade quando a linha para. Barra e fundo esvaem juntos; com a barra só na
+// classe, ela ficava acesa até o JS tirar a classe.
 @keyframes chat-flash {
   0% {
     background: var(--chat-pinned-bg);
@@ -1804,7 +1621,7 @@ body.ChatFullPage {
   }
 }
 
-// ── Thread panel ─────────────────────────────────────────────────────────────
+// ── Painel de thread ──
 .ChatThreadPanel {
   display: flex;
   flex-direction: column;
@@ -1837,8 +1654,7 @@ body.ChatFullPage {
     padding: 12px 0;
   }
 
-  // On narrow viewports the thread takes over the channel pane instead of
-  // squeezing beside it.
+  // Em viewport estreita a thread ocupa o painel do canal.
   @media (max-width: @chat-mobile-breakpoint) {
     position: absolute;
     inset: 0;
@@ -1848,9 +1664,9 @@ body.ChatFullPage {
   }
 }
 
-// ── Message search ───────────────────────────────────────────────────────────
-// Fills the channel pane on the `chat.search` route, either scoped to one channel
-// (from the channel header's search button) or across all of them.
+// ── Busca de mensagens ──
+// Ocupa o painel do canal na rota `chat.search`, num canal (pelo botão do header) ou
+// em todos.
 .ChatSearch {
   display: flex;
   flex-direction: column;
@@ -1885,7 +1701,7 @@ body.ChatFullPage {
       outline: none;
     }
 
-    // Chrome draws its own clear button; ours is the only one.
+    // O Chrome desenha seu próprio botão de limpar; o nosso é o único.
     &::-webkit-search-cancel-button {
       display: none;
     }
@@ -1956,7 +1772,7 @@ body.ChatFullPage {
   }
 }
 
-// ── My threads ───────────────────────────────────────────────────────────────
+// ── Minhas threads ──
 .ChatThreadsList {
   .chat-scroll-y();
   flex: 1;
@@ -1964,8 +1780,8 @@ body.ChatFullPage {
   min-height: 0;
   padding: 12px;
 
-  // In the drawer the list wears the panel shell: header fixed at the top,
-  // rows scrolling under it, like the pinned list and search.
+  // No drawer a lista usa o shell de painel: header fixo e linhas rolando abaixo,
+  // como fixadas e busca.
   &--embedded {
     display: flex;
     flex-direction: column;
@@ -1981,7 +1797,7 @@ body.ChatFullPage {
     }
   }
 
-  // The channel a scoped list belongs to, after the title.
+  // Canal da lista filtrada, depois do título.
   &-scope {
     margin-left: 6px;
     font-weight: 500;
@@ -2046,15 +1862,11 @@ body.ChatFullPage {
   }
 }
 
-// ── Selection bar target picker ───────────────────────────────────────────────
-// Positioning is decided here, not by core's auto-flip. Core measures the menu
-// against the window on open (Dropdown.oncreate) and, crucially, strips
-// `--top`/`--right` first and re-adds them from its own arithmetic — so passing
-// those classes through `menuClassName` does not survive the open, and a short
-// menu near the bottom edge lands just inside the "it fits below" branch and
-// opens downward out of the panel. The bar is pinned to the bottom of the
-// channel in both the drawer and the full page, so downward is never right.
-// Winning on specificity (0,2,0) settles it for every open.
+// ── Seletor de destino da barra de seleção ──
+// A posição é decidida aqui, não pelo auto-flip do core: ao abrir, o
+// Dropdown.oncreate remove `--top`/`--right` e recalcula, então passar as classes
+// por `menuClassName` não sobrevive. A barra fica no fundo do canal, então abrir
+// para baixo nunca serve. A especificidade (0,2,0) resolve.
 .ChatSelectionBar-move {
   .Dropdown-menu {
     top: auto;
@@ -2063,21 +1875,20 @@ body.ChatFullPage {
     right: 0;
     margin-bottom: 4px;
 
-    // A big forum has more channels than fit on screen; the menu scrolls rather
-    // than growing past the top edge and pushing its first item out of reach.
+    // Fórum grande tem mais canais do que cabem; o menu rola em vez de passar da
+    // borda de cima.
     max-height: 260px;
     overflow-y: auto;
   }
 }
 
-// ── Browse channels: see browse.less ─────────────────────────────────────────
+// ── Browse de canais: ver browse.less ──
 
-// ── Channel info panel ───────────────────────────────────────────────────────
+// ── Painel de info do canal ──
 .ChatChannelInfo {
-  // The channel's mark, in the modal's own title. It sits immediately before the
-  // name with nothing between them — a bare span next to a text node — so the two
-  // were touching. Aligned as well as spaced: the icon and the heading have
-  // different line boxes, and left alone the glyph rides high against the text.
+  // Marca do canal no título do modal. Fica colada ao nome (span ao lado de text
+  // node), então precisa de espaço e de alinhamento: as line boxes diferem e o glifo
+  // subiria.
   &-icon {
     display: inline-flex;
     align-items: center;
@@ -2120,9 +1931,7 @@ body.ChatFullPage {
       margin-bottom: @chat-space-md;
     }
 
-    // Controls inside a section need room from each other, not just from the
-    // section's edges. Without this the select, the switch and its help text ran
-    // together as one block.
+    // Controles de uma seção precisam de espaço entre si, não só das bordas.
     > label,
     > .Switch,
     > .Button {
@@ -2134,9 +1943,8 @@ body.ChatFullPage {
       }
     }
 
-    // "Close channel" and "Archive channel". Same controls, same defect, as the
-    // pair in ChannelFormModal: core's default `.Button` grey had no edge to
-    // read against on a tinted panel and looked disabled.
+    // "Fechar canal" e "Arquivar canal": o cinza do `.Button` do core some no painel
+    // tingido e parece desabilitado (como no ChannelFormModal).
     > .Button {
       .chat-action-btn();
     }
@@ -2151,7 +1959,7 @@ body.ChatFullPage {
     }
   }
 
-  // Header of the members tab: the count, and the affordance to add someone.
+  // Header da aba de membros: contagem e o botão de adicionar.
   &-memberHeader {
     .chat-flex-row(@chat-space-sm);
     margin-bottom: @chat-space-md;
@@ -2187,15 +1995,9 @@ body.ChatFullPage {
       height: 26px;
     }
 
-    // Always visible, not revealed on hover.
-    //
-    // Hiding it until hover was the obvious way to keep a destructive action quiet,
-    // and it was wrong: this is the only way to remove someone, so a hidden control
-    // reads as a missing feature. Its counterpart for adding people is a plainly
-    // visible "+", and the two belong at the same level of discoverability.
-    //
-    // Restraint comes from colour instead — muted at rest, red on hover, so the
-    // intent is unmistakable at the moment of clicking rather than at every glance.
+    // Sempre visível, não só no hover: é o único jeito de remover alguém, e o de
+    // adicionar é um "+" visível. A contenção vem da cor: apagado em repouso, vermelho
+    // no hover.
     &-remove {
       flex-shrink: 0;
       margin-left: auto;
@@ -2205,14 +2007,14 @@ body.ChatFullPage {
 
     &-remove:hover:not(:disabled),
     &-remove:focus-visible {
-      // `--error-color`, not `--alert-error-color`. The latter is #fff — the
-      // text colour for content sitting *on* a red alert background, not a red.
+      // `--error-color`, não `--alert-error-color`, que é #fff (texto sobre fundo de
+      // alerta).
       color: var(--error-color, #d83e3e);
     }
   }
 
-  // Pending invitations, under the member list. Set apart by a rule rather
-  // than a box: it is the same list continued, for people who are not in it yet.
+  // Convites pendentes sob a lista, separados por uma linha e não por um box: é a
+  // mesma lista continuada.
   &-invited {
     margin-top: @chat-space-md;
     padding-top: @chat-space-md;
@@ -2227,8 +2029,8 @@ body.ChatFullPage {
     }
   }
 
-  // Handing the channel over: muted at rest like the remove control, in the
-  // primary colour on hover, since it is a hand-off rather than an ejection.
+  // Transferir o canal: apagado como o remover, mas na primária no hover, porque é
+  // passar adiante, não expulsar.
   &-member-transfer {
     flex-shrink: 0;
     color: var(--avocado-muted-icon);
@@ -2240,7 +2042,7 @@ body.ChatFullPage {
     }
   }
 
-  // The pending handover, above the member list, with its answers beside it.
+  // Transferência pendente, acima da lista, com as respostas ao lado.
   &-transfer {
     .chat-flex-row(@chat-space-sm);
     flex-wrap: wrap;
@@ -2265,24 +2067,23 @@ body.ChatFullPage {
     }
   }
 
-  // Destructive actions are separated so they are not adjacent to routine ones.
+  // Ações destrutivas ficam separadas das rotineiras.
   &-danger {
     padding: @chat-space-lg;
   }
 
-  // Deleting a channel is irreversible. Shared with ChannelFormModal, which
-  // offers the same action from the channel's settings — see `.chat-danger-btn()`
-  // for why the colour is `--error-color` and not the token that sounds right.
+  // Apagar canal é irreversível. Compartilhado com o ChannelFormModal; o motivo da
+  // cor está em `.chat-danger-btn()`.
   &-danger &-deleteButton {
     .chat-danger-btn();
 
-    // Optical: pulls the label back to the section's own left edge, past the
-    // padding the mixin adds for the hit area.
+    // Óptico: devolve o label à borda esquerda da seção, descontando o padding do
+    // alvo de clique.
     margin-left: -@chat-space-sm;
   }
 }
 
-// The ownership transfer code: six digits, spaced so a misread is easy to see.
+// Código de transferência: seis dígitos espaçados, para um erro de leitura saltar à vista.
 .ChatTransferCodeModal-code {
   font-size: 22px;
   font-variant-numeric: tabular-nums;
@@ -2290,13 +2091,12 @@ body.ChatFullPage {
   text-align: center;
 }
 
-// ── Selection mode ───────────────────────────────────────────────────────────
-// Bulk bar for "Quote in discussion" / "Copy" / "Move".
+// ── Modo de seleção ──
+// Barra em massa de "Citar em discussão" / "Copiar" / "Mover".
 .ChatSelectionBar {
   .chat-flex-row(8px);
-  // The bar lives in the drawer as well as the full page, so it has to survive
-  // ~320px of width. It breaks between the count and the actions before it
-  // breaks between two actions, and never inside one.
+  // Também vive no drawer, então precisa caber em ~320px. Quebra entre a contagem e
+  // as ações antes de quebrar entre ações, e nunca dentro de uma.
   flex-wrap: wrap;
   row-gap: 6px;
   position: sticky;
@@ -2311,8 +2111,7 @@ body.ChatFullPage {
     font-size: @chat-font-label;
     font-weight: 800;
     color: var(--avocado-text-dark);
-    // "1 selected" was wrapping to two lines and dragging the bar's height with
-    // it. It is the one label here that must never break.
+    // O único label daqui que nunca pode quebrar.
     flex-shrink: 0;
     white-space: nowrap;
   }
@@ -2324,7 +2123,7 @@ body.ChatFullPage {
     justify-content: flex-end;
     row-gap: 4px;
 
-    // Buttons keep their own label on one line; the row breaks between them.
+    // Cada botão mantém o label numa linha; a quebra é entre eles.
     > * {
       flex-shrink: 0;
     }
@@ -2335,16 +2134,13 @@ body.ChatFullPage {
   }
 }
 
-// ── Skeletons ────────────────────────────────────────────────────────────────
-// Rendered while a channel's first page loads, so the panel does not flash empty.
-// ── Skeletons ────────────────────────────────────────────────────────────────
-// Placeholders shaped like the content they stand in for, so the layout does not
-// jump when the data arrives. See Skeletons.tsx — the shapes there and the rules
-// here have to be changed together.
+// ── Skeletons ──
+// Placeholders no formato do conteúdo, para o layout não pular quando os dados
+// chegam. As formas de Skeletons.tsx e estas regras mudam juntas.
 .ChatSkeleton {
   padding: 12px 16px;
 
-  // For a skeleton that sits inside a container which already pads.
+  // Para skeleton dentro de um container que já tem padding.
   &--flush {
     padding: 0;
   }
@@ -2382,8 +2178,7 @@ body.ChatFullPage {
       margin-bottom: 0;
     }
 
-    // Matches the weight of the text each one replaces, so the block has the same
-    // visual rhythm as the real card.
+    // Mesmo peso do texto que substituem, para ter o ritmo do card real.
     &--title { height: 13px; }
     &--meta  { height: 8px; }
 
@@ -2391,7 +2186,7 @@ body.ChatFullPage {
     &--long  { width: 75%; }
   }
 
-  // ── Whole channel pane ─────────────────────────────────────────────────────
+  // ── Painel do canal inteiro ──
   &-channel {
     flex: 1;
     min-width: 0;
@@ -2403,7 +2198,7 @@ body.ChatFullPage {
     overflow: hidden;
   }
 
-  // Stands in for the composer shell, at its real height.
+  // No lugar do shell do composer, na altura real.
   &-composer {
     flex-shrink: 0;
     height: @chat-composer-min-height;
@@ -2412,7 +2207,7 @@ body.ChatFullPage {
     background: var(--avocado-surface-1);
   }
 
-  // ── Sidebar ────────────────────────────────────────────────────────────────
+  // ── Sidebar ──
   &-sidebar {
     padding: 12px;
   }
@@ -2428,7 +2223,7 @@ body.ChatFullPage {
     height: 36px;
   }
 
-  // The "CHANNELS" section heading.
+  // Título de seção "CANAIS".
   &-heading {
     width: 70px;
     height: 8px;
@@ -2437,13 +2232,13 @@ body.ChatFullPage {
     background: var(--avocado-surface-1);
   }
 
-  // ── Odds and ends ──────────────────────────────────────────────────────────
+  // ── Diversos ──
   &-memberRow {
     .chat-flex-row(8px);
     padding: 7px 4px;
   }
 
-  // Stands in for a card's action button.
+  // No lugar do botão de ação de um card.
   &-button {
     align-self: center;
     flex-shrink: 0;
@@ -2469,8 +2264,8 @@ body.ChatFullPage {
   50%      { opacity: 0.5; }
 }
 
-// Empty-sidebar state. A fresh install has no channels, so this is the only
-// route to creating the first one — it must not be a dead end.
+// Sidebar vazio. Numa instalação nova é o único caminho para criar o primeiro
+// canal, então não pode ser beco sem saída.
 .ChatSidebar-empty {
   display: flex;
   flex-direction: column;
@@ -2492,8 +2287,7 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // Owns the gap between the two buttons. `Button--block` sets width only, so
-  // relying on the theme's own button margin left them touching.
+  // Cuida do gap entre os botões: `Button--block` só define largura.
   &-actions {
     display: flex;
     flex-direction: column;
@@ -2502,18 +2296,11 @@ body.ChatFullPage {
   }
 }
 
-// ── Modals ───────────────────────────────────────────────────────────────────
-// One class shared by every chat modal, so they agree on spacing, labels and help
-// text instead of each drifting into its own arrangement.
-//
-// This replaces a `.NewChannelModal` block that never applied to anything: the
-// component's className() returns `ChannelFormModal`, so the selector matched no
-// element and the form's help text and checkbox rules were dead the whole time.
+// ── Modais ──
+// Classe compartilhada por todo modal do chat, para espaçamento, labels e help
+// concordarem.
 .ChatModal {
-  // Every gap in here comes from the spacing scale in variables.less. The values
-  // used to be picked per rule — 5px under one label, 16px between fields, 4px
-  // above the submit — and the result was a dialog where some things looked stuck
-  // together and others adrift, with no way to tell which was intentional.
+  // Todo gap aqui vem da escala de espaçamento de variables.less.
   .Modal-body {
     padding: @chat-space-lg;
   }
@@ -2527,9 +2314,8 @@ body.ChatFullPage {
 
     > label {
       display: block;
-      // A label belongs to the field under it, so it sits closer to that field
-      // than the field sits to the next one. Equal gaps make a form read as a
-      // list of unrelated lines.
+      // O label pertence ao campo abaixo, então fica mais perto dele do que o campo do
+      // próximo.
       margin-bottom: @chat-space-sm;
       font-size: @chat-font-label;
       font-weight: 700;
@@ -2544,8 +2330,7 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // A checkbox row is label-first and inline, so the box lines up with its text
-  // rather than sitting on its own line above it.
+  // Linha de checkbox: label primeiro e inline, para o box alinhar com o texto.
   label.checkbox {
     display: flex;
     align-items: flex-start;
@@ -2560,15 +2345,15 @@ body.ChatFullPage {
     }
 
     input[type='checkbox'] {
-      // 2px down: a checkbox aligned to the top of a 1.4-line-height label reads
-      // as floating above it.
+      // 2px para baixo: alinhado ao topo de um label com line-height 1.4 o box parece
+      // flutuar.
       margin: 2px 0 0;
       flex-shrink: 0;
     }
   }
 
-  // The help text under a checkbox belongs to it, so it is indented to the label's
-  // text rather than to the box.
+  // O help sob um checkbox pertence a ele: recuado até o texto do label, não até o
+  // box.
   label.checkbox + .helpText {
     margin: 0 0 @chat-space-md (@chat-space-sm + @chat-checkbox-size);
   }
@@ -2578,58 +2363,46 @@ body.ChatFullPage {
   }
 
   select.FormControl {
-    // Flarum leaves a select at its intrinsic width, which makes a short option
-    // list a fraction of the width of the text input above it.
+    // O Flarum deixa o select na largura intrínseca, uma fração da do input acima.
     width: 100%;
 
-    // Core's `.FormControl` is 36px tall with 8px of vertical padding, a 2px
-    // border and `line-height: 1.5` on 13px text — a 19.5px line box inside a
-    // 16px content box. An input scrolls its own text and hides that; a select
-    // cannot, so it clips the selected option top and bottom, which is why
-    // "Everyone in the channel" and "No category (whole forum)" lost their caps
-    // and descenders.
-    //
-    // `min-height` with `height: auto` rather than a bigger fixed height: the
-    // box then still matches the text inputs above it at the theme's own font
-    // size, and grows instead of clipping if a theme sets a larger one.
+    // O `.FormControl` do core tem 36px, padding vertical de 8px, borda de 2px e
+    // `line-height: 1.5` em 13px: uma line box de 19.5px num content box de 16px. O
+    // input rola o texto e esconde isso; o select corta a opção em cima e embaixo.
+    // `min-height` com `height: auto` para casar com os inputs e crescer se o tema usar
+    // fonte maior.
     height: auto;
     min-height: 36px;
     padding: 7px 13px;
     line-height: 1.3;
   }
 
-  // The submit row: full-width primary action, separated from the fields by more
-  // than the fields are separated from each other, so it reads as the end of the
-  // form rather than as one more field.
+  // Linha de envio: ação primária de largura total, mais afastada dos campos do que
+  // eles entre si, para fechar o formulário.
   .Button--block {
     margin-top: @chat-space-lg;
   }
 }
 
-// ── Channel form ─────────────────────────────────────────────────────────────
-// The create/edit dialog. Everything below exists because the form has eighteen
-// controls: in one 375px column that is a scroll of undifferentiated fields with
-// the submit at the bottom, so the shape here is two columns of titled groups
-// with the submit pinned in a footer.
+// ── Formulário de canal ──
+// Diálogo de criar/editar. São dezoito controles: em uma coluna de 375px viraria um
+// rolo de campos, então são duas colunas de grupos com título e o envio fixo no
+// rodapé.
 .ChannelFormModal {
-  // `&.Modal--large` rather than a bare width: core sets `.Modal--large {
-  // max-width: 800px }` at the same specificity, and which of the two wins
-  // would otherwise depend on the order Flarum happens to concatenate the
-  // stylesheets in.
+  // `&.Modal--large` em vez de só largura: o core define `.Modal--large {
+  // max-width: 800px }` com a mesma especificidade, e o vencedor dependeria da ordem
+  // de concatenação.
   @media @tablet-up {
     &.Modal--large {
       max-width: 880px;
-      // The vertical margin is set here rather than inherited because the
-      // body's height cap below is written against it. Core uses 120px, this
-      // forum's theme uses 10px, and a cap computed for one is wrong for the
-      // other — owning both keeps them consistent.
+      // A margem vertical é definida aqui porque o teto de altura do body é calculado
+      // sobre ela; o core e os temas usam valores diferentes.
       margin: @chat-modal-margin auto;
     }
   }
 
-  // Header, body and footer are three bands of one dialog, so the body is the
-  // only part that scrolls — the title stays legible and the submit stays
-  // reachable however long the form gets.
+  // Header, body e footer são três faixas; só o body rola, para título e envio
+  // ficarem à vista.
   @media @tablet-up {
     .Modal-content {
       display: flex;
@@ -2642,12 +2415,12 @@ body.ChatFullPage {
 
   &-header {
     .chat-flex-row(@chat-space-md);
-    // Overrides core's centred, 25px-padded header: with an icon beside the
-    // text, centring puts the pair off-axis from everything below it.
+    // Sobrescreve o header centralizado do core: com ícone ao lado, centralizar
+    // desalinha o par do resto.
     padding: @chat-space-lg @chat-space-xl;
     text-align: left;
     border-bottom: 1px solid var(--avocado-border-soft);
-    // Room for the close button, which core positions absolutely at the corner.
+    // Espaço para o botão de fechar, que o core posiciona absoluto no canto.
     padding-right: 52px;
 
     h3 {
@@ -2676,9 +2449,8 @@ body.ChatFullPage {
     min-width: 0;
   }
 
-  // The channel's name once it has one, the orientation sentence before that.
-  // Truncated rather than wrapped: the header is a fixed band and a long name
-  // must not push the body down.
+  // Nome do canal, ou a frase de orientação antes de ele ter um. Truncado: o header
+  // é uma faixa fixa e um nome longo não pode empurrar o body.
   &-headerSubtitle {
     .chat-truncate();
     margin: 2px 0 0;
@@ -2686,8 +2458,8 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // Both classes, because `.ChatModal .Modal-body` above sets the padding every
-  // chat modal shares and would otherwise out-specify a single class here.
+  // As duas classes porque `.ChatModal .Modal-body` define o padding comum e
+  // venceria uma classe só.
   &-body.Modal-body {
     padding: @chat-space-lg @chat-space-xl;
 
@@ -2696,15 +2468,11 @@ body.ChatFullPage {
       min-height: 0;
       .chat-scroll-y();
 
-      // The cap is repeated on the scrolling element itself, not left to the
-      // `flex: 1` against the parent's max-height. That chain only resolves if
-      // nothing else in the cascade gives `.Modal-content` a height — themes do
-      // — and when it fails the dialog runs off the bottom of the screen with
-      // the submit button below the fold. A max-height here needs no cooperation
-      // from any ancestor.
+      // O teto vai no próprio elemento que rola em vez de depender do `flex: 1` contra
+      // o max-height do pai: essa cadeia quebra quando um tema dá altura ao
+      // `.Modal-content`, e o envio sairia da tela.
       //
-      // Reserved = the dialog's own margins, plus the header and footer bands
-      // that do not scroll.
+      // Reservado = margens do diálogo + faixas de header e footer.
       max-height: ~"calc(100vh - @{chat-modal-reserved} - @{chat-modal-bands})";
       max-height: ~"calc(100dvh - @{chat-modal-reserved} - @{chat-modal-bands})";
     }
@@ -2716,47 +2484,38 @@ body.ChatFullPage {
 
   &-grid {
     display: grid;
-    // A single column below the tablet breakpoint — see the media query at the
-    // end of this block.
+    // Uma coluna abaixo do breakpoint de tablet (media query no fim do bloco).
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: @chat-space-lg;
     align-items: start;
   }
 
-  // A titled group. The border is what makes two columns readable as two
-  // columns: without it the eye pairs fields across the gutter by row instead
-  // of down each column.
+  // Grupo com título. A borda faz duas colunas lerem como duas colunas, e não como
+  // pares de campos por linha.
   &-section {
     min-width: 0;
     padding: @chat-space-md;
     border: 1px solid var(--avocado-border-soft);
     border-radius: @chat-radius-md;
-    // A translucent tint rather than `--avocado-surface-1`: that token resolves
-    // to `--control-bg` on any theme that is not Avocado, which is exactly what
-    // the inputs inside the card use — the card would have disappeared behind
-    // its own fields.
+    // Tom translúcido em vez de `--avocado-surface-1`: fora do Avocado esse token vira
+    // `--control-bg`, a mesma cor dos inputs, e o card sumiria atrás deles.
     background: var(--chat-row-hover-bg);
   }
 
-  // The picture preview shares the card's tint, so it needs an edge of its own
-  // to read as a slot rather than as a hole.
-  //
-  // Sized to match the emoji picker's preview circle, not the 44px it uses
-  // elsewhere: the two take turns in the same slot, and the difference showed
-  // up as the section changing height when the switch was flipped.
+  // O preview da imagem divide o tom do card, então precisa de borda própria. Mesmo
+  // tamanho do preview do emoji picker: os dois se alternam no mesmo slot, e tamanhos
+  // diferentes mudavam a altura da seção.
   .ChatChannelForm-imagePreview {
     width: 36px;
     height: 36px;
     border: 1px solid var(--avocado-border-subtle);
   }
 
-  // Identity and lifecycle run the full width. The name field and the
-  // description read as the subject of the dialog, and a description box half
-  // the dialog wide invites a one-line description.
+  // Identidade e ciclo de vida ocupam a largura toda: nome e descrição são o
+  // assunto do diálogo.
   &-section--wide {
-    // Escaped: LESS reads `1 / -1` as division and emits `grid-column: -1`,
-    // which is a start line with no end — the card lands in an implicit third
-    // column off to the side instead of spanning the two real ones.
+    // Escapado: o LESS lê `1 / -1` como divisão e gera `grid-column: -1`, e o card
+    // iria para uma terceira coluna implícita.
     grid-column: ~"1 / -1";
   }
 
@@ -2769,31 +2528,20 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // The description box grows downwards only.
-  //
-  // A textarea defaults to `resize: both`, and dragging it wider pushed it past
-  // the card that holds it — the grid track is sized by the dialog, so the
-  // handle was offering a width the layout never agreed to. Height is the axis
-  // that is actually useful here: the field is two rows and a long description
-  // needs more of them.
-  //
-  // The width declarations are not redundant with `resize: vertical`. A drag
-  // writes an inline `width` onto the element, and that style survives the rule
-  // being added later — a box already pulled wide stays wide, which is the state
-  // the screenshot showed. `!important` is what overrides it, since inline
-  // styles otherwise outrank any stylesheet.
+  // A descrição só cresce para baixo. `resize: both` deixava arrastar além do card.
+  // As declarações de largura não são redundantes: o arraste grava um `width` inline
+  // que sobrevive à regra, e só `!important` vence estilo inline.
   textarea.FormControl {
     resize: vertical;
     width: 100% !important;
     max-width: 100% !important;
   }
 
-  // Icon and name on one line. The emoji column is the picker's preview circle
-  // plus its clear button; the name takes the rest.
+  // Ícone e nome numa linha: a coluna do emoji é o preview do picker mais o botão
+  // de limpar.
   &-nameRow {
     display: grid;
-    // The name takes the larger share: it is the only required field, and the
-    // picker only needs room for its preview, a search box and a clear button.
+    // O nome fica com a maior parte: é o único campo obrigatório.
     grid-template-columns: minmax(0, 1.4fr) minmax(200px, 1fr);
     gap: @chat-space-md;
     align-items: start;
@@ -2802,9 +2550,8 @@ body.ChatFullPage {
       min-width: 0;
     }
 
-    // `.ChatModal .Form-group > label` cannot reach these — they are one level
-    // further down, inside each cell — so the shared label style is repeated
-    // here rather than the selector loosened for every modal in the extension.
+    // `.ChatModal .Form-group > label` não alcança estes, um nível abaixo; o estilo é
+    // repetido aqui em vez de afrouxar o seletor para todos os modais.
     label {
       display: block;
       margin-bottom: @chat-space-sm;
@@ -2814,22 +2561,19 @@ body.ChatFullPage {
     }
   }
 
-  // The icon slot: one label + switch line, then whichever field the switch
-  // selected. Both fields are laid out to the same width so flipping the switch
-  // does not resize the row around them.
+  // Slot do ícone: uma linha de label + switch e o campo escolhido. Os dois campos
+  // têm a mesma largura para o switch não redimensionar a linha.
   &-iconField {
     min-width: 0;
 
-    // Both sides reserve the same room for their help line, so flipping the
-    // switch cannot change the height of the section — the fields below it
-    // were jumping up and down as the picture help appeared and vanished.
+    // Os dois lados reservam o mesmo espaço para o help, para o switch não mudar a
+    // altura da seção.
     .helpText {
       min-height: 2.8em;
     }
 
-    // And the same room overall. The two sides are not the same shape — a
-    // picker row against a preview plus an upload button — so equal help text
-    // alone still left them a few pixels apart.
+    // E o mesmo espaço no total: os lados têm formas diferentes, e só o help igual
+    // ainda deixava alguns pixels de diferença.
     &-body {
       min-height: 84px;
     }
@@ -2850,15 +2594,9 @@ body.ChatFullPage {
 
   }
 
-  // Emoji on one side, picture on the other: a switch with two named sides
-  // rather than two buttons that happen to sit together. One track, one
-  // border, and the lit half is the side in use — which is also the field
-  // showing below it.
-  //
-  // Roughly 70px, against the ~200px a `Switch` plus its written label took on
-  // a row whose whole job is to introduce one field.
-  // The control is one button; the two halves inside it are spans, so a click
-  // anywhere flips to the other side.
+  // Emoji de um lado, imagem do outro: um switch com dois lados nomeados num
+  // trilho só, e a metade acesa é a que está em uso. O controle é um botão; as
+  // metades são spans, então qualquer clique alterna.
   &-iconKind {
     display: flex;
     flex-shrink: 0;
@@ -2878,8 +2616,7 @@ body.ChatFullPage {
       opacity: 0.5;
     }
 
-    // Hovering the control lifts the side that is *not* on — the one the click
-    // would move to — so the button previews what it does.
+    // O hover realça o lado que *não* está ativo, para onde o clique vai.
     &:hover:not(:disabled) &-option:not(&-option--active) {
       background: var(--chat-row-hover-bg);
       color: var(--avocado-text-dark);
@@ -2897,8 +2634,7 @@ body.ChatFullPage {
         background var(--avocado-t-fast),
         color var(--avocado-t-fast);
 
-      // The side that is on. Filled like a switch's track rather than tinted,
-      // so which half is active survives a glance.
+      // Lado ativo: preenchido como o trilho de um switch, não só tingido.
       &--active {
         background: var(--button-primary-bg, var(--primary-color));
         color: var(--button-primary-color, #fff);
@@ -2906,20 +2642,19 @@ body.ChatFullPage {
     }
   }
 
-  // Preview, upload and remove wrap rather than overflow: this sits in the
-  // narrower of the two name-row cells.
+  // Preview, upload e remover quebram linha em vez de vazar: ficam na célula mais
+  // estreita da linha do nome.
   .ChatChannelForm-imageRow {
     flex-wrap: wrap;
     margin-top: 0;
   }
 
-  // The number field the "Custom…" option reveals, directly under the select
-  // that revealed it.
+  // Campo numérico revelado pela opção "Personalizado…", logo abaixo do select.
   &-customLength {
     margin-top: @chat-space-sm;
   }
 
-  // Two visibility cards side by side.
+  // Dois cards de visibilidade lado a lado.
   &-choices {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -2946,14 +2681,14 @@ body.ChatFullPage {
       background: var(--chat-row-hover-bg);
     }
 
-    // The radio stays in the DOM for keyboard and screen-reader semantics; the
-    // card's border is what shows the selection visually.
+    // O radio continua no DOM para teclado e leitor de tela; a borda do card mostra a
+    // seleção.
     input[type='radio'] {
       .chat-sr-only();
     }
 
-    // :focus-visible does not apply to a hidden input, so the ring is drawn on
-    // the card whenever the input inside it has focus.
+    // :focus-visible não vale para input escondido; o anel vai no card quando o input
+    // dentro dele tem foco.
     &:focus-within {
       outline: 2px solid var(--primary-color);
       outline-offset: 2px;
@@ -2989,8 +2724,8 @@ body.ChatFullPage {
     }
   }
 
-  // Switch rows. Separated by rules rather than by whitespace alone: five
-  // toggles with help text under each is a wall of prose otherwise.
+  // Linhas de switch separadas por linhas, não só espaço: cinco toggles com help
+  // viram um paredão de texto.
   &-toggles {
     display: flex;
     flex-direction: column;
@@ -3022,24 +2757,21 @@ body.ChatFullPage {
       --left-pad: @chat-switch-indent;
     }
 
-    // An off switch's track is `--control-bg`, which is the card's own colour
-    // give or take a few percent — off rows read as a label with nothing beside
-    // it. An inset ring rather than a border, so the track keeps its 50×28.
+    // O trilho do switch desligado é `--control-bg`, quase a cor do card. Anel inset
+    // em vez de borda, para o trilho manter 50×28.
     .Checkbox--switch.off .Checkbox-display {
       box-shadow: inset 0 0 0 1px var(--avocado-border-chip);
     }
 
-    // Lines the sentence up with the switch's label rather than with the
-    // switch, so the two read as one block.
+    // Alinha a frase ao label do switch, não ao switch.
     .helpText {
       margin-top: @chat-space-xs;
       padding-left: @chat-switch-indent;
     }
   }
 
-  // Close and archive are state changes that act immediately, not settings that
-  // wait for the save. A dashed edge and no fill separates them from the cards
-  // above, which all describe things the submit button will apply.
+  // Fechar e arquivar agem na hora, não esperam o save. Borda tracejada e sem
+  // preenchimento os separam dos cards que o envio aplica.
   &-lifecycle {
     border-style: dashed;
     background: none;
@@ -3051,16 +2783,15 @@ body.ChatFullPage {
     align-items: center;
     gap: @chat-space-sm;
 
-    // The section is unfilled, so a default `.Button` — light grey on light grey
-    // — had no edge to read against and looked disabled.
+    // Seção sem preenchimento: o `.Button` padrão, cinza sobre cinza, parecia
+    // desabilitado.
     > .Button {
       .chat-action-btn();
     }
   }
 
-  // Destructive, so it gets its own line rather than a fourth slot in the row
-  // above — and the quiet text treatment rather than the surface the reversible
-  // actions carry. Same control, same look, as the one in ChannelInfoModal.
+  // Destrutivo: linha própria e tratamento de texto discreto, igual ao do
+  // ChannelInfoModal.
   &-lifecycleDanger {
     margin-top: @chat-space-md;
   }
@@ -3081,8 +2812,8 @@ body.ChatFullPage {
     background: var(--body-bg);
   }
 
-  // One column on a phone. Two 150px columns of settings in a 390px viewport is
-  // narrower than the text inside them.
+  // Uma coluna no celular: duas de 150px numa viewport de 390px são mais estreitas
+  // que o texto.
   @media @phone {
     &-header {
       padding: @chat-space-md @chat-space-lg;
@@ -3097,17 +2828,16 @@ body.ChatFullPage {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    // `auto-fit` cannot drop below the track's own minimum, so two 150px cards
-    // plus the gap and four levels of padding overflowed a 390px viewport
-    // instead of wrapping. One column is the only fit that exists here.
+    // `auto-fit` não desce abaixo do mínimo da trilha, e dois cards de 150px mais
+    // gap e padding vazavam 390px.
     &-choices {
       grid-template-columns: minmax(0, 1fr);
     }
 
     &-footer {
       padding: @chat-space-md @chat-space-lg;
-      // Sticks to the bottom of the phone's full-height modal, so the submit is
-      // reachable without scrolling to the end of the form.
+      // Gruda no fundo do modal de altura cheia, para o envio ficar alcançável sem
+      // rolar até o fim.
       position: sticky;
       bottom: 0;
       z-index: 1;
@@ -3115,9 +2845,9 @@ body.ChatFullPage {
   }
 }
 
-// ── Message too long ─────────────────────────────────────────────────────────
-// Shown when a send is refused for length. Deliberately plain: it is one
-// sentence and one way out, and the composer behind it still holds the text.
+// ── Mensagem longa demais ──
+// Mostrado quando o envio é recusado pelo tamanho. O composer atrás ainda guarda o
+// texto.
 .ChatTooLongModal {
   &-body.Modal-body {
     padding: @chat-space-lg;
@@ -3131,11 +2861,10 @@ body.ChatFullPage {
   }
 }
 
-// ── Add members ──────────────────────────────────────────────────────────────
-// The people picker, opened on top of the channel-info modal. Its search field
-// and result rows are styled here rather than reusing the member list's: these
-// rows are a multi-select, and a row that can be picked has to look different
-// from one that is merely being listed.
+// ── Adicionar membros ──
+// Seletor de pessoas, aberto sobre o modal de info. Estilo próprio porque estas
+// linhas são multisseleção, e uma linha selecionável precisa parecer diferente de
+// uma só listada.
 .ChatAddMembers {
   &-body.Modal-body {
     padding: @chat-space-lg;
@@ -3147,8 +2876,8 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // A token field: the chips and the input share one box, so the people
-  // chosen and the name being typed read as one list.
+  // Campo de tokens: chips e input no mesmo box, para os escolhidos e o nome sendo
+  // digitado lerem como uma lista.
   &-field {
     .chat-flex-row(6px);
     flex-wrap: wrap;
@@ -3238,8 +2967,8 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // Bounded so the dialog does not grow past the viewport on a long result
-  // list; the field above stays visible while this scrolls.
+  // Limitado para o diálogo não passar da viewport; o campo acima continua visível
+  // enquanto isto rola.
   &-results {
     .chat-scroll-y();
     max-height: 320px;
@@ -3351,12 +3080,10 @@ body.ChatFullPage {
   }
 }
 
-// ── Drawer overrides ─────────────────────────────────────────────────────────
-// Inside the drawer, the sidebar and the channel are alternative views rather
-// than adjacent panes — only one is mounted at a time. The sidebar's fixed
-// 280px width is meant for the full-screen page, where it sits *beside* a
-// channel; in a 420px drawer it leaves ~140px of empty flex space to its right,
-// which reads as the panel being split in two.
+// ── Ajustes do drawer ──
+// No drawer sidebar e canal são telas alternativas, uma montada por vez. Os 280px
+// fixos do sidebar são para a tela cheia; num drawer de 420px sobrariam ~140px
+// vazios à direita.
 .ChatDrawer-body {
   > .ChatSidebar {
     width: auto;
@@ -3369,43 +3096,29 @@ body.ChatFullPage {
     min-width: 0;
   }
 
-  // A shorter cap on the growing textarea than the full-screen page gets.
-  //
-  // 220px of composer inside a 560px drawer, once the header and the padding
-  // are counted, leaves barely two messages of stream visible — pasting
-  // something long turned the panel into a text box with a conversation
-  // squeezed above it. The composer still scrolls internally past this point,
-  // so nothing is unreachable; it just stops taking the room the messages need.
-  //
-  // Not applied below the mobile breakpoint: there the drawer is a full-height
-  // sheet, and the page cap is proportionate again.
+  // Teto menor para a textarea do que na tela cheia: 220px de composer num drawer
+  // de 560px deixam duas mensagens visíveis. O composer continua rolando por dentro.
+  // Não vale abaixo do breakpoint mobile, onde o drawer tem altura cheia.
   @media (min-width: (@chat-mobile-breakpoint + 1)) {
     .ChatComposer-input {
       max-height: 120px;
-      // Same reasoning as the base cap: 120px is a fifth of a 560px drawer, but
-      // the drawer is itself capped at `100vh - 80px`, so on a short window it
-      // has to give way too.
+      // O drawer também tem teto (`100vh - 80px`), então numa janela baixa este cede.
       max-height: ~"min(120px, 22vh)";
     }
   }
 }
 
-// ── Emoji ────────────────────────────────────────────────────────────────────
-// A reaction chip's emoji needs its own line-height: the glyphs are taller than
-// the surrounding digits and would otherwise stretch the chip.
+// ── Emoji ──
+// O emoji do chip de reação precisa de line-height próprio: o glifo é mais alto que
+// os dígitos e esticaria o chip.
 .ChatReactions-emoji {
   font-size: 14px;
   line-height: 1;
 }
 
-// A Flamoji custom emoji is an image where every other emoji is a glyph, so it
-// has no intrinsic tie to the font size and would render at whatever the file
-// happens to be — a 128px sprite inside a 22px chip.
-//
-// Sized in `px` rather than the `em` Flamoji's own `span.flamoji img` rule uses:
-// that rule is for prose, where the emoji should track the surrounding text, and
-// its sticker-mode variant scales it to 4em. Neither is right for a chip or an
-// autocomplete row, both of which are fixed-height chrome.
+// Emoji customizado do Flamoji é imagem, sem ligação com o tamanho da fonte, e
+// renderizaria no tamanho do arquivo. Em `px`, não no `em` do `span.flamoji img`
+// do Flamoji: aquilo é para texto corrido, e chip e autocomplete têm altura fixa.
 .ChatReactions-flamoji {
   display: block;
   width: auto;
@@ -3423,10 +3136,8 @@ body.ChatFullPage {
   flex-shrink: 0;
 }
 
-// In the icon slot the image is the whole mark, so it fills the circle the
-// glyph would have occupied rather than sitting at a fixed height — the slot is
-// 38px on a Browse card and 20px in the sidebar, and one number cannot serve
-// both. `contain` keeps a non-square sprite from being stretched.
+// No slot de ícone a imagem é a marca inteira e preenche o círculo: o slot tem
+// 38px no Browse e 20px no sidebar. `contain` evita esticar sprite não quadrado.
 .ChatChannelIcon-flamoji {
   display: block;
   width: 100%;
@@ -3434,16 +3145,10 @@ body.ChatFullPage {
   object-fit: contain;
 }
 
-// The channel icon slot — a fixed 38px circle on a Browse card, a 20-26px column
-// in the sidebar, the glyph beside the name in a channel header. Before emoji
-// were resolved, an unrendered `:speech_balloon:` overflowed it and pushed the
-// card's text sideways. Clipping here means no future bad value can break the
-// layout either.
-//
-// Every entry is a class on the icon's own element. It used to reach the header's
-// icon as `.ChatChannel-title > span:first-child`, which is a description of
-// where the icon sits rather than of what it is — and an emoji renders as a bare
-// string, so with no span of its own the selector clipped the channel's *name*.
+// Slot do ícone do canal: círculo de 38px no Browse, coluna de 20-26px no
+// sidebar, glifo ao lado do nome no header. Cortar aqui impede que um valor ruim
+// quebre o layout. Cada entrada é uma classe do próprio elemento do ícone: um
+// emoji é text node e seletores posicionais pegariam o nome.
 .ChatBrowseCard-icon,
 .ChatChannelRow-icon,
 .ChatChannel-icon {
@@ -3453,20 +3158,15 @@ body.ChatFullPage {
   line-height: 1;
 }
 
-// ── The avatar form of the slot ──────────────────────────────────────────────
-// A direct channel is marked by who is in it rather than by a glyph — see
-// utils/channelIcon.tsx, which decides that and puts this class on the slot it
-// returns.
+// ── Forma de avatares do slot ──
+// Conversa direta é marcada por quem está nela (utils/channelIcon.tsx põe esta
+// classe no slot). Desfaz o que as regras acima definem para glifo e precisa vir
+// depois delas: as classes do slot também são de classe única, então vence pela
+// ordem. Classe simples, e não composta em cada slot, para uma quinta superfície
+// não ficar de fora.
 //
-// Everything here undoes what the rules above set for a glyph, and it has to
-// come after all of them to do it: the slot classes are single-class selectors
-// too, so this wins on order, not on weight. Keeping it as a plain class rather
-// than compounding it onto each of the four (`.ChatChannelRow-icon.ChatChannelIcon--avatars`
-// and so on) is what stops a fifth surface from silently missing out.
-//
-// `width: auto` because a fixed 20px column was sized for one glyph and would
-// show a sliver of the first face and none of the second; `overflow: visible`
-// because the stack's negative margin is what makes it a stack.
+// `width: auto` porque a coluna fixa de 20px cortaria os rostos; `overflow: visible`
+// porque a margem negativa é o que forma a pilha.
 .ChatChannelIcon--avatars {
   display: inline-flex;
   flex-shrink: 0;
@@ -3474,20 +3174,18 @@ body.ChatFullPage {
   min-width: 0;
   overflow: visible;
   vertical-align: middle;
-  // The circle mixin on a Browse card paints a background and a border meant to
-  // sit behind a glyph. Behind faces it is a grey ring around them.
+  // O mixin de círculo do Browse pinta fundo e borda para glifo; atrás de rostos
+  // vira um anel cinza.
   background: none;
   border: 0;
   padding: 0;
 
-  // One size for every slot rather than one derived from each slot's font-size.
-  // The channel header and the info modal's title set type several steps apart,
-  // and an em-based avatar would have followed them into sizes neither slot has
-  // room for. This is the size the sidebar already used.
+  // Um tamanho para todo slot: header e título do modal têm fontes muito
+  // diferentes, e um avatar em em iria junto. É o tamanho que o sidebar já usava.
   .Avatar {
     width: @chat-avatar-size-compact;
     height: @chat-avatar-size-compact;
-    // Reads as a stack rather than as two circles that happen to touch.
+    // Para ler como pilha, não como dois círculos encostados.
     border: 2px solid var(--body-bg);
 
     & + .Avatar {
@@ -3496,17 +3194,15 @@ body.ChatFullPage {
   }
 }
 
-// The one slot that keeps its width. A Browse card's mark is a 40px circle, and
-// the cards sit in a grid: letting a conversation's stack size itself would pull
-// that card's name 16px left of every other card's in the row. Two overlapped
-// avatars are 38px, so they fit the circle as they are.
+// O único slot que mantém a largura: no Browse os cards estão em grade, e uma
+// pilha com tamanho próprio desalinharia o nome. Dois avatares sobrepostos dão
+// 38px e cabem no círculo de 40px.
 .ChatBrowseCard-icon.ChatChannelIcon--avatars {
   width: 40px;
 }
 
-// The info modal's title is the one place the mark is not in a flex row, so it
-// has no gap of its own. A glyph carries its own side bearing and looked fine
-// without one; a 24px circle butts straight against the name.
+// No título do modal a marca não está numa linha flex e não tem gap. Um glifo tem
+// o próprio espaçamento lateral; um círculo de 24px encostaria no nome.
 .ChatChannelInfo-icon.ChatChannelIcon--avatars {
   margin-right: @chat-space-sm;
 }
@@ -3547,8 +3243,7 @@ body.ChatFullPage {
     box-shadow: var(--shadow-medium);
   }
 
-  // auto-fill rather than a fixed count, so the grid adapts to the modal width
-  // instead of overflowing on a narrow viewport.
+  // auto-fill em vez de contagem fixa, para a grade se adaptar à largura do modal.
   &-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
@@ -3580,14 +3275,12 @@ body.ChatFullPage {
   }
 }
 
-// ── Collapsed-drawer activity ────────────────────────────────────────────────
-// Collapsed, the drawer is a 48px bar with no stream visible, so unread activity
-// has to surface on the header itself. Mentions get a count; ambient traffic a dot.
+// ── Atividade no drawer recolhido ──
+// Recolhido, o drawer é uma barra de 48px sem stream, então a atividade aparece no
+// header: menções ganham contagem.
 .ChatDrawer {
-  // The collapsed header's unread count. Neutral by default — ordinary traffic is
-  // information, not an alarm — and red only when the messages are addressed to
-  // you. `ChatDrawer-dot` used to sit beside this for ambient unreads; it was
-  // replaced by the count and its rule removed rather than left behind.
+  // Contador de não lidas no header recolhido. Neutro por padrão, vermelho só
+  // quando as mensagens são para o leitor.
   &-badge {
     flex-shrink: 0;
     min-width: 18px;
@@ -3607,8 +3300,8 @@ body.ChatFullPage {
   }
 }
 
-// A system row (joined / left / channel closed) is narration, not conversation:
-// centred, quiet, and without the avatar gutter a message needs.
+// Linha de sistema (entrou / saiu / canal fechado) é narração: centralizada,
+// discreta e sem a coluna do avatar.
 .ChatMessage--system {
   .ChatMessage-body {
     text-align: center;
@@ -3624,18 +3317,13 @@ body.ChatFullPage {
   }
 }
 
-// ── Announcement card ────────────────────────────────────────────────────────
-// A bot post that points somewhere: currently a new discussion in the channel's
-// bound category.
+// ── Card de anúncio ──
+// Post do bot que aponta para algum lugar (hoje, discussão nova da categoria
+// vinculada). Estilizado no bloco de conteúdo: continua sendo uma mensagem comum,
+// que aceita resposta, reação e agrupamento.
 //
-// Styled on the content block rather than as a separate component. An earlier
-// version was its own row type, and that was the wrong shape — it could not be
-// replied to, reacted to or grouped, because it was not really a message. This is:
-// the avatar, the name, the time and the actions are all the ordinary ones, and the
-// card treatment is confined to the body.
-// The picture an announced discussion opened with. Sized like a favicon and set
-// beside the text rather than above it: the card is a one-line summary, and an
-// image given its own row would outweigh the title it belongs to.
+// A imagem da discussão anunciada, do tamanho de um favicon e ao lado do texto,
+// para não pesar mais que o título.
 .ChatMessage-announcementIcon {
   float: left;
   width: 34px;
@@ -3643,7 +3331,7 @@ body.ChatFullPage {
   margin: 2px @chat-space-md @chat-space-xs 0;
   border-radius: @chat-radius-sm;
   object-fit: contain;
-  // Whatever the picture's own background is, it sits on a tinted card here.
+  // Fica sobre um card tingido, seja qual for o fundo da imagem.
   background: var(--avocado-surface-1);
 }
 
@@ -3653,10 +3341,8 @@ body.ChatFullPage {
     border-left: 3px solid var(--primary-color);
   }
 
-  // The title. It is the first paragraph of the message body — a bold link — and
-  // is addressed structurally rather than with a class, because the body comes out
-  // of the same Markdown formatter every other message uses and carries no markup
-  // of our own.
+  // O título é o primeiro parágrafo do corpo (um link em negrito), endereçado pela
+  // estrutura porque o corpo vem do mesmo formatter de Markdown, sem markup nosso.
   .ChatMessage-content > p:first-child {
     margin: 0;
     font-size: @chat-font-label;
@@ -3668,15 +3354,14 @@ body.ChatFullPage {
     }
   }
 
-  // The excerpt below it.
+  // O trecho abaixo.
   .ChatMessage-content > p:not(:first-child) {
     margin: 4px 0 0;
     font-size: @chat-font-meta;
     line-height: 1.45;
     color: var(--avocado-text-dark);
 
-    // Two lines is enough to judge a topic by; past that the announcement starts
-    // competing with the conversation it was announced in.
+    // Duas linhas bastam para julgar o tópico; mais que isso compete com a conversa.
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -3684,17 +3369,12 @@ body.ChatFullPage {
   }
 }
 
-// ── The chat bot ─────────────────────────────────────────────────────────────
-// A bot message is an ordinary message — same gutter, same body, same formatting —
-// so there is no layout here, only the two pieces of identity a user record would
-// otherwise supply.
-//
-// The earlier version of this was a bespoke announcement card. It was replaced
-// because a card is a second kind of thing the stream has to explain: the bot
-// posting a normal message needs no explanation at all.
+// ── Bot do chat ──
+// Mensagem do bot é uma mensagem comum; aqui só ficam as duas peças de identidade
+// que um registro de usuário daria.
 
-// Stands in for a photo when none is configured, mirroring how core draws a user
-// with no avatar — an initial on a coloured disc, not an empty frame.
+// No lugar da foto quando não há uma, como o core desenha usuário sem avatar:
+// inicial sobre disco colorido.
 .Avatar--bot {
   display: inline-flex;
   align-items: center;
@@ -3706,8 +3386,8 @@ body.ChatFullPage {
   background: var(--primary-color);
 }
 
-// Small, uppercase and beside the name, the way a verified or staff tag reads —
-// part of the identity rather than a badge stuck onto the row.
+// Pequeno, em maiúsculas e ao lado do nome, como um selo de staff: parte da
+// identidade.
 .ChatMessage-botTag {
   flex-shrink: 0;
   padding: 1px 5px;
@@ -3720,18 +3400,10 @@ body.ChatFullPage {
   background: var(--avocado-muted-label);
 }
 
-// State marks: a private channel's padlock, and a muted channel's crossed bell.
-// Both are shown in the sidebar and in Browse, so what a channel is and what it
-// does to you are visible where the channel is, not only in its settings.
-//
-// The channel header carries neither. Inside the channel, "this is the channel
-// you muted" is not news — you are already reading it, and the marks sit in a
-// row of controls, where a non-clickable glyph reads as a button that does
-// nothing.
-//
-// One rule for both, because they sit side by side on the same row and any
-// difference in size or colour between them would read as one of them meaning
-// more than the other.
+// Marcas de estado: cadeado do canal privado e sino cortado do silenciado. No
+// sidebar e no Browse, onde o canal aparece. O header do canal não leva nenhuma:
+// lá dentro não é novidade, e um glifo entre controles pareceria botão. Uma regra
+// para as duas, para nenhuma parecer mais importante.
 .ChatChannelRow-lock,
 .ChatChannelRow-mute,
 .ChatBrowseCard-lock {
@@ -3740,22 +3412,15 @@ body.ChatFullPage {
   color: var(--avocado-muted-icon);
 }
 
-// Inside the drawer there is no width for a second column beside a 420px panel, so
-// an overlay panel covers the conversation instead — the treatment the thread
-// panel already gets on a phone.
-//
-// One rule, not two. PinnedPanel renders `ChatThreadPanel ChatPinnedPanel`, so
-// matching the shared class covers both and they cannot drift apart: a thread and
-// a pinned list in the drawer are the same thing in the same slot, and they should
-// look it.
+// No drawer não há largura para segunda coluna, então um painel sobreposto cobre
+// a conversa, como a thread no celular. PinnedPanel renderiza
+// `ChatThreadPanel ChatPinnedPanel`, então a classe compartilhada cobre os dois.
 .ChatDrawer-body {
   position: relative;
 
-  // The embedded search and the channel's thread list join them: the third
-  // and fourth panes that cover the conversation in this slot, wearing the
-  // same panel header, so they are listed here rather than given rules of
-  // their own that could drift. Without this the thread list took a column
-  // beside the conversation and split the drawer in two.
+  // Busca embutida e lista de threads do canal entram junto: são o terceiro e o
+  // quarto painéis desse slot, com o mesmo header. Sem isto a lista de threads
+  // ocupava uma coluna e dividia o drawer.
   .ChatThreadPanel,
   .ChatSearch--embedded,
   .ChatThreadsList--embedded {
@@ -3768,11 +3433,8 @@ body.ChatFullPage {
   }
 }
 
-// Search, as a pane over a conversation rather than a page.
-//
-// The page version is laid out by whatever contains it; here the pane owns the
-// full height of the drawer and its results have to be the only thing that
-// scrolls, or the bar scrolls away from the field it belongs to.
+// Busca como painel sobre a conversa. Aqui o painel ocupa a altura toda do drawer
+// e só os resultados rolam, senão a barra se afasta do campo.
 .ChatSearch--embedded {
   display: flex;
   flex-direction: column;
@@ -3785,9 +3447,8 @@ body.ChatFullPage {
   }
 }
 
-// A username in the chat is a link to the profile, like everywhere else in the
-// forum — but inside a message it must not shout, so it keeps the author's weight
-// and colour and only underlines on hover.
+// Nome de usuário é link para o perfil, mas dentro da mensagem mantém peso e cor
+// do autor e só sublinha no hover.
 .ChatUserLink {
   color: inherit;
 
@@ -3798,10 +3459,9 @@ body.ChatFullPage {
   }
 }
 
-// ── Channel picture ──────────────────────────────────────────────────────────
-// An uploaded image standing in for the channel's emoji. Sized to the emoji it
-// replaces so the sidebar, browse list and header keep their alignment — see
-// utils/channelIcon.tsx, which is the only thing that renders it.
+// ── Imagem do canal ──
+// Imagem enviada no lugar do emoji, no tamanho dele para sidebar, Browse e header
+// manterem o alinhamento. Só utils/channelIcon.tsx a renderiza.
 .ChatChannelIcon-image {
   width: 1.25em;
   height: 1.25em;
@@ -3810,7 +3470,7 @@ body.ChatFullPage {
   vertical-align: middle;
 }
 
-// ── Channel picture, on the form ─────────────────────────────────────────────
+// ── Imagem do canal no formulário ──
 .ChatChannelForm-imageRow {
   .chat-flex-row(10px);
   margin-top: 6px;
@@ -3838,10 +3498,9 @@ body.ChatFullPage {
   }
 }
 
-// ── Bookmarks ────────────────────────────────────────────────────────────────
-// Saved messages, across every channel. Rows are summaries rather than message
-// rows: the useful action here is "take me to it", not reply or pin, so the row is
-// a link with the bookmark toggle beside it. See BookmarksList.tsx.
+// ── Favoritos ──
+// Mensagens salvas de todos os canais. As linhas são resumos: a ação útil é "me
+// leve até ela", então a linha é um link com o toggle de favorito ao lado.
 .ChatBookmarks {
   .chat-scroll-y();
   flex: 1;
@@ -3888,8 +3547,8 @@ body.ChatFullPage {
     color: var(--avocado-text-dark);
   }
 
-  // The channel is what tells you where a saved message came from, so it reads as
-  // a label rather than as more grey metadata.
+  // O canal diz de onde veio a mensagem salva; aparece como label, não como mais
+  // metadado cinza.
   &-channel {
     padding: 1px 6px;
     border-radius: @chat-radius-pill;
@@ -3904,19 +3563,17 @@ body.ChatFullPage {
     word-break: break-word;
   }
 
-  // Filled, because every row here is bookmarked by definition — an outline would
-  // read as "not saved" next to a list of saved things.
+  // Preenchido: toda linha aqui é favorita, e um contorno pareceria "não salvo".
   &-remove {
     flex-shrink: 0;
     color: var(--primary-color);
   }
 }
 
-// ── The moderation queue ─────────────────────────────────────────────────────
-// Cards rather than the flat rows the bookmark list uses. A bookmark is one line
-// you scan past; a report is three separate things — who filed it, what they
-// said, and the message itself — and a moderator has to read all three before
-// deciding. Boxing each report keeps those three from bleeding into the next.
+// ── Fila de moderação ──
+// Cards em vez de linhas: uma denúncia tem três partes (quem denunciou, o que disse
+// e a mensagem) que o moderador precisa ler, e o box impede que se misturem com a
+// próxima.
 .ChatFlags {
   .chat-scroll-y();
   flex: 1;
@@ -3949,8 +3606,8 @@ body.ChatFullPage {
       margin-bottom: 0;
     }
 
-    // Handled reports stay legible but stop competing with the open ones for
-    // attention — they are only on screen when explicitly asked for.
+    // Denúncias resolvidas continuam legíveis sem competir com as abertas; só
+    // aparecem quando pedidas.
     &--resolved {
       opacity: 0.6;
     }
@@ -3982,9 +3639,7 @@ body.ChatFullPage {
     color: var(--avocado-muted-label);
   }
 
-  // The reason, as a pill. Pushed to the end of the row because it is the thing a
-  // moderator triages on: scanning a column of reasons is how you decide what to
-  // open first.
+  // Motivo como pílula, no fim da linha: é por ele que o moderador faz a triagem.
   &-reason {
     margin-left: auto;
     flex-shrink: 0;
@@ -3996,8 +3651,7 @@ body.ChatFullPage {
     color: var(--avocado-text-dark);
   }
 
-  // The two that describe conduct rather than content. Marked so they stand out
-  // of a column of otherwise identical pills.
+  // Os dois que descrevem conduta, não conteúdo, destacados na coluna de pílulas.
   &-reason--harassment,
   &-reason--inappropriate {
     background: var(--alert-error-bg, #d83e3e);
@@ -4012,8 +3666,7 @@ body.ChatFullPage {
     line-height: 1.5;
     color: var(--avocado-text-dark);
     word-break: break-word;
-    // The reporter typed this into a textarea; their line breaks are part of what
-    // they said.
+    // O denunciante digitou isto numa textarea; as quebras de linha fazem parte.
     white-space: pre-wrap;
   }
 
@@ -4079,7 +3732,7 @@ body.ChatFullPage {
   }
 }
 
-// ── The report dialog ────────────────────────────────────────────────────────
+// ── Diálogo de denúncia ──
 .ChatFlagModal {
   &-target {
     padding: @chat-space-sm @chat-space-md;
@@ -4102,8 +3755,8 @@ body.ChatFullPage {
     }
   }
 
-  // Buttons rather than a select: five options is few enough to show at once, and
-  // seeing the whole list is what stops someone picking "other" by default.
+  // Botões em vez de select: cinco opções cabem de uma vez, e ver a lista inteira
+  // evita escolher "outro" por padrão.
   &-reasons {
     .chat-flex-row(@chat-space-sm);
     flex-wrap: wrap;
@@ -4133,21 +3786,16 @@ body.ChatFullPage {
   }
 }
 
-// ── ramon/stickers ───────────────────────────────────────────────────────────
-// Stickers needs nothing from this extension to work: chat content runs through
-// core's shared formatter, which is where stickers registers its replacements,
-// and its MutationObserver on document.body hydrates the animated ones wherever
-// they appear. What it cannot know is how large they should be here.
-//
-// A post is a page-width column; a chat bubble is a narrow strip in a sidebar. A
-// sticker sized for the former fills the latter entirely, so it is capped to
-// roughly four lines of message text and allowed to shrink with the panel.
+// ── ramon/stickers ──
+// O conteúdo do chat passa pelo formatter compartilhado do core, onde o stickers
+// registra suas substituições, e o MutationObserver dele no body hidrata os
+// animados. Falta só o tamanho: um sticker dimensionado para post enche a bolha,
+// então o teto é de umas quatro linhas de texto e encolhe com o painel.
 .ChatMessage-content {
   .Sticker {
     display: inline-block;
-    // Escaped: Less treats `min()` as its own function and refuses mixed units,
-    // which does not fail the rule — it fails the whole stylesheet compile. The
-    // tilde passes the string through to CSS untouched.
+    // Escapado: o Less trata `min()` como função própria e recusa unidades mistas, o
+    // que derruba a compilação inteira. O til passa a string direto para o CSS.
     max-width: ~"min(220px, 60%)";
     vertical-align: middle;
 
@@ -4160,15 +3808,13 @@ body.ChatFullPage {
     }
   }
 
-  // A message that is nothing but a sticker reads as an image, not as text with
-  // an image in it, so it gets the full width the bubble allows.
+  // Mensagem que é só um sticker lê como imagem e ganha a largura toda da bolha.
   .Sticker:only-child {
     max-width: ~"min(260px, 80%)";
   }
 }
 
-// The composer preview and the pinned strip are one line tall; a sticker there
-// has to sit on that line rather than setting its own height.
+// Preview do composer e faixa de fixadas têm uma linha; o sticker se encaixa nela.
 .ChatComposer-context-preview,
 .ChatChannel-pinnedBar {
   .Sticker {
@@ -4181,11 +3827,10 @@ body.ChatFullPage {
   }
 }
 
-// ── Image viewer ─────────────────────────────────────────────────────────────
-// Opened by clicking an image in the stream. Deliberately not a Flarum Modal: the
-// modal manager centres a white dialog of constrained width, and what this wants
-// is the opposite — the picture as large as the viewport allows, on a dark
-// backdrop, with the chrome out of the way. See ImageLightbox.tsx.
+// ── Visualizador de imagem ──
+// Abre ao clicar numa imagem do stream. Não é Modal do Flarum: o gerenciador
+// centraliza um diálogo branco de largura limitada, e aqui a imagem deve ser o
+// maior possível sobre fundo escuro.
 .ChatLightbox {
   position: fixed;
   inset: 0;
@@ -4197,8 +3842,7 @@ body.ChatFullPage {
   padding: 64px @chat-space-lg @chat-space-lg;
 
   background: rgba(0, 0, 0, 0.85);
-  // The overlay itself takes focus so Escape works without the user clicking
-  // anything first.
+  // O overlay recebe o foco para o Escape funcionar sem clicar antes.
   outline: 0;
 
   &-image {
@@ -4206,8 +3850,7 @@ body.ChatFullPage {
     max-height: 100%;
     object-fit: contain;
     border-radius: @chat-radius-sm;
-    // A dark image on a dark backdrop needs an edge to read as a picture rather
-    // than as a hole in the overlay.
+    // Imagem escura sobre fundo escuro precisa de borda para não parecer um buraco.
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
   }
 
@@ -4261,8 +3904,7 @@ body.ChatFullPage {
     }
   }
 
-  // Sit over the image rather than beside it, so a wide picture still uses the
-  // full width of the viewport.
+  // Sobre a imagem, não ao lado, para uma imagem larga usar a largura toda.
   &-nav {
     position: absolute;
     top: 50%;
@@ -4285,8 +3927,7 @@ body.ChatFullPage {
   }
 }
 
-// The thumbnail in the stream is now a button, which brings a UA border and
-// padding it has no use for.
+// A miniatura é um botão e herda borda e padding do navegador.
 .ChatUploads-imageButton {
   display: block;
   padding: 0;
@@ -4296,26 +3937,19 @@ body.ChatFullPage {
   line-height: 0;
 }
 
-// ── ramon/verified ───────────────────────────────────────────────────────────
-// The badge beside an author's name. The extension ships its own styling; only
-// the fit inside the chat is ours — a post header is a page-width column, and the
-// drawer is a ~340px strip.
+// ── ramon/verified ──
+// Selo ao lado do nome do autor. A extensão traz o próprio estilo; aqui só o
+// encaixe no chat, que no drawer é uma faixa de ~340px.
 .ChatMessage-meta .VerifiedBadge--chat {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   line-height: 1;
 
-  // The extension gives the badge `margin-left: 5px`, which is right in a post
-  // header — there it follows the name directly, with no gap of its own. This row
-  // is a flex line that already spaces its children by 8px, so that margin only
-  // applied to one side: 13px before the badge, 8px after it.
-  //
-  // Zeroed, then pulled back on both sides — see the anchor rule below for the
-  // arithmetic. Kept identical to it on purpose: this block and that one style
-  // the two trees VerifiedBadge can render, and which one you get depends on a
-  // setting. Different margins here would move the badge when that setting is
-  // toggled.
+  // A extensão dá `margin-left: 5px`, certo num header de post. Esta linha flex já
+  // espaça os filhos em 8px, então zera e puxa dos dois lados (conta na regra do
+  // anchor abaixo). Idêntica a ela de propósito: as duas cobrem as duas árvores que
+  // o VerifiedBadge renderiza conforme uma setting.
   margin: 0 -@chat-space-xs;
 
   svg,
@@ -4326,115 +3960,78 @@ body.ChatFullPage {
   }
 }
 
-// The same neutralisation, for the element the badge actually is on a default
-// install.
+// Mesma neutralização para o elemento que o selo é numa instalação padrão. Com o
+// tooltip ligado (o padrão, a setting é lida como `!== false`) o VerifiedBadge
+// devolve `<VerifiedPopover>` e descarta o className, então `VerifiedBadge--chat`
+// não chega ao DOM e sobra um `.VerifiedPopover-anchor` com `margin-left: 5px`.
+// Corrigido aqui porque só esta linha flex é nossa.
 //
-// The rule above matches nothing there. `VerifiedBadge` renders one of two
-// trees: with the tooltip off it emits a `.VerifiedBadge` span carrying whatever
-// className it was handed, and with the tooltip on — which is the default, since
-// the setting is read as `!== false` — it returns `<VerifiedPopover>` and drops
-// the className on the way. So `VerifiedBadge--chat` never reaches the DOM for
-// most installs, and what sits in the row is a `.VerifiedPopover-anchor` still
-// carrying the extension's base `margin-left: 5px`.
-//
-// Fixed here rather than in ramon/verified: that 5px is the right default in a
-// post header, where the badge follows the name with no gap of its own. It is
-// only wrong inside this flex row, and this row is ours.
-// Pulled in on both sides, by the same amount. The row's gap is 8px; taking
-// 4px off each edge leaves 4px before the badge and 4px after it, so the mark
-// sits evenly between the name and the timestamp instead of hugging one of
-// them. Negating only the left gave 4px before and 8px after, which read as the
-// badge belonging to the name — true of a post header, where it follows the
-// name with no gap at all, and wrong in a row that spaces every child.
+// Puxa 4px de cada lado do gap de 8px: o selo fica equidistante do nome e do
+// horário.
 .ChatMessage-meta .VerifiedPopover-anchor {
   flex-shrink: 0;
   margin: 0 -@chat-space-xs;
 
-  // Pinned to the same box the plain badge above uses. The component sets
-  // `--verified-size` inline from a forum setting, so without this the badge is
-  // one size when the tooltip is off and another when it is on — and the arrow
-  // below, which has to be centred under it, has no width it can count on.
-  // Inline styles outrank a stylesheet, hence `!important`.
+  // Mesmo box do selo simples acima. O componente define `--verified-size` inline
+  // a partir de uma setting; sem isto o tamanho mudaria com o tooltip e a seta não
+  // teria largura confiável. `!important` porque estilo inline vence a folha.
   .VerifiedBadge {
     width: @chat-verified-badge-size !important;
     height: @chat-verified-badge-size !important;
   }
 }
 
-// The popover it opens is 320px wide and centred on the badge, which is right in
-// a post and wrong here: the drawer is barely wider than that, and centring on a
-// badge sitting near the left edge pushes half the panel outside it.
-//
-// Scoped to `.ChatMessage` so nothing changes for posts, where the original
-// geometry is correct.
+// O popover tem 320px e centraliza no selo, certo num post e errado aqui: o drawer
+// mal é mais largo, e centralizar num selo perto da borda esquerda joga metade
+// para fora. Limitado a `.ChatMessage`, nada muda nos posts.
 .ChatMessage .VerifiedPopover {
-  // Narrow enough to sit inside the drawer, which is barely wider than the 320px
-  // the popover uses in a post.
   width: 220px;
-  // Escaped: Less would try to evaluate `min()` itself and reject the mixed
-  // units, taking the whole stylesheet with it.
+  // Escapado: o Less tentaria avaliar `min()` e recusaria as unidades mistas,
+  // derrubando a folha toda.
   max-width: ~"min(220px, calc(100vw - 32px))";
   font-size: @chat-font-meta;
 
-  // Aligned near the badge rather than centred on it, so it grows rightwards
-  // into the panel instead of leftwards out of it.
-  //
-  // Not flush at 0. The arrow cannot sit closer than 16px to the panel's edge
-  // without meeting the rounded corner, so the panel is shifted left by the
-  // difference between that inset and the badge's midpoint — which puts the
-  // arrow back over the badge while keeping it on a straight run of border.
+  // Alinhado perto do selo, não centralizado, para crescer para dentro do painel.
+  // A seta não pode ficar a menos de 16px da borda sem encostar no canto
+  // arredondado, então o painel é deslocado pela diferença entre esse recuo e o meio
+  // do selo.
   left: (@chat-verified-badge-size / 2) - @chat-verified-arrow-inset;
   transform: none;
 
-  // The extension's entry animation hardcodes `translateX(-50%)`, which would
-  // fight the reset above and snap the panel back under the badge for its first
-  // frames. Opacity alone reads the same and cannot move it.
+  // A animação de entrada da extensão fixa `translateX(-50%)`, que brigaria com o
+  // reset acima nos primeiros frames. Só opacity tem o mesmo efeito sem mover.
   animation: none;
 }
 
-// Just the statement, in the chat.
-//
-// The lower half of the popover is an identity card: avatar, username, display
-// name, verification date. In a post header that is useful — the author's avatar
-// is small and far away. In a chat row it repeats what is already on screen
-// immediately to the left, at three times the height of the line it belongs to.
-//
-// What is worth keeping is the one thing the row cannot say: that the account is
-// verified, and where to read what that means.
+// No chat, só a declaração. A metade de baixo do popover é um cartão de
+// identidade que repete o que já está à esquerda na linha; o que vale manter é o
+// que a linha não diz: que a conta é verificada e onde ler o que isso significa.
 .ChatMessage .VerifiedPopover-body {
   display: none;
 }
 
 .ChatMessage .VerifiedPopover-header {
   padding: @chat-space-md;
-  // No divider under it now that there is nothing below to divide from.
+  // Sem divisor, já que não há nada abaixo.
   border-bottom: 0;
 }
 
-// Over the badge, which is where it points from now that the panel no longer
-// centres on it.
-//
-// The inset is the arrow's constraint, not the badge's — see the variable. The
-// panel is offset to suit it, so this stays on a straight run of border and
-// still lands over the mark. Aligning the arrow to the badge directly, at half
-// the badge's width, put it inside the panel's 8px corner radius and it read as
-// though it had come loose from the panel.
-//
-// `translateX(-50%)` is restored from the extension's base rule — dropped, it
-// made `left` mean "the arrow's left edge" instead of "its centre", so the two
-// numbers here would not compose.
+// Sobre o selo. O recuo é restrição da seta (ver a variável) e o painel se
+// desloca para acomodá-lo; alinhar a seta à metade do selo a jogava no raio de 8px
+// do canto. `translateX(-50%)` volta da regra base da extensão: sem ele `left`
+// seria a borda esquerda da seta, não o centro.
 .ChatMessage .VerifiedPopover-arrow {
   left: @chat-verified-arrow-inset;
   transform: translateX(-50%) rotate(45deg);
 }
 
-// ── Sticker picker ───────────────────────────────────────────────────────────
-// The chat's own panel over ramon/stickers' data. See components/StickerPicker.tsx
-// for why it does not reuse that extension's component.
+// ── Seletor de stickers ──
+// Painel próprio sobre os dados do ramon/stickers (o motivo está em
+// components/StickerPicker.tsx).
 .ChatStickerPicker-wrapper {
-  // Mounted on <body> and opened from the drawer's composer, so it must clear
-  // the drawer (composer layer + 5) and a composer brought forward (+ 6): the
-  // dropdown layer core uses for menus over the composer.
+  // Montado no <body> e aberto pelo composer do drawer: precisa passar do drawer
+  // (camada do composer + 5) e do composer trazido para frente (+ 6), a camada que o
+  // core usa para menus sobre o composer.
   z-index: ~"calc(var(--zindex-composer, 1020) + 10)";
 }
 
@@ -4454,16 +4051,12 @@ body.ChatFullPage {
 
   &-grid {
     .chat-scroll-y();
-    // Vertical only. The mixin leaves the horizontal axis at its default, and a
-    // grid whose columns plus gaps round up past the panel — which `auto-fill`
-    // with a minimum width does — then earns a second scrollbar nobody wants.
+    // Só vertical: o mixin deixa o eixo horizontal no padrão, e uma grade `auto-fill`
+    // com largura mínima arredonda para além do painel e ganha uma segunda scrollbar.
     overflow-x: hidden;
     display: grid;
-    // Wide enough for a sticker to be recognisable at a glance — the point of a
-    // picker is choosing by sight, not by reading names.
 
-    // Fills the width with whatever fits, so the panel does not leave a ragged
-    // column on a narrow drawer.
+    // Preenche a largura com o que couber, sem coluna sobrando num drawer estreito.
     grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
     gap: @chat-space-xs;
     max-height: 240px;
@@ -4471,8 +4064,8 @@ body.ChatFullPage {
 
   &-item {
     .chat-flex-center();
-    // Grid items default to `min-width: auto`, which refuses to shrink below
-    // their content and is the other half of the overflow.
+    // Itens de grade têm `min-width: auto` por padrão e não encolhem abaixo do
+    // conteúdo: a outra metade do overflow.
     min-width: 0;
     aspect-ratio: 1;
     padding: @chat-space-xs;
@@ -4486,9 +4079,9 @@ body.ChatFullPage {
       background: var(--chat-row-hover-bg);
     }
 
-    // The item holds the extension's own `.Sticker` markup, which its renderer
-    // fills with a canvas or an <img> depending on the format. Sized here so an
-    // animated sticker and a static one occupy the same cell.
+    // O item contém o markup `.Sticker` da extensão, preenchido com canvas ou <img>
+    // conforme o formato. Dimensionado aqui para animado e estático ocuparem a mesma
+    // célula.
     .Sticker {
       display: block;
       width: 100%;
@@ -4513,10 +4106,9 @@ body.ChatFullPage {
   }
 }
 
-// ── Invitation answers on a notification row ─────────────────────────────────
-// Drawn in the excerpt slot of the "X invited you" notification, in the bell
-// and in the realtime toast alike. Buttons rather than links because the row is
-// itself a link, and an answer must not also follow it.
+// ── Respostas ao convite na notificação ──
+// No trecho da notificação "X convidou você", no sino e no toast realtime. Botões e
+// não links porque a linha já é um link, e responder não pode segui-lo.
 .ChatInviteActions {
   .chat-flex-row(@chat-space-xs);
   flex-wrap: wrap;
@@ -4540,11 +4132,11 @@ body.ChatFullPage {
   }
 }
 
-// The composer, the theme's reply bubble and its floating card come in front
-// of the chat drawer only while they are being used (focus or a press inside
-// them); utils/stacking.ts toggles the class on <html>.
+// Composer, bubble de resposta do tema e seu card flutuante só passam à frente
+// do drawer enquanto em uso (foco ou clique dentro); utils/stacking.ts alterna a
+// classe no <html>.
 html.ChatComposerFront {
-  // `.App-composer` is the fixed layer that actually stacks the composer.
+  // `.App-composer` é a camada fixa que de fato empilha o composer.
   .App-composer,
   #composer,
   #composer .Composer,

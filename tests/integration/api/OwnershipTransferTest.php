@@ -21,15 +21,14 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Passing a channel to another member, end to end, and the moderator
- * promotion notice.
+ * Passar um canal a outro membro, de ponta a ponta, e o aviso de promoção a
+ * moderador.
  *
- * The owner picks a member and receives a code by email; only the code's hash
- * is kept in the database. Once the code is typed, the member receives the
- * request and accepts or declines. If accepted, the member becomes owner and
- * the previous owner becomes a moderator of the channel, in one transaction.
- * Code mistakes count and lock on the fifth, the code expires, and leaving the
- * channel ends the request.
+ * O dono escolhe o membro e recebe um código por e-mail; só o hash fica no
+ * banco. Digitado o código, o membro recebe o pedido e aceita ou recusa. Se
+ * aceitar, vira dono e o anterior vira moderador do canal, numa transação só.
+ * Erros de código contam e travam no quinto, o código expira, e sair do canal
+ * encerra o pedido.
  */
 class OwnershipTransferTest extends TestCase
 {
@@ -121,24 +120,23 @@ class OwnershipTransferTest extends TestCase
 
         $container = $this->app()->getContainer();
 
-        // A fresh install grants `manageOwnChannels` to every member (migration
-        // 2026_09_11_000000), which would make the fixtures' plain members able to
-        // own channels. These tests need them not to, so the grant goes once the
-        // app has seeded the database.
+        // Uma instalação nova dá `manageOwnChannels` a todo membro (migration
+        // 2026_09_11_000000), o que deixaria os membros comuns das fixtures ter
+        // canais. Estes testes precisam que não, então a permissão sai depois que o
+        // app populou o banco.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.manageOwnChannels')
             ->delete();
 
-        // The harness resolves the locale manager before extension extenders
-        // run, so the chat's catalogue is loaded by hand, as MentionEmailTest
-        // explains.
+        // O harness resolve o locale manager antes dos extenders das extensões, então
+        // o catálogo do chat é carregado à mão (ver MentionEmailTest).
         $locales = $container->make(LocaleManager::class);
         $locales->clearCache();
         $locales->addTranslations('en', dirname(__DIR__, 3).'/locale/en.yml');
 
-        // MessageSent rather than MessageSending: the latter is dispatched as
-        // a halting event, and core's own listener answers it first.
+        // MessageSent e não MessageSending: este é despachado como evento halting, e
+        // o listener do próprio core responde primeiro.
         $container->make('events')->listen(MessageSent::class, function (MessageSent $event) {
             $email = $event->sent->getOriginalMessage();
 
@@ -351,7 +349,7 @@ class OwnershipTransferTest extends TestCase
         $this->assertSame(self::PLAIN, (int) $rows[0]->user_id);
         $this->assertSame(self::OWNER, (int) $rows[0]->from_user_id);
         $this->assertSame(self::CHANNEL, (int) $rows[0]->subject_id);
-        $this->assertSame(['channelId' => self::CHANNEL, 'userId' => self::PLAIN], json_decode((string) $rows[0]->data, true));
+        $this->assertEquals(['channelId' => self::CHANNEL, 'userId' => self::PLAIN], json_decode((string) $rows[0]->data, true));
 
         $this->send($this->request('POST', '/api/chat-channels/'.self::CHANNEL.'/moderators/remove', [
             'authenticatedAs' => self::OWNER,

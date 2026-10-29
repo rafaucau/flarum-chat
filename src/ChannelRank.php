@@ -14,8 +14,8 @@ use Flarum\Database\AbstractModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A channel rank. See Rank\RankBook for how ranks become what shows next to
- * each name.
+ * Cargo de um canal. Rank\RankBook transforma cargos no que aparece ao lado
+ * de cada nome.
  *
  * @property int $id
  * @property int $channel_id
@@ -36,7 +36,7 @@ class ChannelRank extends AbstractModel
     public const BUILTIN_MODERATOR = 'moderator';
 
     /**
-     * Owner-created ranks per channel. The built-in ones do not count.
+     * Cargos criados pelo dono por canal; os embutidos não contam.
      */
     public const MAX_PER_CHANNEL = 20;
 
@@ -45,8 +45,8 @@ class ChannelRank extends AbstractModel
     public const COLOR_PATTERN = '/\A#[0-9a-fA-F]{6}\z/';
 
     /**
-     * Only a FontAwesome class, in the short or the long form. It goes into a
-     * `class` attribute, so nothing but letters, digits and hyphens.
+     * Só classe FontAwesome (forma curta ou longa). Vai num atributo `class`,
+     * então só letras, dígitos e hífens.
      */
     public const ICON_PATTERN = '/\A(?:fa[srb]?|fa-(?:solid|regular|brands)) fa-[a-z0-9-]{1,48}\z/';
 
@@ -68,6 +68,7 @@ class ChannelRank extends AbstractModel
         return [self::BUILTIN_OWNER, self::BUILTIN_MODERATOR];
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');

@@ -18,26 +18,22 @@ return [
             $table->unsignedInteger('channel_id');
             $table->unsignedInteger('user_id');
 
-            // Membership: following = appears in the user's sidebar.
+            // following = aparece na sidebar do usuário.
             $table->boolean('following')->default(true);
 
-            // Per-channel notification level, mirroring Discourse:
-            //   2 = always      → notify on every message
-            //   1 = mentions    → notify only on @mention (default)
-            //   0 = never/muted → no notifications at all
+            // Nível de notificação: 2 = sempre, 1 = só menções (padrão), 0 = nunca.
             $table->unsignedTinyInteger('notification_level')->default(1);
 
-            // Suppresses unread badges as well as notifications.
+            // Suprime também os badges de não lidas.
             $table->boolean('muted')->default(false);
 
-            // Read state. unread_count is denormalised so the sidebar can render
-            // badges without counting rows per channel on every draw.
+            // unread_count é desnormalizado para a sidebar não contar linhas por canal.
             $table->unsignedInteger('last_read_message_id')->nullable();
             $table->unsignedInteger('unread_count')->default(0);
             $table->unsignedInteger('unread_mentions_count')->default(0);
             $table->dateTime('last_viewed_at')->nullable();
 
-            // Direct-channel participants can leave without destroying history.
+            // Participantes de canal direto podem sair sem apagar o histórico.
             $table->dateTime('joined_at')->nullable();
             $table->dateTime('left_at')->nullable();
 

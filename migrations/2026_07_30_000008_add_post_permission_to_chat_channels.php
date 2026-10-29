@@ -11,21 +11,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Who may post in a channel.
+ * Quem posta no canal.
  *
- * `all` is the default and means "anyone who can be in the channel", which is what
- * every existing channel already was. `moderators` narrows posting to holders of
- * `ramon-chat.moderate` — administrators included, since they hold every permission
- * — turning the channel into an announcement board that members read but do not
- * write to.
+ * `all` (padrão, como os canais existentes) ou `moderators`, que restringe a quem
+ * tem `ramon-chat.moderate`: um canal de anúncios.
  *
- * A string rather than a boolean: "restricted" would name the current pair of
- * states and then be wrong the moment a third is wanted, and the column would have
- * to be migrated to say what it now means.
- *
- * Independent of `is_private`, which decides who can *see* the channel. The two
- * compose: a private channel only moderators may post in is an announcement channel
- * for an invited audience.
+ * String em vez de boolean para comportar um terceiro estado sem nova migration.
+ * Independente de `is_private`, que decide quem *vê* o canal.
  */
 return [
     'up' => function (Builder $schema) {

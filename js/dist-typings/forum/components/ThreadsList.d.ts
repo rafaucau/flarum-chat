@@ -1,27 +1,20 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type Mithril from "mithril";
-import type Thread from "../../common/models/Thread";
-import type ChatState from "../state/ChatState";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type Mithril from 'mithril';
+import type Thread from '../../common/models/Thread';
+import type ChatState from '../state/ChatState';
 export interface ThreadsListAttrs extends ComponentAttrs {
     state: ChatState;
-    /**
-     * One channel's threads, every one of them, rather than the actor's own
-     * across the chat. From the channel header and the drawer's menu.
-     */
+    /** Todas as threads de um canal, em vez das do usuário em todos os canais. */
     channelId?: number | null;
-    /** Drawn over the conversation in the drawer, with its own header. */
+    /** Desenhado sobre a conversa no drawer, com cabeçalho próprio. */
     embedded?: boolean;
-    /** Dismisses the pane. Required when embedded; ignored otherwise. */
+    /** Fecha o painel. Obrigatório com embedded; ignorado sem. */
     onClose?: () => void;
 }
 /**
- * Threads: the actor's own across every channel, or all of one channel's.
- *
- * The counterpart to the thread panel: the panel reads one thread, this is how
- * you find it again afterwards. Selecting a row opens the panel over its own
- * channel: on the page by routing, in the drawer by setting the thread on the
- * state, since routing from the drawer closes it.
+ * Threads do usuário em todos os canais, ou todas as de um canal. Na página a
+ * linha abre a thread por rota; no drawer, pelo state, porque rotear fecha o drawer.
  */
 export default class ThreadsList extends Component<ThreadsListAttrs> {
     private threads;
@@ -30,9 +23,8 @@ export default class ThreadsList extends Component<ThreadsListAttrs> {
     onbeforeupdate(vnode: Mithril.VnodeDOM<ThreadsListAttrs, this>): void;
     view(): Mithril.Children;
     /**
-     * A title, and in the drawer a way back to the conversation. The page's
-     * sections carry their own title in the toolbar, so only the scoped list
-     * names itself there.
+     * Título e, no drawer, volta para a conversa. Na página só a lista de um canal
+     * tem título; as seções já o mostram na toolbar.
      */
     protected header(): Mithril.Children;
     protected body(): Mithril.Children;

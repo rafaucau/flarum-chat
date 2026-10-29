@@ -1,17 +1,15 @@
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 interface DeclinedData {
     channelId?: number;
     channelName?: string;
     isPrivate?: boolean;
 }
 /**
- * "X declined your invitation to #channel."
+ * "X recusou seu convite para #canal."
  *
- * Sent to the channel's owner and to whoever invited, so a refusal is an answer
- * rather than an invitation that quietly stopped being pending. Clicking opens
- * the channel: the next thing to do about it, if anything, is invite somebody
- * else from its members tab.
+ * Vai para o dono e para quem convidou, para a recusa chegar como resposta.
+ * O clique abre o canal, de onde se convida outra pessoa pela aba de membros.
  */
 export default class ChannelInviteDeclinedNotification extends Notification {
     icon(): string;

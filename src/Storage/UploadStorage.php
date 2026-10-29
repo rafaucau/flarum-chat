@@ -16,17 +16,9 @@ use Psr\Log\LoggerInterface;
 use Ramon\Chat\Upload;
 
 /**
- * Picks the store for an upload.
- *
- * For a new file the rule is short. Private files — a private channel's, a
- * direct conversation's, a restricted category's — always go on the chat's own
- * private disk, whatever is configured: fof/upload's storage is public by
- * design, and Service\UploadPrivacy::requiredFor stays the one rule deciding
- * what is private. Public files go through fof/upload only when the admin chose
- * it AND fof/upload is installed and enabled; otherwise the local public disk.
- *
- * For an existing file the row decides: `storage` records where the bytes went,
- * so a later change of setting never strands what was written before it.
+ * Escolhe o store. Arquivo privado vai sempre para o disco privado do chat, porque
+ * o storage do fof/upload é público; o público vai pelo fof/upload só se o admin
+ * escolheu e a extensão está ligada. Arquivo existente segue o `storage` da linha.
  */
 class UploadStorage
 {
@@ -45,7 +37,7 @@ class UploadStorage
     }
 
     /**
-     * Whether fof/upload can be used as storage right now.
+     * Se o fof/upload pode ser usado agora.
      */
     public function available(): bool
     {
@@ -53,7 +45,7 @@ class UploadStorage
     }
 
     /**
-     * Whether new public files are meant to go through fof/upload.
+     * Se arquivos públicos novos devem ir pelo fof/upload.
      */
     public function usesFof(): bool
     {
@@ -70,8 +62,8 @@ class UploadStorage
     }
 
     /**
-     * @throws StorageFailed when the file is on fof/upload and fof/upload is no
-     *                       longer available.
+     * @throws StorageFailed quando o arquivo está no fof/upload e ele não está
+     *                       mais disponível.
      */
     public function for(Upload $upload): UploadStore
     {
@@ -87,10 +79,9 @@ class UploadStorage
     }
 
     /**
-     * Best effort: every caller is removing the row as well, and a file that
-     * will not go must not keep the rest of a batch published. Logged at error
-     * level, because a remote copy that outlives its row is unreachable by any
-     * later cleanup and only an operator can remove it.
+     * Melhor esforço: quem chama remove a linha também, e um arquivo teimoso não
+     * segura o lote. Log em nível error porque a cópia remota sem linha só sai à
+     * mão.
      */
     public function delete(Upload $upload): bool
     {

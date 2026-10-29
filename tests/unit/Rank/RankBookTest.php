@@ -14,8 +14,8 @@ use Ramon\Chat\ChannelRank;
 use Ramon\Chat\Rank\RankBook;
 
 /**
- * Which rank shows next to each name: owner, then moderator, then the owner's
- * ranks in their order.
+ * Qual rank aparece ao lado de cada nome: dono, depois moderador, depois os
+ * ranks do membro na ordem deles.
  */
 class RankBookTest extends TestCase
 {
@@ -112,8 +112,8 @@ class RankBookTest extends TestCase
     }
 
     /**
-     * @param  array<int, array{0: bool, 1: list<int>}>  $members  user => [moderator, rank ids]
-     * @param  array<int, int>  $positions  rank id => position
+     * @param  array<int, array{0: bool, 1: list<int>}>  $members  usuário => [moderador, ids de rank]
+     * @param  array<int, int>  $positions  id do rank => posição
      * @return array<string, mixed>
      */
     private function book(array $members, array $positions = [10 => 1, 11 => 2]): array

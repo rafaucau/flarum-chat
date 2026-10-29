@@ -15,9 +15,8 @@ return [
         $schema->create('chat_uploads', function (Blueprint $table) {
             $table->increments('id');
 
-            // Null until the composer submits — uploads are created first and
-            // attached on send, so a cancelled composer leaves orphans for the
-            // retention command to sweep.
+            // Null até o envio: o upload vem antes da mensagem, e o comando de retenção
+            // remove os órfãos de composers cancelados.
             $table->unsignedInteger('message_id')->nullable();
             $table->unsignedInteger('user_id')->nullable();
 
@@ -26,8 +25,7 @@ return [
             $table->string('mime_type', 120)->nullable();
             $table->unsignedInteger('size')->default(0);
 
-            // Populated for images so the client can reserve layout space and
-            // avoid reflow as attachments load.
+            // Preenchidos em imagens para o cliente reservar espaço e evitar reflow.
             $table->unsignedInteger('width')->nullable();
             $table->unsignedInteger('height')->nullable();
 

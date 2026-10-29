@@ -27,26 +27,27 @@ use Ramon\Chat\Event\FlagsChanged;
 use Ramon\Chat\Message;
 use Ramon\Chat\MessageFlag;
 use Ramon\Chat\Notification\MessageFlaggedBlueprint;
+use Ramon\Chat\Service\ActionThrottle;
 use Tobyz\JsonApiServer\Context as OriginalContext;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
 /**
- * The chat's own moderation queue.
- *
- * flarum/flags cannot hold these: its `flags.post_id` is a non-nullable foreign key
- * into `posts`, so a chat message id is rejected by the database itself. Rather
- * than alter another extension's schema — which its next release would undo — the
- * chat keeps its own reports, with the same shape: who reported, why, in their own
- * words, and whether a moderator has dealt with it.
+ * Fila de moderação própria do chat. O flarum/flags não serve: `flags.post_id` é
+ * FK não nula para `posts`, e alterar o schema de outra extensão seria desfeito na
+ * próxima versão dela.
  *
  * @extends AbstractDatabaseResource<MessageFlag>
  */
 class MessageFlagResource extends AbstractDatabaseResource
 {
+    /** Denúncias que alguém fora da moderação registra por hora. */
+    public const FLAGS_PER_HOUR = 20;
+
     public function __construct(
         protected Translator $translator,
         protected NotificationSyncer $notifications,
-        protected Events $events
+        protected Events $events,
+        protected ActionThrottle $throttle
     ) {
     }
 
@@ -61,13 +62,9 @@ class MessageFlagResource extends AbstractDatabaseResource
     }
 
     /**
-     * Reports are moderator-only reading, and only about messages the moderator can
-     * already see.
-     *
-     * The permission is asserted on the endpoints too. This is the second layer: a
-     * scope is what protects anything that reaches the query by another route, and
-     * an authorisation that exists in exactly one place is one edit away from not
-     * existing.
+     * Denúncias só para moderadores, e só de mensagens que eles já veem. Os
+     * endpoints também conferem a permissão; o scope é a segunda camada, para
+     * qualquer outro caminho até a query.
      */
     public function scope(Builder $query, OriginalContext $context): void
     {
@@ -79,49 +76,26 @@ class MessageFlagResource extends AbstractDatabaseResource
             return;
         }
 
-        // The queue inherits message visibility rather than defining its own. What
-        // that grants is ScopeChannelVisibility's decision, and for a moderator it
-        // includes private channels — the same trade the rest of the extension
-        // makes, on the grounds that a room they cannot see is one they cannot
-        // moderate. The point here is that the queue never grants *more* than
-        // reading the channel would.
-        //
-        // `whereVisibleTo` is registered by Flarum's ScopeVisibilityTrait as a
-        // model scope, which static analysis cannot see on a builder instance —
-        // every other call site in this extension is baselined for the same reason.
-        //
+        // A fila herda a visibilidade das mensagens (ScopeChannelVisibility) e
+        // nunca dá *mais* do que ler o canal daria. `whereVisibleTo` é scope do
+        // ScopeVisibilityTrait, invisível para a análise estática.
         // @phpstan-ignore method.notFound (Flarum model scope)
         $query->whereHas('message', fn (Builder $q) => $q->whereVisibleTo($actor));
 
-        // No open/resolved default here. This scope guards `Show`, where a report
-        // fetched by id is one someone asked for by name — hiding it because it had
-        // been resolved would be a 404 for a row that exists. The listing's default
-        // is the client's to state, through `filter[resolved]`.
+        // Sem default aberta/resolvida: este scope também guarda o `Show`, e
+        // esconder a resolvida daria 404 para uma linha que existe. A listagem
+        // escolhe pelo `filter[resolved]`.
     }
 
     /**
-     * What each reported message needs loaded before it is serialised.
+     * O que cada mensagem denunciada precisa carregado antes de serializar. São
+     * relações lidas dentro de getters e policies do MessageResource, que o
+     * EloquentBuffer não cobre; sem isto seriam ~7 queries por denúncia, 50 por
+     * página. O prefixo `message.` as repassa via `getEagerLoadsFor('message')`.
      *
-     * The reports' own relations are not here and do not need to be: `user`,
-     * `message` and `resolvedBy` are declared relationships, so EloquentBuffer
-     * batches them across the whole page. What it does not cover is a relation
-     * read from inside a field getter or a policy, and that is all of these.
-     *
-     * They are the *included message's* relations rather than this resource's.
-     * Every reported message is serialised by MessageResource, which resolves
-     * nine capability flags — each running a policy that reads `channel` — plus
-     * the reaction, mention, bookmark and flag summaries. None of that goes
-     * through the buffer, so unloaded it was about seven queries per report, and
-     * this endpoint pages fifty at a time.
-     *
-     * The `message.` prefix is what carries them across: when the buffer loads
-     * the reported messages, `Endpoint::getEagerLoadsFor('message')` hands it
-     * everything named here beneath that relation.
-     *
-     * `message` itself is where-loaded through the visibility scope, ahead of
-     * these. `loadMissing()` on a nested path loads a missing first segment
-     * unconstrained, and the buffer skips a relation that is already loaded, so
-     * without it the reported message would bypass MessageResource's scope.
+     * `message` vem antes, filtrado pelo scope de visibilidade: `loadMissing()`
+     * num path aninhado carrega o primeiro segmento sem restrição, e o buffer pula
+     * relação já carregada, o que furaria o scope do MessageResource.
      */
     protected const EAGER_LOAD = [
         'message.user.groups',
@@ -159,9 +133,8 @@ class MessageFlagResource extends AbstractDatabaseResource
                     fn ($query, Context $context) => $query->where('user_id', $context->getActor()->id)
                 ),
 
-            // Filing a report. Not a plain Create with writable fields: the message
-            // has to be resolved and authorised before anything is written, and the
-            // reporter is the actor rather than whoever the body names.
+            // Registrar denúncia. Não é um Create simples: a mensagem é resolvida e
+            // autorizada antes de gravar, e quem denuncia é o ator, não o body.
             Endpoint\Create::make()
                 ->authenticated()
                 ->action(function (Context $context) {
@@ -190,12 +163,20 @@ class MessageFlagResource extends AbstractDatabaseResource
 
                     $detail = trim((string) Arr::get($attributes, 'detail', ''));
 
-                    // `other` says nothing on its own, so it is the one reason that
-                    // has to be explained. The rest are self-describing and the
-                    // field stays optional — a required box is a reason not to file.
+                    // `other` não diz nada sozinho, então só ele exige explicação;
+                    // campo obrigatório nos outros desestimularia a denúncia.
                     if ($reason === 'other' && $detail === '') {
                         throw new ValidationException([
                             'detail' => $this->translator->trans('ramon-chat.api.flag_detail_required'),
+                        ]);
+                    }
+
+                    // Cada denúncia (ou reabertura de uma resolvida) avisa a
+                    // moderação; sem limite, desfazer a decisão viraria um loop.
+                    if (! $actor->hasPermission('ramon-chat.moderate')
+                        && ! $this->throttle->attempt('flag.'.$actor->id, self::FLAGS_PER_HOUR, 3600)) {
+                        throw new ValidationException([
+                            'reason' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
                         ]);
                     }
 
@@ -205,11 +186,8 @@ class MessageFlagResource extends AbstractDatabaseResource
                         ->where('user_id', $actor->id)
                         ->first();
 
-                    // Reporting the same message twice is not a stronger signal.
-                    // The second filing updates the first rather than failing on the
-                    // unique index, so someone who picked the wrong reason can
-                    // correct it — and a message reported, cleared, then reported
-                    // again reopens instead of being silently swallowed.
+                    // Denunciar de novo atualiza a primeira em vez de bater no índice
+                    // único: corrige o motivo e reabre uma denúncia já resolvida.
                     $flag = $existing ?? new MessageFlag();
 
                     $flag->message_id = $message->id;
@@ -229,10 +207,8 @@ class MessageFlagResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['user', 'message']),
 
-            // Closing a report without acting on the message: the moderator looked
-            // and decided there was nothing to do. Deleting the message is a
-            // separate act on a separate endpoint, and the listener closes the
-            // reports about it when it happens.
+            // Fecha a denúncia sem mexer na mensagem. Apagar a mensagem é outro
+            // endpoint, e o listener fecha as denúncias dela.
             Endpoint\Endpoint::make('resolve')
                 ->route('POST', '/{id}/resolve')
                 ->authenticated()
@@ -260,8 +236,8 @@ class MessageFlagResource extends AbstractDatabaseResource
         return [
             Schema\Str::make('reason'),
 
-            // The reporter's own words, so they carry whatever they typed. Rendered
-            // as text by the client, never as HTML — see FlaggedMessagesList.
+            // Texto livre de quem denunciou: o cliente exibe como texto, nunca HTML
+            // (ver FlaggedMessagesList).
             Schema\Str::make('detail')->nullable(),
 
             Schema\Integer::make('messageId'),
@@ -279,28 +255,16 @@ class MessageFlagResource extends AbstractDatabaseResource
     }
 
     /**
-     * Tells the administrators a report has arrived.
+     * Avisa os admins de uma denúncia nova. Só admins: `ramon-chat.moderate` pode
+     * estar com um grupo grande, que acha a denúncia na fila e no badge.
      *
-     * Administrators rather than everyone who can moderate. Reading the queue and
-     * being interrupted by it are different things: a forum can hand
-     * `ramon-chat.moderate` to a wide group and still want the alert to reach the
-     * few people who answer for the place. Everyone else finds the report where
-     * they would look for it anyway — the queue and its badge.
-     *
-     * Candidates come from SQL, not from a scan. The first version of this loaded
-     * every user and asked each one for the permission and the visibility check:
-     * on a forum with six thousand accounts that is six thousand model hydrations
-     * and six thousand queries per report, and the request simply never returned.
-     * The visibility check survives, but it now runs over the handful of people
-     * who could possibly qualify.
-     *
-     * The reporter is excluded — they know.
+     * Os candidatos vêm do SQL; percorrer todos os usuários seria uma query por
+     * conta. Quem denunciou fica de fora.
      */
     protected function notifyAdministrators(MessageFlag $flag, Message $message, User $reporter): void
     {
-        // Built as statements rather than one chain: `whereExists` is typed as
-        // returning the lower-level query builder, and the chained result would
-        // hand back plain rows instead of User models.
+        // Em instruções separadas, não encadeado: `whereExists` é tipado como query
+        // builder base, e a cadeia devolveria linhas cruas em vez de User.
         $query = User::query();
         $query->where('users.id', '!=', $reporter->id);
         $query->whereExists(function ($sub) {
@@ -312,10 +276,8 @@ class MessageFlagResource extends AbstractDatabaseResource
 
         $recipients = $query
             ->get()
-            // An administrator holds every permission, but not every channel is
-            // theirs to read — a tag-bound channel still inherits its category's
-            // `viewForum`. Naming a channel in an alert to someone who cannot open
-            // it would leak the room.
+            // Admin tem toda permissão, mas canal com tag herda o `viewForum` da
+            // categoria. Citar o canal a quem não o abre vazaria a sala.
             ->filter(fn (User $user) => $user->can('view', $message))
             ->values()
             ->all();

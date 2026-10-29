@@ -1,12 +1,9 @@
-import type Channel from "../../common/models/Channel";
+import type Channel from '../../common/models/Channel';
 /**
- * How long a message may be in this channel.
- *
- * One helper because three places need the same answer and must not disagree:
- * the composer's counter, the composer's send guard, and the channel form's
- * "currently" hint. A channel's own value wins; null or zero means it follows
- * the forum, which is what the server does in `Channel::maxMessageLength()`.
+ * Tamanho máximo de mensagem no canal. Compartilhado pelo contador, pela trava de
+ * envio e pela dica do formulário, que não podem divergir. Nulo ou zero segue o
+ * fórum, como `Channel::maxMessageLength()` no servidor.
  */
 export declare function resolveMaxMessageLength(channel?: Channel | null): number;
-/** The forum-wide setting, for channels that do not override it. */
+/** Configuração do fórum, para canais que não a sobrescrevem. */
 export declare function forumMaxMessageLength(): number;

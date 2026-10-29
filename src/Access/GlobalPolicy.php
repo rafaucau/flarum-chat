@@ -14,27 +14,10 @@ use Flarum\User\User;
 use Ramon\Chat\Service\ChannelOwnership;
 
 /**
- * Global chat abilities.
- *
- * ## Why these return a definite bool, unlike the model policies
- *
- * Flarum's Gate falls through to `isAdmin() || hasPermission($ability)` only when
- * *no* policy reached a decision. Abstaining (returning null) therefore hands the
- * outcome to that fallback — and to every other extension's global policy, any of
- * which may define a `can()` catch-all that blanket-allows unknown abilities. On a
- * forum with a few dozen extensions that is not hypothetical: measured here,
- * abstaining made `startDirect` resolve true for a user with no groups, despite the
- * permission being granted to moderators only.
- *
- * The fallback would also be wrong even in isolation. It tests
- * `hasPermission('startDirect')` — the *ability* name — whereas the permission
- * actually stored is `ramon-chat.startDirect`. So it can never legitimately grant
- * this; it can only leak it.
- *
- * These gates are therefore authoritative: they answer true or false and never
- * abstain. `hasPermission()` is used rather than `can()` for the same reason — it
- * reads the actor's groups directly (short-circuiting for admins) instead of
- * re-entering the Gate.
+ * Abilities globais do chat. Ao contrário das policies de model, sempre respondem
+ * true ou false: abster-se entrega a decisão ao fallback do Gate e ao `can()`
+ * genérico de outras extensões, que pode liberar ability desconhecida. O fallback
+ * ainda testaria o nome da ability, não a permissão `ramon-chat.*` gravada.
  */
 class GlobalPolicy extends AbstractPolicy
 {
@@ -44,19 +27,9 @@ class GlobalPolicy extends AbstractPolicy
     }
 
     /**
-     * Opening the chat at all.
-     *
-     * The ability is `useChat` while the permission remains `ramon-chat.use`,
-     * the same split flarum/messages makes between `sendAnyMessage` and
-     * `dialog.sendMessage`. The two names have to differ because `checkAbility`
-     * dispatches on `method_exists($this, $ability)`, and `ramon-chat.use` is
-     * not a method name — asking the Gate for it therefore matched nothing here
-     * and fell through to the fallback described above, where any other
-     * extension's `can()` catch-all could answer for us.
-     *
-     * With a method to dispatch to, this returns an explicit DENY, and DENY
-     * outranks ALLOW in the Gate's priority order. A blanket-allowing catch-all
-     * elsewhere can no longer open the chat.
+     * Abrir o chat. A ability é `useChat` e a permissão `ramon-chat.use` porque o
+     * Gate despacha por `method_exists`; com um método, o DENY explícito vence o
+     * ALLOW de qualquer catch-all de outra extensão.
      */
     public function useChat(User $actor): bool
     {
@@ -64,8 +37,8 @@ class GlobalPolicy extends AbstractPolicy
     }
 
     /**
-     * Starting a direct message also requires the base chat gate — a group granted
-     * only `startDirect` must not be able to bypass the opt-in.
+     * Exige também o gate base do chat: um grupo só com `startDirect` não contorna
+     * o opt-in.
      */
     public function startDirect(User $actor): bool
     {
@@ -77,9 +50,8 @@ class GlobalPolicy extends AbstractPolicy
     }
 
     /**
-     * Gated by the ownership mode before the permission: with channels in the
-     * administrators' hands, nobody else creates one whatever the grid says, so
-     * an operator who wants that has exactly one switch to set.
+     * O modo de posse vem antes da permissão: com canais nas mãos dos admins,
+     * ninguém mais cria, diga o que disser a grade de permissões.
      */
     public function createChannel(User $actor): bool
     {

@@ -11,23 +11,16 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Per-channel cap on how long a message may be.
+ * Limite de tamanho de mensagem por canal.
  *
- * Nullable, and null means "whatever the forum is set to" — not "unlimited".
- * The forum-wide `ramon-chat.max_message_length` stays the default for every
- * channel that has no opinion, so raising it once still raises it everywhere,
- * and a channel only stops tracking it when someone deliberately gives that
- * channel a number of its own.
+ * Null segue `ramon-chat.max_message_length` do fórum (não é "ilimitado"), então
+ * mudar o do fórum vale para todos os canais sem número próprio.
  *
- * Separate from slow mode even though both are per-channel throttles: slow mode
- * limits how often a person may speak, this limits how much they may say at
- * once. A support room wants long messages and slow turns; an announcements
- * room wants the opposite.
+ * Separado do slow mode: este limita quanto se diz, o outro com que frequência.
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         if ($schema->hasColumn('chat_channels', 'max_message_length')) {
             return;

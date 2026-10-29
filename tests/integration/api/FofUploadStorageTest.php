@@ -31,25 +31,24 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
- * Public attachments stored through fof/upload, private ones never.
+ * Anexos públicos guardados pelo fof/upload; privados, nunca.
  *
- * Two adapters are used. `chat-bucket` is a fake registered through fof/upload's
- * own adapter events, writing to a temporary directory and naming URLs on a host
- * of its own — the shape of an S3 bucket behind a CDN, without the network. The
- * paths that read a remote file back (moving it to the private disk, serving it
- * while it moves) use fof/upload's real `local` adapter, because reading goes
- * through fof/upload's downloader, which fetches anything but `local` over HTTP.
+ * Dois adapters. `chat-bucket` é falso, registrado pelos eventos de adapter do
+ * próprio fof/upload: grava num diretório temporário e gera URLs num host
+ * próprio, o formato de um bucket S3 atrás de CDN, sem rede. Os caminhos que
+ * leem o arquivo de volta (mover para o disco privado, servir durante a mudança)
+ * usam o adapter `local` real, porque a leitura passa pelo downloader do
+ * fof/upload, que busca por HTTP tudo que não é `local`.
  *
- * Every assertion that matters is made on disk and in the database as well as
- * on the API: the API can say "stored elsewhere" about a file that is still
- * sitting in the webroot.
+ * As asserções importantes são feitas no disco e no banco além da API: a API
+ * pode dizer "guardado em outro lugar" sobre um arquivo que continua no webroot.
  */
 class FofUploadStorageTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
     use ResetsVisibilityScopers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     private const MEMBER = 3;
@@ -58,13 +57,13 @@ class FofUploadStorageTest extends TestCase
     private const CH_PUBLIC = 1;
     private const CH_PRIVATE = 2;
 
-    /** A 1×1 transparent PNG. */
+    /** Um PNG 1×1 transparente. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
-    /** Where the fake bucket keeps its bytes for the current test. */
+    /** Onde o bucket falso guarda os bytes no teste atual. */
     private static string $bucketRoot = '';
 
-    /** Set to make the fake bucket refuse every write. */
+    /** Faz o bucket falso recusar toda escrita. */
     private static bool $bucketDown = false;
 
     protected function setUp(): void
@@ -83,8 +82,8 @@ class FofUploadStorageTest extends TestCase
 
         $this->extension('fof-upload', 'ramon-chat');
 
-        // The fake bucket, registered the way any third-party fof/upload adapter
-        // is: announced on Collecting, built on Instantiate.
+        // O bucket falso, registrado como qualquer adapter de terceiro do fof/upload:
+        // anunciado no Collecting, montado no Instantiate.
         $this->extend(
             (new Extend\Event())
                 ->listen(Collecting::class, function (Collecting $event) {
@@ -106,10 +105,9 @@ class FofUploadStorageTest extends TestCase
                 })
         );
 
-        // Before the boot: the settings repository reads them once, when the
-        // application starts, so a later write to the table is never seen. Tests
-        // that need a different value call setting() again before their first
-        // request.
+        // Antes do boot: o repositório de settings os lê uma vez, quando o app sobe,
+        // e não vê gravações posteriores na tabela. Testes que precisam de outro valor
+        // chamam setting() de novo antes da primeira requisição.
         $this->setting('ramon-chat.upload_storage', 'fof-upload');
         $this->setting('ramon-chat.fof_upload_adapter', 'chat-bucket');
 
@@ -157,15 +155,15 @@ class FofUploadStorageTest extends TestCase
         $this->assertFileExists(self::$bucketRoot.'/'.$row->path);
         $this->assertSame(base64_decode(self::PNG), file_get_contents(self::$bucketRoot.'/'.$row->path));
 
-        // Not under the chat's own public disk, by path or by count.
+        // Fora do disco público do chat, por caminho e por contagem.
         $this->assertFileDoesNotExist($this->publicRoot().'/'.$row->path);
         $this->assertSame($before, $this->countFiles($this->publicRoot()));
 
-        // The URL handed out is the bucket's.
+        // A URL entregue é a do bucket.
         $this->assertSame($row->remote_url, $upload['attributes']['url']);
         $this->assertStringStartsWith(FakeBucketAdapter::HOST.'/', $upload['attributes']['url']);
 
-        // And fof/upload never heard of it, so its orphan cleanup cannot take it.
+        // E o fof/upload não sabe dele, então a limpeza de órfãos não o leva.
         $this->assertSame(0, $this->database()->table('fof_upload_files')->count());
     }
 
@@ -188,10 +186,10 @@ class FofUploadStorageTest extends TestCase
 
         $response = $this->sendUpload(self::MEMBER, self::CH_PUBLIC);
 
-        // Refused, and not quietly kept on the local disk instead.
+        // Recusado, e não guardado em silêncio no disco local.
         $this->assertStatus(422, $response);
-        // The translated message, or its key where the test boot has no locale
-        // loaded. Either way the member is told nothing about the bucket.
+        // A mensagem traduzida, ou a chave quando o boot de teste não carrega locale.
+        // De todo jeito o membro não fica sabendo nada do bucket.
         $this->assertMatchesRegularExpression('/upload_storage_failed|could not be stored/', (string) $response->getBody());
         $this->assertStringNotContainsString('chat-bucket', (string) $response->getBody());
         $this->assertSame(0, $this->database()->table('chat_uploads')->count());
@@ -220,6 +218,39 @@ class FofUploadStorageTest extends TestCase
         $this->assertFileDoesNotExist($this->fofLocalRoot().'/'.$remote->path);
     }
 
+    public function test_a_send_that_fails_after_moving_a_bucket_file_leaves_the_bucket_copy(): void
+    {
+        $this->useFofLocalAdapter();
+
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+        $remote = $this->row((int) $upload['id']);
+
+        // Falha logo depois de a linha passar a apontar para a cópia local,
+        // ainda dentro da transação do envio.
+        $this->app()->getContainer()->make('events')->listen('eloquent.saved: '.\Ramon\Chat\Upload::class, function ($row) {
+            if ($row->storage === 'local') {
+                throw new \RuntimeException('falha simulada');
+            }
+        });
+
+        $privateFiles = fn () => glob($this->privateRoot().'/*/*/*') ?: [];
+        $before = $privateFiles();
+
+        $response = $this->send($this->request('POST', '/api/chat-messages', [
+            'authenticatedAs' => self::MEMBER,
+            'json'            => ['data' => ['type' => 'chat-messages', 'attributes' => ['channelId' => self::CH_PRIVATE, 'content' => 'x', 'uploadIds' => [(int) $upload['id']]]]],
+        ]));
+
+        $this->assertSame(500, $response->getStatusCode());
+
+        // A linha voltou a apontar para o bucket, e o arquivo continua lá.
+        $row = $this->row((int) $upload['id']);
+        $this->assertSame('fof', $row->storage);
+        $this->assertSame($remote->path, $row->path);
+        $this->assertFileExists($this->fofLocalRoot().'/'.$remote->path);
+        $this->assertSame($before, $privateFiles(), 'sem cópia local órfã');
+    }
+
     public function test_making_a_channel_private_brings_its_bucket_files_home(): void
     {
         $this->useFofLocalAdapter();
@@ -243,7 +274,7 @@ class FofUploadStorageTest extends TestCase
 
         $this->assertStatus(200, $response);
 
-        // The queue is synchronous here, so the job has already run.
+        // A fila é síncrona aqui, então o job já rodou.
         $row = $this->row((int) $upload['id']);
 
         $this->assertSame('local', $row->storage);
@@ -258,8 +289,7 @@ class FofUploadStorageTest extends TestCase
 
         $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
 
-        // The state between flagging and moving, which the job leaves behind if
-        // the move fails.
+        // O estado entre marcar e mover, que o job deixa se a mudança falhar.
         $this->database()->table('chat_uploads')->where('id', $upload['id'])->update(['is_private' => 1]);
 
         $served = $this->fetch((int) $upload['id'], self::MEMBER);
@@ -282,7 +312,7 @@ class FofUploadStorageTest extends TestCase
         $remote = $this->row((int) $upload['id']);
         $this->sendMessage(self::MEMBER, self::CH_PUBLIC, [(int) $upload['id']]);
 
-        // Flagged, bytes still in the bucket: what three failed tries leave.
+        // Marcado, bytes ainda no bucket: o que três tentativas falhas deixam.
         $this->database()->table('chat_uploads')->where('id', $upload['id'])->update(['is_private' => 1]);
 
         $command = $this->app()->getContainer()->make(PrivatizePendingUploadsCommand::class);
@@ -336,7 +366,7 @@ class FofUploadStorageTest extends TestCase
 
     public function test_discarding_a_pending_local_upload_deletes_its_file_too(): void
     {
-        // The bug this fixes predates fof/upload: the row went, the file stayed.
+        // Vale também sem fof/upload: a linha sai e o arquivo precisa sair junto.
         $this->setting('ramon-chat.upload_storage', 'local');
 
         $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
@@ -367,10 +397,10 @@ class FofUploadStorageTest extends TestCase
         $this->assertSame(0, $this->database()->table('chat_uploads')->count());
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    // ── Helpers ──
 
     /**
-     * fof/upload's real local adapter, for the paths that read a file back.
+     * O adapter local real do fof/upload, para os caminhos que leem o arquivo de volta.
      */
     private function useFofLocalAdapter(): void
     {
@@ -436,7 +466,7 @@ class FofUploadStorageTest extends TestCase
     }
 
     /**
-     * The body travels with a mismatch: a 500 is only diagnosable from it.
+     * O corpo vai junto quando o status não bate: um 500 só se diagnostica por ele.
      */
     private function assertStatus(int $expected, ResponseInterface $response): void
     {

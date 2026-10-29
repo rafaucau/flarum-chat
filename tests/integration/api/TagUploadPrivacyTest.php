@@ -22,17 +22,16 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
- * A category channel's attachments follow its category's privacy, the whole way
- * up the tag hierarchy and after the fact.
+ * Os anexos de um canal de categoria seguem a privacidade da categoria, por
+ * toda a hierarquia de tags e depois do fato.
  *
- * flarum/tags hides a child tag whose parent the reader cannot see, so a channel
- * bound to an open child of a restricted parent is as private as the parent.
- * Its files used to go to the public disk all the same. And a file posted while
- * the category was open stayed public when the channel was rebound to a
- * restricted one, or when the category itself was restricted later.
+ * O flarum/tags esconde a tag filha cujo pai o leitor não vê, então um canal
+ * ligado a uma filha aberta de um pai restrito é tão privado quanto o pai. Um
+ * arquivo enviado com a categoria aberta vira privado quando o canal é religado
+ * a uma restrita ou quando a própria categoria é restringida depois.
  *
- * Every assertion is made on disk: the API can call a file private while it
- * still sits in the webroot.
+ * Toda asserção é feita no disco: a API pode dizer que o arquivo é privado
+ * enquanto ele continua no webroot.
  */
 class TagUploadPrivacyTest extends TestCase
 {
@@ -48,7 +47,7 @@ class TagUploadPrivacyTest extends TestCase
     private const CH_STAFF_CHILD = 2;
     private const CH_OPEN_CHILD = 3;
 
-    /** A 1×1 transparent PNG. */
+    /** Um PNG 1×1 transparente. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
     protected function setUp(): void
@@ -57,7 +56,7 @@ class TagUploadPrivacyTest extends TestCase
 
         $this->resetVisibilityScopers();
 
-        // Tags before the chat: the chat reads from it.
+        // Tags antes do chat: o chat lê dela.
         $this->extension('flarum-tags', 'ramon-chat');
 
         $now = Carbon::now()->toDateTimeString();
@@ -154,7 +153,7 @@ class TagUploadPrivacyTest extends TestCase
 
         $this->assertStatus(200, $response);
 
-        // The queue is synchronous here, so the jobs have already run.
+        // A fila é síncrona aqui, então os jobs já rodaram.
         $this->assertPrivateOnDisk($parentFile, $parentPath);
         $this->assertPrivateOnDisk($childFile, $childPath);
     }
@@ -164,7 +163,7 @@ class TagUploadPrivacyTest extends TestCase
         $id = $this->postFile(self::CH_OPEN_CHILD);
         $path = $this->storedPath($id);
 
-        // What flarum/tags' reorder endpoint does: a bulk update, no model event.
+        // O que o endpoint de reordenar do flarum/tags faz: update em massa, sem evento de model.
         $this->database()->table('tags')->where('id', self::TAG_OPEN_CHILD)->update(['parent_id' => self::TAG_STAFF]);
 
         $this->assertFileExists($this->publicRoot().'/'.$path);
@@ -210,7 +209,7 @@ class TagUploadPrivacyTest extends TestCase
     }
 
     /**
-     * Uploads a file and sends it in a message, as the admin.
+     * Envia um arquivo numa mensagem, como o admin.
      */
     private function postFile(int $channelId): int
     {

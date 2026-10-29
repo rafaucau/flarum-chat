@@ -18,8 +18,8 @@ return [
             $table->unsignedInteger('thread_id');
             $table->unsignedInteger('user_id');
 
-            // Same scale as chat_channel_user.notification_level. Threads default
-            // to "always" for participants — replying to a thread opts you in.
+            // Mesma escala de chat_channel_user.notification_level. Padrão "sempre":
+            // responder na thread já inscreve.
             $table->unsignedTinyInteger('notification_level')->default(2);
 
             $table->unsignedInteger('last_read_message_id')->nullable();

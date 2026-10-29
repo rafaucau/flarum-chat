@@ -17,7 +17,9 @@ use Ramon\Chat\Message;
 use Ramon\Chat\Service\ChannelOwnership;
 
 /**
- * @see ChannelPolicy for why these methods return `?bool` rather than `bool`.
+ * Permissões sobre mensagens.
+ *
+ * @see ChannelPolicy sobre por que os métodos retornam `?bool` e não `bool`.
  */
 class MessagePolicy extends AbstractPolicy
 {
@@ -29,20 +31,9 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Answered from the message in hand wherever possible, and memoised either way.
-     *
-     * `edit`, `delete`, `react`, `flag`, `bookmark` and `viewRevisions` all fall
-     * through to here, and the message resource resolves every one of them for
-     * every row. Asking the database whether a row you are already holding is
-     * visible was fifty `EXISTS` queries — each carrying the channel visibility
-     * subquery — on every page of a channel.
-     *
-     * A message is visible when its channel is and the row-level rule allows it
-     * (ScopeMessageVisibility). Channel visibility is one memoised answer for the
-     * whole page, so the derived path costs nothing per message.
-     *
-     * The query remains the fallback for a message whose channel is not loaded —
-     * it is the authority, and guessing would be worse than the query it saves.
+     * Respondido a partir da mensagem em mãos e memoizado: o resource resolve
+     * várias abilities que caem aqui para cada linha, e um `EXISTS` por linha
+     * custaria caro. Sem o canal carregado, a query continua sendo a autoridade.
      */
     public function view(User $actor, Message $message): ?bool
     {
@@ -70,9 +61,8 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Only the author rewrites their own words. Moderators may delete, but never
-     * edit, another user's message — silently altering attributed speech is a
-     * different power from removing it, and Discourse draws the same line.
+     * Só o autor edita. Moderadores podem apagar, nunca editar: alterar em silêncio
+     * a fala de alguém é um poder diferente de removê-la.
      */
     public function edit(User $actor, Message $message): ?bool
     {
@@ -94,9 +84,8 @@ class MessagePolicy extends AbstractPolicy
             return false;
         }
 
-        // Rewriting a message is posting it again. Someone who has left the
-        // channel, lost the right to post in it, or had it made read-only kept
-        // the ability to change what everyone still reads under their name.
+        // Editar é postar de novo: quem saiu do canal ou perdeu o direito de
+        // postar não pode mais mudar o que aparece com o nome dele.
         if (! $actor->can('postMessage', $channel)) {
             return false;
         }
@@ -105,11 +94,9 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Moderators may delete anything; so may the channel's owner and the
-     * moderators they appointed, since removing a message from your own room is
-     * the plainest form of looking after it. Restoring stays with moderators: a
-     * deleted message is hidden from everyone but its author and them
-     * (ScopeMessageVisibility), so the creator could not see what to restore.
+     * Moderadores apagam qualquer coisa; o dono do canal e os moderadores dele
+     * também. Restaurar fica com a moderação do chat, porque a mensagem apagada só
+     * é visível para o autor e para ela (ScopeMessageVisibility).
      */
     public function delete(User $actor, Message $message): ?bool
     {
@@ -121,7 +108,9 @@ class MessagePolicy extends AbstractPolicy
             return true;
         }
 
-        if ($message->channel !== null && $this->ownership->moderates($actor, $message->channel)) {
+        if ($message->channel !== null
+            && $this->ownership->moderates($actor, $message->channel)
+            && ! $this->authorOutranks($actor, $message)) {
             return true;
         }
 
@@ -137,21 +126,9 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Removing the row itself, tombstone and all.
-     *
-     * Only on a message that is already deleted. Two steps, deliberately: a
-     * tombstone is reversible and this is not, so the destructive act is never one
-     * click away from a live conversation. It also matches what it is for —
-     * clearing tombstones that have piled up, not moderating in the first place.
-     *
-     * A thread's root is refused. `chat_threads.original_message_id` is a plain
-     * column with no foreign key, so purging the root would leave the thread
-     * pointing at a row that no longer exists; and destroying a branch of the
-     * conversation is not what "tidy up this tombstone" should mean.
-     *
-     * `ramon-chat.moderate` rather than a permission of its own: it already means
-     * "may act on other people's messages here", and this is the strongest form of
-     * an act that permission already grants.
+     * Remove a linha de vez. Só sobre mensagem já apagada, para o ato irreversível
+     * nunca estar a um clique da conversa viva. A raiz de thread é recusada:
+     * `chat_threads.original_message_id` não tem foreign key e ficaria órfã.
      */
     public function forceDelete(User $actor, Message $message): ?bool
     {
@@ -187,18 +164,9 @@ class MessagePolicy extends AbstractPolicy
             return false;
         }
 
-        // Deliberately *not* `postMessage`. Deferring to it made an announcement
-        // channel completely inert: everyone can read it, only moderators may
-        // write, and so nobody else could even acknowledge what was posted. The
-        // point of such a channel is that people read it, and a reaction is the
-        // cheapest way to show they did.
-        //
-        // The other conditions posting checks still apply, because a reaction is
-        // still activity:
-        //  - the channel has to accept it (a closed or archived one does not);
-        //  - the actor has to be able to see the message;
-        //  - the actor has to be in the channel, for the same reason posting
-        //    requires it — a link is not membership.
+        // Não é `postMessage`: num canal de anúncios só moderadores escrevem, e
+        // reagir é como os demais mostram que leram. O resto vale igual: o canal
+        // aceita mensagens, a mensagem é visível e o ator é membro.
         if (! $channel->acceptsMessages()) {
             return false;
         }
@@ -224,15 +192,8 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Reporting a message to the moderators.
-     *
-     * Refused on your own message — there is nobody to tell — and on a message
-     * already deleted, whose report would arrive about something no longer there.
-     * System messages have no author to hold responsible.
-     *
-     * Moderators are not excluded: someone who may act on this channel may still
-     * find a message in a channel they do not watch, and filing it is how it
-     * reaches whoever does.
+     * Denunciar à moderação. Recusado na própria mensagem, na apagada e na de
+     * sistema (sem autor a responsabilizar). Moderadores também podem denunciar.
      */
     public function flag(User $actor, Message $message): ?bool
     {
@@ -267,17 +228,9 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Starting a thread off a reply.
-     *
-     * Three things have to hold, and they are deliberately separate concerns:
-     * threading is enabled on the channel (an admin decision per channel), the
-     * actor may post there at all, and the actor holds `ramon-chat.createThread`.
-     *
-     * The last is its own right because branching a conversation is a structural
-     * act, not just another message: a thread reshapes how everyone else reads the
-     * channel. A community may want everyone replying but only a subset splitting
-     * the conversation up. Replying *inside* an existing thread stays a plain
-     * `postMessage`, so this gates only who may open a new one.
+     * Abrir uma thread a partir de uma mensagem: threads ligadas no canal, direito
+     * de postar e `ramon-chat.createThread`. Responder dentro de uma thread que já
+     * existe é só `postMessage`.
      */
     public function createThread(User $actor, Message $message): ?bool
     {
@@ -287,9 +240,7 @@ class MessagePolicy extends AbstractPolicy
             return false;
         }
 
-        // Threads are one level deep. A message that already belongs to one cannot
-        // be branched again: that includes a thread's own root, which has its
-        // thread already and shows an indicator rather than a branch button.
+        // Threads têm um nível só, e a raiz já tem a sua.
         if ($message->thread_id !== null) {
             return false;
         }
@@ -307,9 +258,7 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * Pinning is editorial, not moderation: it decides what everyone in the channel
-     * sees first. Held behind its own permission (administrators by default) and
-     * refused on messages there is no point pinning.
+     * Fixar é editorial, não moderação: tem permissão própria (admins por padrão).
      */
     public function pin(User $actor, Message $message): ?bool
     {
@@ -317,11 +266,7 @@ class MessagePolicy extends AbstractPolicy
             return false;
         }
 
-        // Thread replies are pinnable too. They are not in the channel window — the
-        // channel filter keeps only thread roots — but the pinned list asks for
-        // `includeThreadReplies`, so a pin made inside a thread is still reachable
-        // from the channel's pinned panel. An answer worth pinning is often in a
-        // thread precisely because that is where the discussion happened.
+        // Respostas de thread também: a lista de fixadas pede `includeThreadReplies`.
         return $actor->hasPermission('ramon-chat.pinMessage') ? true : false;
     }
 
@@ -331,7 +276,7 @@ class MessagePolicy extends AbstractPolicy
     }
 
     /**
-     * An unset or zero window means edits never expire.
+     * Janela vazia ou zero: a edição nunca expira.
      */
     protected function withinEditWindow(Message $message): bool
     {
@@ -343,5 +288,32 @@ class MessagePolicy extends AbstractPolicy
 
         return $message->created_at !== null
             && $message->created_at->greaterThan(Carbon::now()->subMinutes($minutes));
+    }
+
+    /**
+     * A mesma hierarquia de `removeMember`: quem modera o canal não apaga a
+     * mensagem de admins e moderadores do chat, e um moderador do canal não apaga
+     * a do dono nem a de outro moderador.
+     */
+    protected function authorOutranks(User $actor, Message $message): bool
+    {
+        $author = $message->user;
+
+        if ($author === null || (int) $author->id === (int) $actor->id) {
+            return false;
+        }
+
+        if ($author->isAdmin() || $author->hasPermission('ramon-chat.moderate')) {
+            return true;
+        }
+
+        $channel = $message->channel;
+
+        if ($channel === null || $this->ownership->controls($actor, $channel)) {
+            return false;
+        }
+
+        return (int) $channel->creator_id === (int) $author->id
+            || $channel->membershipFor($author)?->isModerator() === true;
     }
 }

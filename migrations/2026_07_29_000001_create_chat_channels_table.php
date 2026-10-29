@@ -15,8 +15,8 @@ return [
         $schema->create('chat_channels', function (Blueprint $table) {
             $table->increments('id');
 
-            // 'category' channels are bound to a tag and inherit its permissions.
-            // 'direct' channels are 1:1 or group DMs with an explicit member list.
+            // 'category': ligado a uma tag, herda as permissões dela.
+            // 'direct': DM 1:1 ou em grupo, com lista explícita de membros.
             $table->string('type', 20)->default('category');
 
             $table->string('name', 100)->nullable();
@@ -24,8 +24,7 @@ return [
             $table->text('description')->nullable();
             $table->string('emoji', 60)->nullable();
 
-            // Bound tag (flarum/tags). Null for direct channels and for
-            // channels created while tags is disabled.
+            // Tag vinculada (flarum/tags). Null em canais diretos ou criados sem tags.
             $table->unsignedInteger('tag_id')->nullable();
 
             // open | closed | archived
@@ -33,22 +32,22 @@ return [
 
             $table->boolean('threading_enabled')->default(false);
 
-            // Auto-join every existing and future user (Discourse "default channel").
+            // Inclui todo usuário atual e futuro.
             $table->boolean('auto_join')->default(false);
 
-            // Channel-wide mute of @here/@all for noisy channels.
+            // Silencia @here/@all no canal todo.
             $table->boolean('allow_channel_wide_mentions')->default(true);
 
             $table->unsignedInteger('creator_id')->nullable();
 
-            // Denormalised counters, maintained by the message pipeline so the
-            // channel list never needs an aggregate per row.
+            // Contadores desnormalizados, mantidos no envio, para a lista de canais
+            // não agregar por linha.
             $table->unsignedInteger('messages_count')->default(0);
             $table->unsignedInteger('user_count')->default(0);
             $table->unsignedInteger('last_message_id')->nullable();
             $table->dateTime('last_message_at')->nullable();
 
-            // Archival target: the discussion the transcript was posted to.
+            // Discussão onde a transcrição foi postada ao arquivar.
             $table->unsignedInteger('archived_discussion_id')->nullable();
             $table->dateTime('archived_at')->nullable();
             $table->unsignedInteger('archived_by_id')->nullable();
@@ -62,9 +61,8 @@ return [
             $table->index('tag_id');
             $table->index('last_message_at');
 
-            // No foreign key on tag_id on purpose: flarum/tags is an optional
-            // dependency, so the `tags` table may not exist at install time.
-            // Orphaned bindings are pruned by Listener\PruneOrphanedChannels.
+            // Sem FK em tag_id: flarum/tags é opcional e a tabela `tags` pode não existir.
+            // Vínculos órfãos são podados por Listener\PruneOrphanedChannels.
             $table->foreign('creator_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('archived_by_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('deleted_by_id')->references('id')->on('users')->nullOnDelete();

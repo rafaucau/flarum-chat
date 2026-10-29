@@ -11,26 +11,17 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Reporting a message, as a right of its own.
+ * Denunciar mensagem como direito próprio.
  *
- * Seeded to MEMBER: reporting is what an ordinary member does when they see
- * something wrong, and a moderation queue nobody may file into is furniture. It is
- * still revocable, because the queue is only useful while the reports in it are,
- * and a community with a persistent bad-faith reporter needs a way to stop them
- * without silencing them everywhere.
+ * Semeado a MEMBER, mas revogável para lidar com quem denuncia de má-fé sem
+ * silenciá-lo em tudo. *Ler* a fila é `ramon-chat.moderate`.
  *
- * *Reading* the queue is `ramon-chat.moderate`, which already exists and already
- * means "may act on other people's messages here".
- *
- * The seed only runs when the group exists: a forum may have deleted it, and
- * `group_permission.group_id` is an FK to `groups`, so inserting blindly aborts
- * the whole extension's activation with SQLSTATE[23000]. Same guard that
- * `Migration::addPermissions` applies.
+ * Só semeia se o grupo existir: `group_permission.group_id` é FK para `groups`
+ * e inserir às cegas aborta a ativação (SQLSTATE[23000]).
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $db = $schema->getConnection();
 

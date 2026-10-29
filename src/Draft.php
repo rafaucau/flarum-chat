@@ -15,10 +15,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * An unsent composer draft, scoped to a channel or to a thread within it.
- *
- * Drafts are server-side rather than localStorage-only so they survive across
- * devices, which is the behaviour Discourse users expect.
+ * Rascunho do composer, por canal ou por thread. Fica no servidor para valer
+ * entre dispositivos.
  *
  * @property int $id
  * @property int $user_id
@@ -37,32 +35,33 @@ class Draft extends AbstractModel
 
     public $timestamps = true;
 
-
     protected $casts = [
         'user_id'    => 'integer',
         'channel_id' => 'integer',
         'thread_id'  => 'integer',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Thread, $this> */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'thread_id');
     }
 
     /**
-     * Upserts the draft for a scope. MySQL treats NULL as distinct in unique
-     * indexes, so channel-level drafts (thread_id IS NULL) are de-duplicated
-     * here rather than by the table constraint.
+     * Upsert do rascunho. O MySQL trata NULL como distinto em índice único, então
+     * rascunhos de canal (thread_id NULL) são deduplicados aqui, não pela tabela.
      */
     public static function store(User $user, Channel $channel, ?Thread $thread, ?string $content): ?static
     {

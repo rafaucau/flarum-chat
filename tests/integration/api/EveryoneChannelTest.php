@@ -14,13 +14,12 @@ use Flarum\Testing\integration\TestCase;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A channel open to everyone, IRC style.
+ * Um canal aberto a todos, estilo IRC.
  *
- * Reported from a forum with 400k accounts: "Automatically add all users" wrote
- * a membership row for each of them inside the request that created the
- * channel, and the forum crawled. Everyone who can see such a channel is now in
- * it without a row of their own — a row appears only once they do something
- * that needs one, such as reading the channel or leaving it.
+ * Gravar uma membership por conta na requisição que cria o canal trava um fórum
+ * com 400 mil contas. Quem pode ver um canal assim está nele sem linha própria;
+ * a linha só aparece quando a pessoa faz algo que precisa dela, como ler o
+ * canal ou sair.
  */
 class EveryoneChannelTest extends TestCase
 {
@@ -258,8 +257,8 @@ class EveryoneChannelTest extends TestCase
         $this->post($channelId, 3, 'one');
         $this->post($channelId, 3, 'two');
 
-        // Nothing per member is written on send. Incrementing a counter on every
-        // row was one UPDATE across the whole channel for each message.
+        // Nada por membro é gravado no envio: incrementar um contador em cada linha
+        // seria um UPDATE no canal inteiro a cada mensagem.
         $this->assertSame(
             0,
             (int) $this->database()->table('chat_channel_user')
@@ -347,9 +346,8 @@ class EveryoneChannelTest extends TestCase
             ->where('user_id', 3)
             ->update(['is_moderator' => 1]);
 
-        // The creator and the channel's moderators. Listing everyone who has
-        // read a general channel is a list of the forum, and serialising it was
-        // what kept the members tab from ever loading.
+        // O criador e os moderadores. Listar todos que leram um canal geral é listar
+        // o fórum, e serializar isso impediria a aba de membros de carregar.
         $this->assertSame([1, 3], $this->listedMembers($channelId, 2));
     }
 
@@ -369,13 +367,13 @@ class EveryoneChannelTest extends TestCase
     {
         $channelId = $this->createChannel(true);
 
-        // Administrators hold every permission, `mentionChannelWide` included.
+        // Admins têm toda permissão, inclusive `mentionChannelWide`.
         $this->assertFalse($this->channelAs($channelId, 1)['canMentionChannelWide']);
 
         $messageId = $this->post($channelId, 1, '@all the forum is moving tonight');
 
-        // In a channel for everyone, @all is the whole forum: one message would
-        // notify and badge every account.
+        // Num canal para todos, @all é o fórum inteiro: uma mensagem notificaria e
+        // marcaria toda conta.
         $this->assertSame(
             0,
             $this->database()->table('chat_message_mentions')
@@ -407,7 +405,7 @@ class EveryoneChannelTest extends TestCase
 
         $this->post($channelId, 1, '@all heads up');
 
-        // One placeholder per member broke the send past 65,535 members.
+        // Um placeholder por membro quebraria o envio acima de 65.535 membros.
         $this->assertSame([], $listed);
 
         $counts = $this->database()->table('chat_channel_user')

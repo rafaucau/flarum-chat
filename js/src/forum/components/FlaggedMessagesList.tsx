@@ -1,42 +1,36 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import Avatar from "flarum/common/components/Avatar";
-import humanTime from "flarum/common/helpers/humanTime";
-import username from "flarum/common/helpers/username";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import Avatar from 'flarum/common/components/Avatar';
+import humanTime from 'flarum/common/helpers/humanTime';
+import username from 'flarum/common/helpers/username';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Message from "../../common/models/Message";
-import type MessageFlag from "../../common/models/MessageFlag";
-import type ChatState from "../state/ChatState";
-import { MessageStreamSkeleton } from "./Skeletons";
-import { messagePreview } from "../../common/utils/preview";
-import { authorAvatar, authorName } from "../utils/bot";
+import type Message from '../../common/models/Message';
+import type MessageFlag from '../../common/models/MessageFlag';
+import type ChatState from '../state/ChatState';
+import { MessageStreamSkeleton } from './Skeletons';
+import { messagePreview } from '../../common/utils/preview';
+import { authorAvatar, authorName } from '../utils/bot';
 
 export interface FlaggedMessagesListAttrs extends ComponentAttrs {
   state: ChatState;
 }
 
 /**
- * The chat's moderation queue.
+ * Fila de moderação do chat.
  *
- * flarum/flags cannot back this: its `flags.post_id` is a non-nullable foreign key
- * into `posts`, so a chat message id is refused by the database. Rather than alter
- * another extension's schema, the chat keeps its own reports — same shape, same
- * two decisions at the end of each one: the message stays, or it goes.
- *
- * Rows are summaries, as in BookmarksList: a full ChatMessage draws reply, edit and
- * pin actions from its own capability flags, and none of those are what a moderator
- * came here to do.
+ * Não usa flarum/flags: `flags.post_id` é FK não nula para `posts`. Linhas são
+ * resumos, como em BookmarksList.
  */
 export default class FlaggedMessagesList extends Component<FlaggedMessagesListAttrs> {
   private flags: MessageFlag[] = [];
   private loading = true;
-  /** Id of the flag whose row is mid-request, so only that row shows a spinner. */
+  /** Denúncia com requisição em andamento, para só essa linha mostrar spinner. */
   private working: number | null = null;
-  /** Whether resolved reports are shown alongside the open ones. */
+  /** Mostra também as denúncias resolvidas. */
   private showResolved = false;
 
   oninit(vnode: Mithril.Vnode<FlaggedMessagesListAttrs>): void {
@@ -46,15 +40,12 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   view(): Mithril.Children {
-    // Reading the queue is `ramon-chat.moderate`. The route is reachable by
-    // anyone who may use the chat, so the component says no rather than showing
-    // an empty list that looks like "no reports".
-    if (!app.forum.attribute<boolean>("canModerateChat")) {
+    // A rota é acessível a qualquer usuário do chat; sem `ramon-chat.moderate`
+    // recusa em vez de mostrar uma lista vazia que pareceria "sem denúncias".
+    if (!app.forum.attribute<boolean>('canModerateChat')) {
       return (
         <div className="ChatFlags">
-          <div className="ChatBrowse-empty">
-            {app.translator.trans("ramon-chat.forum.flags.forbidden")}
-          </div>
+          <div className="ChatBrowse-empty">{app.translator.trans('ramon-chat.forum.flags.forbidden')}</div>
         </div>
       );
     }
@@ -62,21 +53,19 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     return (
       <div className="ChatFlags">
         <div className="ChatFlags-header">
-          <h3 className="ChatFlags-title">
-            {app.translator.trans("ramon-chat.forum.flags.title")}
-          </h3>
+          <h3 className="ChatFlags-title">{app.translator.trans('ramon-chat.forum.flags.title')}</h3>
 
           <Button
-            className={classList("Button Button--flat ChatFlags-toggle", {
-              "ChatFlags-toggle--active": this.showResolved,
+            className={classList('Button Button--flat ChatFlags-toggle', {
+              'ChatFlags-toggle--active': this.showResolved,
             })}
-            icon={this.showResolved ? "fas fa-eye" : "far fa-eye"}
+            icon={this.showResolved ? 'fas fa-eye' : 'far fa-eye'}
             onclick={() => {
               this.showResolved = !this.showResolved;
               this.load();
             }}
           >
-            {app.translator.trans("ramon-chat.forum.flags.show_resolved")}
+            {app.translator.trans('ramon-chat.forum.flags.show_resolved')}
           </Button>
         </div>
 
@@ -91,11 +80,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     if (this.flags.length === 0) {
       return (
         <div className="ChatBrowse-empty">
-          {app.translator.trans(
-            this.showResolved
-              ? "ramon-chat.forum.flags.empty_all"
-              : "ramon-chat.forum.flags.empty",
-          )}
+          {app.translator.trans(this.showResolved ? 'ramon-chat.forum.flags.empty_all' : 'ramon-chat.forum.flags.empty')}
         </div>
       );
     }
@@ -111,8 +96,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
 
     return (
       <div
-        className={classList("ChatFlags-row", {
-          "ChatFlags-row--resolved": resolved,
+        className={classList('ChatFlags-row', {
+          'ChatFlags-row--resolved': resolved,
         })}
         key={flag.id()}
       >
@@ -120,55 +105,32 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
           <Avatar user={flag.user()} className="Avatar" />
 
           <div className="ChatFlags-reporter-meta">
-            <span className="ChatFlags-reporter-name">
-              {username(flag.user())}
-            </span>
-            {at ? (
-              <span className="ChatFlags-time">{humanTime(at)}</span>
-            ) : null}
+            <span className="ChatFlags-reporter-name">{username(flag.user())}</span>
+            {at ? <span className="ChatFlags-time">{humanTime(at)}</span> : null}
           </div>
 
-          <span
-            className={`ChatFlags-reason ChatFlags-reason--${flag.reason()}`}
-          >
-            {app.translator.trans(
-              `ramon-chat.forum.flag.reasons.${flag.reason()}`,
-            )}
+          <span className={`ChatFlags-reason ChatFlags-reason--${flag.reason()}`}>
+            {app.translator.trans(`ramon-chat.forum.flag.reasons.${flag.reason()}`)}
           </span>
         </div>
 
-        {/* The reporter's own words, as a text node. Mithril escapes it; putting
-            it through m.trust would let a report body carry markup into the one
-            screen a moderator has to read. */}
-        {flag.detail() ? (
-          <div className="ChatFlags-detail">{flag.detail()}</div>
-        ) : null}
+        {/* Nó de texto, escapado pelo Mithril. Nunca m.trust aqui. */}
+        {flag.detail() ? <div className="ChatFlags-detail">{flag.detail()}</div> : null}
 
-        {message ? (
-          this.target(message)
-        ) : (
-          <div className="ChatFlags-gone">
-            {app.translator.trans("ramon-chat.forum.flags.message_gone")}
-          </div>
-        )}
+        {message ? this.target(message) : <div className="ChatFlags-gone">{app.translator.trans('ramon-chat.forum.flags.message_gone')}</div>}
 
         <div className="ChatFlags-actions">
           {message ? (
-            <Button
-              className="Button Button--flat"
-              icon="fas fa-arrow-right"
-              onclick={() => this.open(message)}
-            >
-              {app.translator.trans("ramon-chat.forum.flags.go_to")}
+            <Button className="Button Button--flat" icon="fas fa-arrow-right" onclick={() => this.open(message)}>
+              {app.translator.trans('ramon-chat.forum.flags.go_to')}
             </Button>
           ) : null}
 
           {resolved ? (
             <span className="ChatFlags-resolvedBy">
-              {app.translator.trans("ramon-chat.forum.flags.resolved_by", {
-                // Not `user`: the translator reserves that key, extracts it and
-                // runs username() on it itself — which crashed on the vnode this
-                // already is.
+              {app.translator.trans('ramon-chat.forum.flags.resolved_by', {
+                // Não `user`: o translator reserva essa chave e roda username() nela,
+                // o que quebra com um vnode.
                 moderator: username(flag.resolvedBy()),
               })}
             </span>
@@ -182,9 +144,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
                   loading={this.working === id}
                   onclick={() => this.deleteMessage(flag, message)}
                 >
-                  {app.translator.trans(
-                    "ramon-chat.forum.flags.delete_message",
-                  )}
+                  {app.translator.trans('ramon-chat.forum.flags.delete_message')}
                 </Button>
               ) : null,
 
@@ -195,7 +155,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
                 loading={this.working === id}
                 onclick={() => this.resolve(flag)}
               >
-                {app.translator.trans("ramon-chat.forum.flags.dismiss")}
+                {app.translator.trans('ramon-chat.forum.flags.dismiss')}
               </Button>,
             ]
           )}
@@ -210,21 +170,14 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     return (
       <div className="ChatFlags-target">
         <div className="ChatFlags-target-meta">
-          {authorAvatar(message, "Avatar Avatar--small")}
+          {authorAvatar(message, 'Avatar Avatar--small')}
           <span className="ChatFlags-target-author">{authorName(message)}</span>
-          {channel ? (
-            <span className="ChatFlags-target-channel">
-              {channel.displayName()}
-            </span>
-          ) : null}
+          {channel ? <span className="ChatFlags-target-channel">{channel.displayName()}</span> : null}
         </div>
 
-        {/* Plain text again, and for the same reason as the modal: the reported
-            content is what may be wrong, and this list is read by a person. */}
+        {/* Texto puro, como no modal: o conteúdo denunciado pode ser o problema. */}
         <div className="ChatFlags-target-excerpt">
-          {message.isDeleted()
-            ? app.translator.trans("ramon-chat.forum.flags.message_deleted")
-            : messagePreview(message, 240)}
+          {message.isDeleted() ? app.translator.trans('ramon-chat.forum.flags.message_deleted') : messagePreview(message, 240)}
         </div>
       </div>
     );
@@ -235,16 +188,12 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     m.redraw();
 
     try {
-      const results = (await app.store.find("chat-message-flags", {
-        // Always stated, never omitted. The server applies no default of its own —
-        // it cannot, because a default in the searcher's query could not be undone
-        // by a filter that runs after it — so a bare listing would return the
-        // history too. Sending it either way keeps the two views honest.
-        //
-        // A `filter[...]` rather than a plain query parameter because Flarum 2
-        // rejects any parameter it does not recognise.
-        filter: { resolved: this.showResolved ? "1" : "0" },
-        sort: "-createdAt",
+      const results = (await app.store.find('chat-message-flags', {
+        // Sempre enviado: o servidor não tem default (um filtro posterior não
+        // desfaria um default do searcher). É `filter[...]` porque o Flarum 2
+        // rejeita parâmetros que não conhece.
+        filter: { resolved: this.showResolved ? '1' : '0' },
+        sort: '-createdAt',
         page: { limit: 50 },
       })) as unknown as MessageFlag[];
 
@@ -252,10 +201,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     } catch {
       this.flags = [];
 
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.flags.load_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.flags.load_failed'));
     } finally {
       this.loading = false;
       m.redraw();
@@ -263,9 +209,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Opens the channel the reported message lives in, and its thread when it has
-   * one — a thread reply is not in the channel window, so routing to the channel
-   * alone would land somewhere the message is not.
+   * Abre o canal e, se houver, a thread: uma resposta de thread não está na janela
+   * do canal.
    */
   protected open(message: Message): void {
     const channelId = message.channelId();
@@ -277,11 +222,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
     this.attrs.state.setActiveChannel(channelId);
     this.attrs.state.activeThreadId = threadId ?? null;
 
-    m.route.set(
-      threadId
-        ? app.route("chat.thread", { id: channelId, threadId })
-        : app.route("chat.channel", { id: channelId }),
-    );
+    m.route.set(threadId ? app.route('chat.thread', { id: channelId, threadId }) : app.route('chat.channel', { id: channelId }));
   }
 
   protected async resolve(flag: MessageFlag): Promise<void> {
@@ -292,16 +233,13 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-message-flags/${id}/resolve`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-message-flags/${id}/resolve`,
       });
 
       this.afterResolved(flag);
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.flags.action_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.flags.action_failed'));
     } finally {
       this.working = null;
       m.redraw();
@@ -309,23 +247,11 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Deletes the reported message. The server closes every open report about it in
-   * the same breath — see ResolveFlagsOnModeration — so this row is done too.
+   * Apaga a mensagem denunciada; o servidor fecha junto todas as denúncias abertas
+   * dela (ResolveFlagsOnModeration).
    */
-  protected async deleteMessage(
-    flag: MessageFlag,
-    message: Message,
-  ): Promise<void> {
-    if (
-      !confirm(
-        app.translator.trans(
-          "ramon-chat.forum.message.delete_confirm",
-          {},
-          true,
-        ),
-      )
-    )
-      return;
+  protected async deleteMessage(flag: MessageFlag, message: Message): Promise<void> {
+    if (!confirm(app.translator.trans('ramon-chat.forum.message.delete_confirm', {}, true))) return;
 
     const id = Number(flag.id());
 
@@ -334,12 +260,11 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
 
     try {
       await app.request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages/${message.id()}/delete`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages/${message.id()}/delete`,
       });
 
-      // Always a moderator removal: this is the moderation queue, and the
-      // author cannot reach it.
+      // Sempre remoção por moderador: o autor não acessa a fila.
       message.pushAttributes({
         isDeleted: true,
         content: null,
@@ -349,10 +274,7 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
 
       this.afterResolved(flag);
     } catch {
-      app.alerts.show(
-        { type: "error" },
-        app.translator.trans("ramon-chat.forum.message.delete_failed"),
-      );
+      app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.message.delete_failed'));
     } finally {
       this.working = null;
       m.redraw();
@@ -360,8 +282,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
   }
 
   /**
-   * Drops the row from the open queue, or marks it in place when resolved reports
-   * are on screen — removing it there would hide the very thing being shown.
+   * Remove a linha da fila aberta, ou a marca no lugar quando as resolvidas estão
+   * visíveis.
    */
   protected afterResolved(flag: MessageFlag): void {
     flag.pushAttributes({ isResolved: true, resolvedAt: new Date() });
@@ -370,10 +292,8 @@ export default class FlaggedMessagesList extends Component<FlaggedMessagesListAt
       this.flags = this.flags.filter((f) => f.id() !== flag.id());
     }
 
-    // Keep the sidebar badge honest without a round trip.
-    const count = Number(
-      app.forum.attribute<number>("chatOpenFlagsCount") ?? 0,
-    );
+    // Atualiza o badge da sidebar sem nova requisição.
+    const count = Number(app.forum.attribute<number>('chatOpenFlagsCount') ?? 0);
 
     app.forum.pushAttributes({ chatOpenFlagsCount: Math.max(0, count - 1) });
   }

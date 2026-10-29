@@ -25,32 +25,22 @@ use Ramon\Chat\Webhook;
 use Tobyz\JsonApiServer\Context as OriginalContext;
 
 /**
- * Inbound webhooks, administered from the admin panel.
- *
- * Admin-only throughout: the whole resource is gated on `isAdmin()` rather than on
- * a chat permission, because a webhook posts *as the forum* into a channel and its
- * key bypasses the normal session. That is an installation-level capability, not a
- * moderation one.
- *
- * The key itself is `$hidden` on the model. It is exposed here on create and on an
- * explicit rotate, and never in a listing — a key that shows up in every index
- * response ends up in logs and screenshots.
+ * Webhooks de entrada, geridos no painel admin. Tudo exige `isAdmin()`: o webhook
+ * posta *como o fórum* e a chave dispensa sessão. A chave é `$hidden` no model e
+ * só aparece na criação e no rotate, nunca na listagem (iria parar em logs).
  *
  * @extends AbstractDatabaseResource<Webhook>
  */
 class WebhookResource extends AbstractDatabaseResource
 {
     /**
-     * Set by the rotate action so the field getters know the key in this response
-     * is newly minted and may be shown.
-     *
-     * An instance property rather than something read off the endpoint: Api\Context
-     * exposes `creating()`/`listing()` and friends but no stable way to identify a
-     * custom endpoint, and `withInternal()` returns a copy that the serialiser
-     * never sees. The resource is resolved once per request, so this is scoped to
-     * exactly the response being built.
+     * O webhook que o rotate acabou de salvar, para os getters saberem que a chave
+     * é nova e pode sair. Propriedade de instância porque o Api\Context não
+     * identifica endpoint custom, e `withInternal()` devolve uma cópia que o
+     * serializer não vê. Guarda a instância, não um booleano: o resource vive
+     * entre requests, e a marca ligada mostraria as chaves na próxima listagem.
      */
-    protected bool $keyJustMinted = false;
+    protected ?Webhook $minted = null;
 
     public function __construct(
         protected Translator $translator,
@@ -58,9 +48,9 @@ class WebhookResource extends AbstractDatabaseResource
     ) {
     }
 
-    protected function keyVisible(Context $context): bool
+    protected function keyVisible(Webhook $webhook, Context $context): bool
     {
-        return $context->creating() || $this->keyJustMinted;
+        return $context->creating() || $this->minted === $webhook;
     }
 
     public function type(): string
@@ -75,8 +65,8 @@ class WebhookResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, OriginalContext $context): void
     {
-        // Belt and braces alongside the per-endpoint checks: even a mistakenly
-        // unguarded endpoint cannot leak rows to a non-admin.
+        // Reforço às checagens por endpoint: um endpoint sem trava por engano não
+        // vaza linhas para quem não é admin.
         if (! $context->getActor()->isAdmin()) {
             $query->whereRaw('1 = 0');
         }
@@ -110,8 +100,8 @@ class WebhookResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->visible(fn (Webhook $webhook, Context $context) => $context->getActor()->isAdmin()),
 
-            // Rotating invalidates whatever is configured on the sending side, so
-            // it is a deliberate action rather than a side effect of an update.
+            // Rotacionar invalida a configuração do lado que envia, então é ação
+            // explícita, não efeito de um update.
             Endpoint\Endpoint::make('rotate')
                 ->route('POST', '/{id}/rotate')
                 ->authenticated()
@@ -123,7 +113,7 @@ class WebhookResource extends AbstractDatabaseResource
                     $webhook->key = Webhook::generateKey();
                     $webhook->save();
 
-                    $this->keyJustMinted = true;
+                    $this->minted = $webhook;
 
                     return $webhook;
                 })
@@ -144,7 +134,7 @@ class WebhookResource extends AbstractDatabaseResource
                 ->writable()
                 ->maxLength(255),
 
-            // Overrides for how a delivered message is attributed in the stream.
+            // Como a mensagem entregue aparece atribuída no stream.
             Schema\Str::make('username')
                 ->nullable()
                 ->writable()
@@ -173,9 +163,8 @@ class WebhookResource extends AbstractDatabaseResource
                     $webhook->channel_id = $channel->id;
                 }),
 
-            // Who deliveries are posted as: an administrator's account, or null for
-            // the chat's bot. Restricted to admins because a webhook key is not a
-            // session; whoever holds it speaks as this account.
+            // Autor das entregas: conta de um admin, ou null para o bot. Só admins,
+            // porque quem tem a chave fala como essa conta.
             Schema\Integer::make('userId')
                 ->nullable()
                 ->writable()
@@ -201,18 +190,16 @@ class WebhookResource extends AbstractDatabaseResource
             Schema\DateTime::make('lastDeliveredAt')->nullable(),
             Schema\DateTime::make('createdAt'),
 
-            // Only ever populated right after the key is minted: on create and on
-            // rotate. A listing returns null, so the key cannot be harvested from a
-            // cached index response, a log, or a screenshot of the webhook list.
+            // Só preenchido logo após gerar a chave (create e rotate). Na listagem
+            // é null, para a chave não ser colhida de cache, log ou screenshot.
             Schema\Str::make('key')
                 ->nullable()
-                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($context) ? $webhook->key : null),
+                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($webhook, $context) ? $webhook->key : null),
 
-            // The full URL to configure on the sending side, so an admin never has
-            // to assemble it by hand from a key and a route pattern.
+            // URL completa para configurar no lado que envia.
             Schema\Str::make('url')
                 ->nullable()
-                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($context)
+                ->get(fn (Webhook $webhook, Context $context) => $this->keyVisible($webhook, $context)
                     ? $this->url->to('api')->route('chat.webhooks.deliver', ['key' => $webhook->key])
                     : null),
 
@@ -235,8 +222,8 @@ class WebhookResource extends AbstractDatabaseResource
     {
         $webhook = new Webhook();
 
-        // Explicit defaults: an unset boolean serialises as null, and an unset key
-        // would make the webhook undeliverable.
+        // Defaults explícitos: boolean não setado sai null, e sem chave o webhook
+        // não recebe nada.
         $webhook->key = Webhook::generateKey();
         $webhook->active = true;
         $webhook->deliveries_count = 0;

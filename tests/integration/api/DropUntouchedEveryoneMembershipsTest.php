@@ -13,12 +13,11 @@ use Carbon\Carbon;
 use Flarum\Testing\integration\TestCase;
 
 /**
- * The repair migration for the rows "add all users" wrote before a channel for
- * everyone stopped needing one per member.
+ * A migration que limpa as linhas que "adicionar todos" gravava, de quando um
+ * canal para todos ainda precisava de uma por membro.
  *
- * Driven by invoking the migration's `up` directly, like
- * PurgeIneligibleMembershipsTest: the harness migrates during setup, before
- * there is any old state to find.
+ * Chama o `up` da migration direto, como PurgeIneligibleMembershipsTest: o
+ * harness migra no setup, antes de haver estado antigo para achar.
  */
 class DropUntouchedEveryoneMembershipsTest extends TestCase
 {
@@ -54,18 +53,18 @@ class DropUntouchedEveryoneMembershipsTest extends TestCase
                 ['rank_id' => 1, 'user_id' => 8, 'channel_id' => self::EVERYONE, 'created_at' => $now],
             ],
             'chat_channel_user' => [
-                // The creator, whose row is the channel's ownership.
+                // O criador, cuja linha é a posse do canal.
                 $this->membership(self::EVERYONE, 1),
-                // Never touched: the rows the old setting wrote for everyone.
+                // Nunca tocadas: as linhas que a configuração antiga gravava para todos.
                 $this->membership(self::EVERYONE, 2),
                 $this->membership(self::EVERYONE, 3, ['unread_count' => 40]),
-                // Each of these holds something its owner would lose.
+                // Cada uma guarda algo que o dono perderia.
                 $this->membership(self::EVERYONE, 4, ['last_read_message_id' => 10]),
                 $this->membership(self::EVERYONE, 5, ['muted' => 1]),
                 $this->membership(self::EVERYONE, 6, ['following' => 0, 'left_at' => $now]),
                 $this->membership(self::EVERYONE, 7, ['is_moderator' => 1]),
                 $this->membership(self::EVERYONE, 8),
-                // Untouched, but in channels that still need their rows.
+                // Intocadas, mas em canais que ainda precisam das linhas.
                 $this->membership(self::ORDINARY, 2),
                 $this->membership(self::PRIVATE, 2),
             ],
@@ -139,7 +138,7 @@ class DropUntouchedEveryoneMembershipsTest extends TestCase
     {
         $this->migrate();
 
-        // 1, 4, 5, 7 and 8 are live and visible; 6 has left.
+        // 1, 4, 5, 7 e 8 estão ativos e visíveis; 6 saiu.
         $this->assertSame(
             5,
             (int) $this->database()->table('chat_channels')->where('id', self::EVERYONE)->value('user_count')

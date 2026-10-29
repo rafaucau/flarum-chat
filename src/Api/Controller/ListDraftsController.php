@@ -18,8 +18,8 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Draft;
 
 /**
- * All of the actor's drafts, so the client can restore composer state in one
- * request when the chat opens instead of one request per channel.
+ * Todos os rascunhos do ator, para o cliente restaurar o composer numa só
+ * requisição ao abrir o chat, e não uma por canal.
  */
 class ListDraftsController implements RequestHandlerInterface
 {
@@ -28,8 +28,8 @@ class ListDraftsController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        // Scope to channels still visible: a draft in a channel the actor lost
-        // access to must not be handed back.
+        // Só canais ainda visíveis: rascunho de canal a que o ator perdeu acesso
+        // não volta.
         $visibleChannelIds = Channel::query()
             ->whereVisibleTo($actor)
             ->pluck('id');

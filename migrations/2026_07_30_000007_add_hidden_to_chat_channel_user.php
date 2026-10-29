@@ -11,19 +11,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Lurking: a membership nobody else can see.
+ * Associação oculta.
  *
- * A moderator sometimes needs to read a channel — a private one especially —
- * without their arrival changing how people talk in it. An ordinary join cannot do
- * that: it announces itself in a direct channel, adds a row to the member list and
- * moves the member count.
- *
- * A hidden membership is a real membership for everything that concerns the
- * moderator (visibility, unread tracking, the sidebar), and invisible for
- * everything that concerns everyone else (the participants list, `user_count`, the
- * join and leave announcements). It is deliberately a property of the membership
- * rather than of the user, so a moderator can lurk in one channel and take part
- * openly in another.
+ * Um moderador pode ler um canal sem que sua entrada mude a conversa: conta como
+ * membro para ele (visibilidade, não lidas, sidebar) e fica invisível para os
+ * outros (lista, `user_count`, anúncios). Fica na associação, não no usuário,
+ * para ocultar num canal e participar abertamente em outro.
  */
 return [
     'up' => function (Builder $schema) {

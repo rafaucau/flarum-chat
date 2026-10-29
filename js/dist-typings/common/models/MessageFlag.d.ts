@@ -1,23 +1,20 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Message from "./Message";
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Message from './Message';
 /**
- * A report filed against a chat message.
- *
- * The chat keeps its own rather than reusing flarum/flags: that extension's
- * `flags.post_id` is a non-nullable foreign key into `posts`, so a chat message id
- * cannot be stored there at all.
+ * Denúncia de uma mensagem do chat. Não usa o flarum/flags porque lá
+ * `flags.post_id` é uma FK obrigatória para `posts`.
  */
 export default class MessageFlag extends Model {
-    /** One of the keys MessageFlag::REASONS lists on the server. */
+    /** Uma das chaves de MessageFlag::REASONS no servidor. */
     reason: () => string;
-    /** The reporter's own words. Always rendered as text, never as HTML. */
+    /** Texto do denunciante; sempre exibido como texto, nunca como HTML. */
     detail: () => string | null;
     messageId: () => number;
     createdAt: () => Date | null | undefined;
     resolvedAt: () => Date | null | undefined;
     isResolved: () => boolean;
-    /** Null once the reporter deletes their account — the report outlives them. */
+    /** Null se o denunciante apagou a conta; a denúncia continua. */
     user: () => false | User | null;
     message: () => false | Message | null;
     resolvedBy: () => false | User | null;

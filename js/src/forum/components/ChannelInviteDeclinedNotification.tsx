@@ -1,6 +1,6 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 
 interface DeclinedData {
   channelId?: number;
@@ -9,44 +9,29 @@ interface DeclinedData {
 }
 
 /**
- * "X declined your invitation to #channel."
+ * "X recusou seu convite para #canal."
  *
- * Sent to the channel's owner and to whoever invited, so a refusal is an answer
- * rather than an invitation that quietly stopped being pending. Clicking opens
- * the channel: the next thing to do about it, if anything, is invite somebody
- * else from its members tab.
+ * Vai para o dono e para quem convidou, para a recusa chegar como resposta.
+ * O clique abre o canal, de onde se convida outra pessoa pela aba de membros.
  */
 export default class ChannelInviteDeclinedNotification extends Notification {
   icon(): string {
-    return "fas fa-user-xmark";
+    return 'fas fa-user-xmark';
   }
 
   href(): string {
     const channelId = this.data().channelId;
 
-    return channelId
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId ? app.route('chat.channel', { id: channelId }) : app.route('chat.index');
   }
 
   content(): Mithril.Children {
     const decliner = this.attrs.notification.fromUser();
 
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.channel_invite_declined",
-      {
-        username: decliner
-          ? decliner.displayName()
-          : app.translator.trans(
-              "ramon-chat.forum.notifications.someone",
-              {},
-              true,
-            ),
-        channel:
-          this.data().channelName ??
-          app.translator.trans("ramon-chat.forum.nav.chat", {}, true),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.channel_invite_declined', {
+      username: decliner ? decliner.displayName() : app.translator.trans('ramon-chat.forum.notifications.someone', {}, true),
+      channel: this.data().channelName ?? app.translator.trans('ramon-chat.forum.nav.chat', {}, true),
+    });
   }
 
   excerpt(): Mithril.Children {

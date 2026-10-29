@@ -15,12 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Message;
 
 /**
- * Exposes chat messages to Flarum's global search driver, so a forum-wide search
- * can surface chat alongside discussions.
- *
- * Deleted and system messages are excluded at the searcher level rather than per
- * filter: neither is something a user ever means to find, and excluding them once
- * here keeps every filter from having to remember.
+ * Expõe as mensagens ao driver de busca do Flarum. Repete `whereVisibleTo`
+ * porque o `Endpoint\Index` descarta o `scope()` do resource.
  */
 class MessageSearcher extends AbstractSearcher
 {

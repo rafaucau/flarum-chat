@@ -19,24 +19,22 @@ use Psr\Http\Message\ResponseInterface;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * A private channel's attachments are private.
+ * Os anexos de um canal privado são privados.
  *
- * Every file used to go under `public/assets/chat`, where the web server hands
- * it to anyone with the URL — which, for a picture posted in a private room, is
- * anyone the URL was ever forwarded to. The rule now: a file posted in a
- * channel the world cannot read lives outside the webroot and is served only
- * through the endpoint that checks the reader can see the message.
+ * Em `public/assets/chat` o servidor web entrega o arquivo a qualquer um com a
+ * URL, inclusive a quem ela for repassada. Um arquivo enviado num canal que o
+ * mundo não lê fica fora do webroot e só é servido pelo endpoint que confere se
+ * o leitor vê a mensagem.
  *
- * The assertions are made on disk as well as on the API. The API can say
- * "private" about a file that is still sitting in the public directory; the
- * directory cannot.
+ * As asserções são feitas no disco e na API: a API pode dizer "privado" sobre
+ * um arquivo que ainda está no diretório público; o diretório não mente.
  */
 class PrivateChannelUploadTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
     use ResetsVisibilityScopers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     private const MEMBER = 3;
@@ -45,16 +43,15 @@ class PrivateChannelUploadTest extends TestCase
     private const CH_PUBLIC = 1;
     private const CH_PRIVATE = 2;
 
-    /** A 1×1 transparent PNG — the smallest thing `mime_content_type` calls an image. */
+    /** Um PNG 1×1 transparente, o menor arquivo que o `mime_content_type` chama de imagem. */
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Before the boot this test triggers, so it registers the one copy of
-        // each scoper a real forum has — see the trait for what goes wrong
-        // otherwise.
+        // Antes do boot que este teste dispara, para registrar uma cópia de cada
+        // scoper, como num fórum real (ver o trait).
         $this->resetVisibilityScopers();
 
         $this->extension('ramon-chat');
@@ -112,8 +109,8 @@ class PrivateChannelUploadTest extends TestCase
 
     public function test_the_composer_hint_is_not_the_gate(): void
     {
-        // Uploaded as if for the public channel, then sent to the private one.
-        // The send is what decides, and it moves the file.
+        // Enviado como se fosse para o canal público e mandado no privado: o envio é
+        // quem decide, e move o arquivo.
         $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
         $path = $this->storedPath((int) $upload['id']);
 
@@ -124,6 +121,19 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertFileExists($this->privateRoot().'/'.$path);
         $this->assertFileDoesNotExist($this->publicRoot().'/'.$path);
         $this->assertSame(1, (int) $this->database()->table('chat_uploads')->where('id', $upload['id'])->value('is_private'));
+    }
+
+    public function test_a_private_file_is_not_bound_to_a_public_channel_message(): void
+    {
+        // O arquivo foi enviado para o canal privado; uma mensagem no público não
+        // pode levá-lo junto, ou o anexo passa a ser servido a quem lê o público.
+        $upload = $this->upload(self::MEMBER, self::CH_PRIVATE);
+
+        $this->sendMessage(self::MEMBER, self::CH_PUBLIC, [(int) $upload['id']]);
+
+        $this->assertNull($this->database()->table('chat_uploads')->where('id', $upload['id'])->value('message_id'));
+        $this->assertSame(1, (int) $this->database()->table('chat_uploads')->where('id', $upload['id'])->value('is_private'));
+        $this->assertStatus(404, $this->fetch((int) $upload['id'], self::OUTSIDER));
     }
 
     public function test_a_private_file_is_served_to_a_member_and_to_nobody_else(): void
@@ -140,7 +150,7 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertStringStartsWith('inline', $served->getHeaderLine('Content-Disposition'));
         $this->assertSame(base64_decode(self::PNG), (string) $served->getBody());
 
-        // Not 403: the URL must not confirm that there is something to be denied.
+        // Não 403: a URL não pode confirmar que existe algo a negar.
         $this->assertStatus(404, $this->fetch((int) $upload['id'], self::OUTSIDER));
         $this->assertStatus(404, $this->fetch((int) $upload['id'], null));
     }
@@ -166,6 +176,45 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertStatus(206, $served);
         $this->assertSame('bytes 0-3/'.strlen(base64_decode(self::PNG)), $served->getHeaderLine('Content-Range'));
         $this->assertSame(substr(base64_decode(self::PNG), 0, 4), (string) $served->getBody());
+    }
+
+    public function test_an_empty_suffix_range_is_unsatisfiable(): void
+    {
+        $upload = $this->upload(self::MEMBER, self::CH_PRIVATE);
+
+        $served = $this->send(
+            $this->request('GET', '/api/chat/uploads/'.$upload['id'].'/file', ['authenticatedAs' => self::MEMBER])
+                ->withQueryParams(['id' => $upload['id']])
+                ->withHeader('Range', 'bytes=-0')
+        );
+
+        $this->assertStatus(416, $served);
+    }
+
+    public function test_a_forum_closed_to_guests_keeps_every_file_off_the_public_disk(): void
+    {
+        $this->database()->table('group_permission')->where('group_id', Group::GUEST_ID)->where('permission', 'viewForum')->delete();
+
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+
+        $this->assertTrue($upload['attributes']['isPrivate']);
+        $this->assertFileExists($this->privateRoot().'/'.$this->storedPath((int) $upload['id']));
+        $this->assertStatus(404, $this->fetch((int) $upload['id'], null));
+    }
+
+    public function test_deleting_a_channel_takes_its_files_off_the_public_disk(): void
+    {
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+        $this->sendMessage(self::MEMBER, self::CH_PUBLIC, [(int) $upload['id']]);
+        $path = $this->storedPath((int) $upload['id']);
+
+        $this->assertFileExists($this->publicRoot().'/'.$path);
+
+        $deleted = $this->send($this->request('DELETE', '/api/chat-channels/'.self::CH_PUBLIC, ['authenticatedAs' => 1]));
+        $this->assertStatus(204, $deleted);
+
+        $this->assertFileDoesNotExist($this->publicRoot().'/'.$path);
+        $this->assertFileExists($this->privateRoot().'/'.$path);
     }
 
     public function test_making_a_channel_private_moves_what_was_posted_in_it(): void
@@ -196,7 +245,7 @@ class PrivateChannelUploadTest extends TestCase
         $this->assertFileDoesNotExist($this->publicRoot().'/'.$path);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    // ── Helpers ──
 
     /**
      * @return array{id: string, attributes: array<string, mixed>}
@@ -242,8 +291,7 @@ class PrivateChannelUploadTest extends TestCase
     }
 
     /**
-     * The body travels with a mismatch: a 500 is only diagnosable from it, and a
-     * bare "404 is not 200" says nothing about which side of the door failed.
+     * O corpo vai junto quando o status não bate: um 500 só se diagnostica por ele.
      */
     private function assertStatus(int $expected, ResponseInterface $response): void
     {
@@ -252,9 +300,9 @@ class PrivateChannelUploadTest extends TestCase
 
     private function fetch(int $uploadId, ?int $as): ResponseInterface
     {
-        // `withQueryParams`: the harness builds the request from the path alone
-        // and route parameters arrive as query params, which the controller
-        // reads with Arr::get — the same way a live request delivers them.
+        // `withQueryParams`: o harness monta a requisição só pelo path, e os
+        // parâmetros de rota chegam como query params, que o controller lê com
+        // Arr::get, como numa requisição real.
         return $this->send(
             $this->request('GET', '/api/chat/uploads/'.$uploadId.'/file', $as ? ['authenticatedAs' => $as] : [])
                 ->withQueryParams(['id' => (string) $uploadId])

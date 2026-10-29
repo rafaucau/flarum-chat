@@ -20,15 +20,15 @@ use Ramon\Chat\Service\ChannelOwnership;
 use Ramon\Chat\Tests\unit\QueryTestCase;
 
 /**
- * What a channel's creator can do with it: the `ramon-chat.channel_ownership`
- * mode first, then the permissions of the "Members' channels" section.
+ * O que o criador de um canal pode fazer com ele: primeiro o modo
+ * `ramon-chat.channel_ownership`, depois as permissões da seção "Canais dos
+ * membros".
  *
- * In "administrators" mode the creator has nothing beyond what any member has,
- * whatever the grid says. In "members" mode, `manageOwnChannels` makes them
- * responsible for the channel they created (and only that one) and
- * `editOwnChannels` gives only the settings. Otherwise the policy abstains
- * (`null`), so the Gate fallback keeps deciding by administrators and holders
- * of `moderate`.
+ * No modo "administrators" o criador não tem nada além de qualquer membro,
+ * diga a grade o que disser. No modo "members", `manageOwnChannels` o torna
+ * responsável pelo canal que criou (só esse) e `editOwnChannels` dá só as
+ * configurações. Fora disso a policy se abstém (`null`) e o fallback do Gate
+ * segue decidindo por admins e quem tem `moderate`.
  */
 class ChannelPolicyTest extends QueryTestCase
 {
@@ -51,11 +51,11 @@ class ChannelPolicyTest extends QueryTestCase
     }
 
     /**
-     * A partial mock rather than a bare model: the ownership rules look up the
-     * actor's membership to answer the channel-moderator role, and there is no
-     * database here to look it up in. Nobody is a member unless a test says so.
+     * Mock parcial em vez de model puro: as regras de posse buscam a membership do
+     * ator para responder o cargo de moderador, e aqui não há banco. Ninguém é
+     * membro a menos que o teste diga.
      *
-     * @param  array<int, ChannelUser>  $memberships  loaded rows, keyed by user id
+     * @param  array<int, ChannelUser>  $memberships  linhas carregadas, por id de usuário
      */
     protected function channel(array $attributes = [], array $memberships = []): Channel
     {
@@ -108,7 +108,7 @@ class ChannelPolicyTest extends QueryTestCase
         return $this->actor(self::OWNER_ID + 1, $permissions);
     }
 
-    // ── administrators mode: the grid does not count ───────────────────────────
+    // ── Modo administrators: a grade não conta ──
 
     public function test_in_admin_mode_the_creator_gets_no_decision_whatever_the_grid_says(): void
     {
@@ -122,7 +122,7 @@ class ChannelPolicyTest extends QueryTestCase
         $this->assertNull($policy->delete($owner, $channel));
     }
 
-    // ── members mode: the permissions decide ───────────────────────────────────
+    // ── Modo members: as permissões decidem ──
 
     public function test_the_creator_without_the_permissions_gets_no_decision(): void
     {
@@ -150,7 +150,7 @@ class ChannelPolicyTest extends QueryTestCase
         $this->assertNull($this->policy()->delete($owner, $this->channel()));
     }
 
-    /** Archiving still waits for the channel to be closed first. */
+    /** Arquivar continua exigindo que o canal esteja fechado. */
     public function test_the_creator_archives_only_a_closed_channel(): void
     {
         $owner = $this->owner(self::MANAGE);
@@ -179,7 +179,7 @@ class ChannelPolicyTest extends QueryTestCase
         );
     }
 
-    /** A direct channel's creator gets no settings form and no state actions. */
+    /** O criador de um canal direto não ganha formulário de configurações nem ações de estado. */
     public function test_the_permissions_do_not_reach_a_direct_channel(): void
     {
         $owner = $this->owner(self::MANAGE + self::EDIT);
@@ -190,13 +190,13 @@ class ChannelPolicyTest extends QueryTestCase
         $this->assertFalse($this->policy()->delete($owner, $direct));
     }
 
-    /** Being unannounced in a room is a right of its own, never an ownership one. */
+    /** Entrar sem ser anunciado é um direito próprio, nunca de posse. */
     public function test_managing_does_not_grant_hidden_join(): void
     {
         $this->assertFalse($this->policy()->joinHidden($this->owner(self::MANAGE), $this->channel()));
     }
 
-    /** Nor a moderation one: `inspectChannels` is the permission, and only it. */
+    /** Nem de moderação: `inspectChannels` é a permissão, e só ela. */
     public function test_inspecting_is_its_own_permission(): void
     {
         $moderator = $this->stranger(['ramon-chat.moderate' => true]);
@@ -204,24 +204,23 @@ class ChannelPolicyTest extends QueryTestCase
 
         $this->assertFalse($this->policy()->joinHidden($moderator, $this->channel()));
 
-        // Past the permission gate the policy asks the visibility scope, and
-        // there is no database here to ask. The cache answers first, so it is
-        // told the channel is visible before the policy looks.
+        // Passado o gate de permissão, a policy pergunta ao escopo de visibilidade,
+        // e aqui não há banco. O cache responde antes, então já sabe que o canal é
+        // visível quando a policy olha.
         $cache = new VisibilityCache();
         $cache->remember($inspector, 'channel', 1, fn () => true);
 
         $this->assertTrue($this->policy(cache: $cache)->joinHidden($inspector, $this->channel()));
 
-        // And it opens a private channel, since a room the inspector cannot
-        // enter is one they cannot inspect.
+        // E abre canal privado, já que uma sala em que não se entra não se inspeciona.
         $private = $this->channel(['is_private' => true]);
 
         $this->assertTrue($this->policy(cache: $cache)->joinHidden($inspector, $private));
     }
 
-    // ── channel moderators: people and messages, not the room itself ───────────
+    // ── Moderadores do canal: pessoas e mensagens, não a sala ──
 
-    /** A channel where the stranger is a member holding the moderator role. */
+    /** Canal em que o estranho é membro com o cargo de moderador. */
     protected function channelModeratedByStranger(): Channel
     {
         $membership = new ChannelUser();
@@ -255,7 +254,7 @@ class ChannelPolicyTest extends QueryTestCase
         );
     }
 
-    // ── forum-wide rights are untouched in either mode ─────────────────────────
+    // ── Direitos do fórum não mudam em nenhum modo ──
 
     public function test_forum_wide_moderate_reaches_any_channel_in_either_mode(): void
     {

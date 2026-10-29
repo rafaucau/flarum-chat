@@ -13,11 +13,11 @@ use Carbon\Carbon;
 use Ramon\Chat\Message;
 
 /**
- * The message model's derived state.
+ * O estado derivado do model de mensagem.
  *
- * These read as trivial, and they are — but each one is a boundary the UI branches
- * on, and getting `isRedacted` wrong in particular means either leaking a removed
- * message's text or showing a tombstone to its own author.
+ * Parecem triviais, mas cada um é uma fronteira em que a UI se ramifica. Errar
+ * `isRedacted` vaza o texto de uma mensagem removida ou mostra a lápide ao
+ * próprio autor.
  */
 class MessageTest extends QueryTestCase
 {
@@ -25,8 +25,8 @@ class MessageTest extends QueryTestCase
     {
         $message = new Message();
 
-        // setRawAttributes, not fill(): these are read paths, and going through the
-        // model's casts is the point of the test.
+        // setRawAttributes, não fill(): são caminhos de leitura, e passar pelos casts
+        // do model é o objetivo do teste.
         $message->setRawAttributes(array_merge([
             'id'         => 1,
             'channel_id' => 1,
@@ -54,16 +54,11 @@ class MessageTest extends QueryTestCase
     }
 
     /*
-     * Redaction — a deleted message whose text is withheld — is deliberately NOT
-     * tested here. On the server it is a decision about an actor and lives in
-     * MessageResource::isRedacted(Message, User), so it belongs to the integration
-     * suite where a real actor exists. The no-argument `isRedacted()` is the client
-     * model's inference from the payload it received, which is a different question
-     * and is TypeScript.
-     *
-     * This is worth stating rather than leaving as a gap: the two names look like the
-     * same method, and asserting the client's meaning against the server's model was
-     * the first thing this file got wrong.
+     * A redação (mensagem apagada com o texto retido) não é testada aqui de
+     * propósito. No servidor ela depende de um ator e mora em
+     * MessageResource::isRedacted(Message, User), então pertence à suíte de
+     * integração. O `isRedacted()` sem argumento é a inferência do model do cliente
+     * a partir do payload, outra pergunta, e é TypeScript.
      */
 
     public function test_editing_is_decided_by_the_timestamp(): void
@@ -73,8 +68,8 @@ class MessageTest extends QueryTestCase
     }
 
     /**
-     * `pinned_at` alone decides a pin; `pinned_by_id` is attribution and is nulled by
-     * a user deletion, so it must not be consulted.
+     * Só `pinned_at` decide um pin; `pinned_by_id` é atribuição e vira null quando
+     * o usuário é apagado, então não pode ser consultado.
      */
     public function test_pinning_is_decided_by_the_timestamp_alone(): void
     {

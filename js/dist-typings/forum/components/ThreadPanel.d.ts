@@ -1,24 +1,22 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type Mithril from "mithril";
-import type Channel from "../../common/models/Channel";
-import type Message from "../../common/models/Message";
-import type ChatState from "../state/ChatState";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type Mithril from 'mithril';
+import type Channel from '../../common/models/Channel';
+import type Message from '../../common/models/Message';
+import type ChatState from '../state/ChatState';
 export interface ThreadPanelAttrs extends ComponentAttrs {
     channel: Channel;
     threadId: number;
     state: ChatState;
-    /** Invoked when the panel is dismissed, so the route can drop the thread. */
+    /** Chamado ao fechar o painel, para a rota largar a thread. */
     onClose: () => void;
 }
 /**
- * A thread's replies, beside the channel.
+ * Respostas de uma thread, ao lado do canal.
  *
- * The channel stream shows a thread as one root message with a reply indicator —
- * the API's channel filter drops the replies — so this panel is the only place
- * they are readable. It is a narrower ChannelView: same rows, same composer, but
- * scoped to `filter[thread]` and without the unread divider, since a thread keeps
- * no read marker of its own.
+ * O filtro de canal da API omite as respostas, então só aparecem aqui. É um
+ * ChannelView com `filter[thread]` e sem divisor de não lidas: thread não tem
+ * marcador de leitura próprio.
  */
 export default class ThreadPanel extends Component<ThreadPanelAttrs> {
     private scroller;
@@ -31,10 +29,7 @@ export default class ThreadPanel extends Component<ThreadPanelAttrs> {
     view(): Mithril.Children;
     protected load(): void;
     protected onScroll(e: Event): void;
-    /**
-     * Reply and edit are staged against this panel's scope, so the channel composer
-     * below is unaffected.
-     */
+    /** Resposta e edição ficam no escopo do painel, sem afetar o composer do canal. */
     protected reply(message: Message): void;
     protected edit(message: Message): void;
     protected onSent(): void;

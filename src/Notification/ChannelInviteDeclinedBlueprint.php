@@ -16,11 +16,7 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * "X declined your invite to #channel."
- *
- * Goes to the channel owner and to whoever invited. Without it the declined
- * invite simply vanished from the pending list, and the inviter kept waiting
- * for an answer that had already been given.
+ * "X recusou seu convite para #canal." Vai ao dono e a quem convidou.
  */
 class ChannelInviteDeclinedBlueprint implements AlertableInterface, BlueprintInterface
 {
@@ -41,9 +37,8 @@ class ChannelInviteDeclinedBlueprint implements AlertableInterface, BlueprintInt
     }
 
     /**
-     * Only ids and the name: the name is carried because a private channel is
-     * not readable through the notification list of someone who already left
-     * it.
+     * Só ids e o nome; o nome vai junto porque quem saiu de um canal privado não
+     * consegue lê-lo pela lista de notificações.
      */
     public function getData(): array
     {

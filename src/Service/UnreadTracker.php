@@ -21,37 +21,32 @@ use Ramon\Chat\Thread;
 use Ramon\Chat\ThreadUser;
 
 /**
- * Maintains the denormalised unread counters on memberships.
+ * Mantém os contadores desnormalizados de não lidas nas memberships.
  *
- * These are counters rather than "count rows newer than last_read_message_id"
- * because the sidebar renders every followed channel on every draw; an
- * aggregate per channel per draw does not scale past a handful of channels.
+ * Contadores, não contagem a partir de last_read_message_id: a barra lateral
+ * desenha todos os canais seguidos a cada render.
  *
- * Channels for everyone are the exception, the other way round. Their members
- * can number in the hundreds of thousands and there are only ever a few such
- * channels, so a counter per row costs one UPDATE across the whole room per
- * message while counting on read costs a bounded query for each of the few.
- * Their rows keep `unread_count` at zero and unreadFor() counts from the read
- * marker instead.
+ * Canais para todos são a exceção: podem ter centenas de milhares de membros e
+ * são poucos, então contar na leitura é mais barato que um UPDATE na sala
+ * inteira por mensagem. Nas linhas deles `unread_count` fica zero e
+ * unreadFor() conta a partir do marcador.
  */
 class UnreadTracker
 {
     /**
-     * The most a channel for everyone counts as unread. The badges say "99+"
-     * well before it; the cap keeps a reader who was away for a year from
-     * costing a count of the year.
+     * Máximo contado como não lido num canal para todos. O badge mostra "99+"
+     * bem antes; o teto evita contar um ano de ausência.
      */
     public const COUNTED_UNREAD_CAP = 1000;
 
     /**
-     * Increments unread counters for every member except the sender, and bumps
-     * the mention counter for members this message actually mentions.
+     * Incrementa as não lidas de todos menos o autor, e as menções de quem a
+     * mensagem menciona de fato.
      */
     public function recordNewMessage(Message $message): void
     {
-        // Applied as statements rather than chained, like unreadOf(): the where*
-        // methods are typed as returning a query builder, which would lose the
-        // Eloquent one narrowToMentioned() takes.
+        // Instruções separadas, como em unreadOf(): os where* são tipados como query
+        // builder e perderiam o Eloquent que narrowToMentioned() recebe.
         $base = ChannelUser::query();
         $base->where('channel_id', $message->channel_id);
         $base->whereNull('left_at');
@@ -60,8 +55,7 @@ class UnreadTracker
             $base->where('user_id', '!=', $message->user_id);
         }
 
-        // Muted memberships are excluded from badge pressure entirely — that is
-        // the difference between muting a channel and setting level 0.
+        // Memberships silenciadas não ganham badge: é a diferença entre silenciar e nível 0.
         if ($this->keepsCounters((int) $message->channel_id)) {
             (clone $base)
                 ->where('muted', false)
@@ -86,15 +80,15 @@ class UnreadTracker
     }
 
     /**
-     * Recomputes a membership's counters from source. Used when a message is
-     * deleted or moved, where decrementing blindly could drift below zero.
+     * Recalcula os contadores a partir da origem. Usado ao apagar ou mover, onde
+     * decrementar às cegas poderia ficar negativo.
      */
     public function recalculate(ChannelUser $membership): ChannelUser
     {
         $lastRead = $membership->last_read_message_id ?? 0;
 
-        // `user_id != x` would silently drop system messages, whose user_id is
-        // NULL, and undercount against what recordNewMessage() incremented.
+        // `user_id != x` descartaria mensagens de sistema (user_id NULL) e contaria
+        // menos do que recordNewMessage() incrementou.
         $unreadQuery = Message::query()
             ->where('channel_id', $membership->channel_id)
             ->where('id', '>', $lastRead)
@@ -127,19 +121,12 @@ class UnreadTracker
     }
 
     /**
-     * Takes one message out of a channel's counters, for a deletion or a move
-     * away.
+     * Tira uma mensagem dos contadores do canal, ao apagar ou mover para fora.
      *
-     * Targeted rather than recounted. Only members who had not read past the
-     * message were ever counting it, so only their rows change, by one, in two
-     * UPDATEs whatever the size of the channel. Recounting every membership
-     * from source was two COUNTs per member on every delete, which made a
-     * moderator tidying a large channel the slowest thing on the forum.
-     *
-     * The `> 0` guards are the clamp: a counter already cleared by a mark-read
-     * that raced the delete stays at zero instead of going negative.
-     * `$channelId` is passed because a moved message's own column already names
-     * its destination.
+     * Só quem não leu além dela a contava, então só essas linhas mudam, em um, com
+     * dois UPDATEs qualquer que seja o tamanho do canal. Os `> 0` evitam negativo
+     * quando um mark-read concorre com a exclusão. `$channelId` vem à parte porque a
+     * coluna da mensagem movida já aponta o destino.
      */
     public function forgetMessage(Message $message, int $channelId): void
     {
@@ -164,10 +151,9 @@ class UnreadTracker
     }
 
     /**
-     * The mirror of forgetMessage(), for a message moved into a channel: the
-     * same rule recordNewMessage() applies to a new one, restricted to members
-     * whose read marker is below the message, since markers are ids and a moved
-     * message keeps its id.
+     * O inverso de forgetMessage(), para mensagem movida para um canal: a regra de
+     * recordNewMessage(), restrita a quem tem marcador abaixo dela (a mensagem
+     * mantém o id).
      */
     public function addMovedMessage(Message $message, int $channelId): void
     {
@@ -189,14 +175,12 @@ class UnreadTracker
     }
 
     /**
-     * Narrows a query over a channel's memberships to the members a message
-     * mentions, or null when it mentions nobody.
+     * Restringe uma consulta de memberships aos membros que a mensagem menciona,
+     * ou null se não menciona ninguém.
      *
-     * A mention of the whole channel narrows nothing: every row in the query is
-     * mentioned, so no id list is built. Listing them put one placeholder per
-     * member into the UPDATE, which the database refuses past 65,535. Named
-     * mentions are inlined as integers for the same reason, since a group
-     * mention can expand to many members.
+     * Menção ao canal inteiro não restringe nada: listar os ids poria um placeholder
+     * por membro no UPDATE, que o banco recusa acima de 65.535. Menções nominais
+     * entram como inteiros literais pelo mesmo motivo.
      *
      * @param  Builder<ChannelUser>  $members
      * @return Builder<ChannelUser>|null
@@ -219,9 +203,8 @@ class UnreadTracker
     }
 
     /**
-     * Whether the channel's rows carry an unread counter at all. A channel for
-     * everyone's do not — see the class docblock — so there is nothing on them
-     * to move when a message comes or goes.
+     * Se as linhas do canal têm contador. Canais para todos não têm (ver o
+     * docblock da classe).
      */
     protected function keepsCounters(int $channelId): bool
     {
@@ -231,8 +214,8 @@ class UnreadTracker
     }
 
     /**
-     * The unread count a membership shows: its counter, or, in a channel for
-     * everyone, the messages past its read marker, counted on the spot.
+     * As não lidas de uma membership: o contador ou, num canal para todos, as
+     * mensagens após o marcador, contadas na hora.
      */
     public function unreadFor(Channel $channel, ?ChannelUser $membership): int
     {
@@ -248,9 +231,8 @@ class UnreadTracker
     }
 
     /**
-     * Messages past a membership's read marker that are not its own, up to
-     * COUNTED_UNREAD_CAP. The same rule recordNewMessage() counts by: system
-     * messages included, deleted ones not.
+     * Mensagens após o marcador que não são do membro, até COUNTED_UNREAD_CAP. A
+     * mesma regra de recordNewMessage(): sistema conta, apagadas não.
      */
     protected function countUnread(ChannelUser $membership): int
     {
@@ -269,8 +251,8 @@ class UnreadTracker
     }
 
     /**
-     * Live memberships of a channel that have not read up to this message, and
-     * are not its author: exactly the rows whose counters include it.
+     * Memberships ativas que não leram até esta mensagem e não são do autor:
+     * exatamente as linhas cujo contador a inclui.
      *
      * @return Builder<ChannelUser>
      */
@@ -293,8 +275,8 @@ class UnreadTracker
     }
 
     /**
-     * Marks a channel read up to a message and returns the updated membership.
-     * Passing null marks it read up to the channel's latest message.
+     * Marca o canal como lido até uma mensagem e devolve a membership. Null marca
+     * até a última mensagem do canal.
      */
     public function markChannelRead(Channel $channel, User $actor, ?int $upToMessageId = null): ?ChannelUser
     {
@@ -306,8 +288,8 @@ class UnreadTracker
 
         $target = $upToMessageId ?? $channel->last_message_id;
 
-        // Never move the marker backwards — a stale client shipping an old id
-        // must not resurrect already-read messages.
+        // O marcador nunca volta: cliente desatualizado com id antigo não pode
+        // ressuscitar mensagens já lidas.
         if ($target !== null && ($membership->last_read_message_id ?? 0) > $target) {
             return $membership;
         }
@@ -339,8 +321,8 @@ class UnreadTracker
     }
 
     /**
-     * The set of users this message notifies by name, expanding group mentions
-     * and channel-wide mentions to the channel's membership.
+     * Os usuários que a mensagem notifica por nome, expandindo menções de grupo e
+     * de canal inteiro para os membros do canal.
      *
      * @return int[]
      */
@@ -366,11 +348,9 @@ class UnreadTracker
             ->filter()
             ->all();
 
-        // A group mention reaches the group's members *in this channel*, not the
-        // group forum-wide: pinging a moderator who never joined the room pulled
-        // them into a conversation they had not opted into. The group is checked
-        // again here, not only when the row was written, so rows stored before
-        // hidden groups and guests/members were excluded cannot still expand.
+        // Menção de grupo alcança os membros do grupo neste canal, não no fórum
+        // inteiro. O grupo é checado de novo aqui para linhas gravadas antes das
+        // exclusões (grupos ocultos, convidados, membros) não expandirem.
         if ($groupIds !== []) {
             $groupIds = Group::query()
                 ->whereKey($groupIds)
@@ -403,7 +383,7 @@ class UnreadTracker
             $userIds = array_merge($userIds, $memberIds);
         }
 
-        // The author never notifies themselves.
+        // O autor nunca notifica a si mesmo.
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
 
         return array_values(array_filter(
@@ -413,20 +393,12 @@ class UnreadTracker
     }
 
     /**
-     * The actor's live memberships, restricted to channels they can still see.
+     * As memberships ativas do ator, restritas a canais que ele ainda vê.
      *
-     * Every total below is built on this rather than on `chat_channel_user`
-     * alone. A membership outlives the access that created it: a permission is
-     * revoked, a bound tag is restricted, the auto-join setting once wrote rows
-     * for people who never had the chat at all — and the row keeps its
-     * `unread_count` throughout. Counted flat, those rows report unread traffic
-     * in channels the actor cannot open and has no way to clear.
-     *
-     * Re-deriving visibility at read time is what flarum/messages does for its
-     * own badge, where `messageCount` counts through
-     * `Dialog::whereVisibleTo($actor)` instead of reading a stored total. The
-     * scope also fails closed on `ramon-chat.use`, so someone without the chat
-     * at all resolves to nothing here without a separate check.
+     * Toda soma abaixo parte daqui: a membership sobrevive ao acesso que a criou
+     * (permissão revogada, tag restrita) e manteria um `unread_count` de canal que
+     * o ator não abre. Mesma ideia do `messageCount` do flarum/messages via
+     * `whereVisibleTo`. O scope também falha fechado em `ramon-chat.use`.
      *
      * @return Builder<ChannelUser>
      */
@@ -434,9 +406,8 @@ class UnreadTracker
     {
         $query = ChannelUser::query();
 
-        // Applied as statements rather than chained: the where* methods are
-        // typed as returning a query builder, which would lose the Eloquent one
-        // the callers go on to narrow.
+        // Instruções separadas: os where* são tipados como query builder e perderiam
+        // o Eloquent que os chamadores continuam restringindo.
         $query->where('user_id', $user->id);
         $query->whereNull('left_at');
         $query->whereIn('channel_id', Channel::whereVisibleTo($user)->select('chat_channels.id'));
@@ -445,9 +416,8 @@ class UnreadTracker
     }
 
     /**
-     * The visible memberships whose rows carry a counter, so a total can sum
-     * them. Leaves out channels for everyone, whose rows may still hold a stale
-     * count from before they stopped being incremented.
+     * As memberships visíveis com contador, para somar. Fora os canais para todos,
+     * cujas linhas podem ter contagem antiga.
      *
      * @return Builder<ChannelUser>
      */
@@ -461,8 +431,8 @@ class UnreadTracker
     }
 
     /**
-     * The user's unread count in each channel for everyone they follow, by
-     * channel id. One bounded count per channel, and a forum has only a few.
+     * Não lidas do usuário em cada canal para todos que segue, por id do canal.
+     * Uma contagem limitada por canal, e são poucos.
      *
      * @return array<int, int>
      */
@@ -484,7 +454,7 @@ class UnreadTracker
     }
 
     /**
-     * Total unread channels for a user, used for the header badge.
+     * Total de canais com não lidas, para o badge do cabeçalho.
      */
     public function totalUnreadFor(User $user): int
     {
@@ -502,14 +472,11 @@ class UnreadTracker
     }
 
     /**
-     * How many unread *messages* the user has, across every channel.
+     * Quantas mensagens não lidas o usuário tem em todos os canais.
      *
-     * Distinct from totalUnreadFor(), which counts how many channels have anything
-     * unread. The header badge wants the message count — "3 channels" reads as a
-     * far smaller number than the 40 messages waiting in them.
-     *
-     * Muted channels are excluded for the same reason they carry no badge: the user
-     * asked not to be counted at.
+     * Diferente de totalUnreadFor(), que conta canais. O badge quer as mensagens:
+     * "3 canais" parece bem menos que 40 mensagens esperando. Canais silenciados
+     * ficam fora, como no badge.
      */
     public function totalUnreadMessagesFor(User $user): int
     {

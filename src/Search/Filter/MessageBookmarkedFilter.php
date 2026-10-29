@@ -14,7 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[bookmarked]=1` — the actor's bookmarked messages.
+ * `filter[bookmarked]=1`: mensagens salvas pelo ator.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -44,8 +44,7 @@ class MessageBookmarkedFilter implements FilterInterface
         $actor = $state->getActor();
         $query = $state->getQuery();
 
-        // Guests hold no bookmarks, so the filter resolves to "nothing" rather
-        // than being silently ignored.
+        // Visitante não tem salvos: resulta em nada, em vez de ser ignorado.
         if (! $actor->exists) {
             if ($wanted) {
                 $query->whereRaw('1 = 0');

@@ -21,11 +21,8 @@ use Ramon\Chat\Service\ActionThrottle;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
 /**
- * Announces that the actor is typing in a channel.
- *
- * Deliberately fire-and-forget: it returns 204 and never fails the request if
- * broadcasting is unavailable. A typing indicator is the least important thing
- * on the page and must never be able to break sending a message.
+ * Avisa que o ator está digitando. Fire-and-forget: responde 204 mesmo sem
+ * broadcast, porque o indicador nunca pode atrapalhar o envio de mensagens.
  */
 class TypingController implements RequestHandlerInterface
 {
@@ -44,12 +41,9 @@ class TypingController implements RequestHandlerInterface
         $channelId = (int) Arr::get($body, 'data.attributes.channelId');
         $typing = (bool) Arr::get($body, 'data.attributes.typing', true);
 
-        // One signal per state per channel every two seconds, which is already
-        // more often than the client sends one. Checked before the channel is
-        // looked up, so a flood costs a cache hit rather than a visibility query
-        // and a push to every member. Start and stop are counted apart, so the
-        // stop that follows a start is never the one dropped. Answered as
-        // success: the indicator is best-effort either way.
+        // Um sinal por estado por canal a cada 2 s, antes de buscar o canal: um
+        // flood custa um hit de cache, não query de visibilidade e push. Start e
+        // stop contam separados para o stop nunca ser o descartado.
         if (! $this->throttle->attempt('typing.'.$actor->id.'.'.$channelId.'.'.(int) $typing, 1, 2)) {
             return new EmptyResponse(204);
         }
@@ -61,14 +55,12 @@ class TypingController implements RequestHandlerInterface
             throw new ForbiddenException();
         }
 
-        // Only participants of a channel should be able to signal presence in it.
         if (! $actor->can('postMessage', $channel)) {
             throw new ForbiddenException();
         }
 
-        // Someone inspecting the channel unnoticed must stay unnoticed: a
-        // "X is typing" row would give away a presence the member list hides.
-        // Answered as success so the client keeps nothing pending.
+        // Quem inspeciona o canal sem aparecer continua sem aparecer: "X está
+        // digitando" revelaria a presença que a lista de membros esconde.
         if ($channel->membershipFor($actor)?->isHidden()) {
             return new EmptyResponse(204);
         }

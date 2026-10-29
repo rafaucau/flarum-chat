@@ -14,11 +14,8 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[lessThan]=1234` — cursor pagination for scrolling a channel upwards.
- *
- * Offset pagination is wrong for a chat stream: messages arriving at the bottom
- * shift every offset, so paging backwards through a live channel would skip or
- * repeat rows. An id cursor is stable under insertion.
+ * `filter[lessThan]=1234`: paginação por cursor ao rolar para cima. Offset pularia
+ * ou repetiria linhas com mensagens chegando; o cursor por id é estável.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */

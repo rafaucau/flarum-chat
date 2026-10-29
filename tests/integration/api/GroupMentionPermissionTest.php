@@ -28,16 +28,13 @@ use Ramon\Chat\Service\UnreadTracker;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Who may ping a group, and who is mailed about a mention.
+ * Quem pode chamar um grupo, e quem recebe e-mail de menção.
  *
- * A plain-text `@Mods` fell back to a group lookup that asked nothing of the
- * author, so any member could ping a whole group, hidden ones included. Group
- * mentions now need core's `mentionGroups`, never name guests, members or a
- * hidden group, and reach only the group's members in the channel (see
- * GroupMentionAndNumberingTest for the expansion half).
- *
- * The mail half: `ramon-chat.emailNotifications` was registered and never read,
- * so turning it off changed nothing.
+ * Um `@Mods` em texto puro cai na busca por grupo, que precisa checar o autor:
+ * menção a grupo exige o `mentionGroups` do core, nunca nomeia visitantes,
+ * membros ou grupo oculto, e só alcança os membros do grupo no canal (a
+ * expansão está em GroupMentionAndNumberingTest). Desligar
+ * `ramon-chat.emailNotifications` corta os e-mails.
  */
 class GroupMentionPermissionTest extends TestCase
 {

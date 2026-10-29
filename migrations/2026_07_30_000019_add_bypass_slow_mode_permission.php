@@ -11,27 +11,18 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Skipping slow mode, as a right of its own.
+ * Ignorar o slow mode como direito próprio, separado de `ramon-chat.moderate`
+ * (ex.: bot ou atendente sem poder de moderação).
  *
- * Slow mode shipped exempting anyone with `ramon-chat.moderate`, which conflated
- * two questions: who may act on other people's messages, and who the channel's
- * pace applies to. A forum may well want a bot account, a support agent or an
- * announcements author to answer without waiting while holding no moderation
- * power at all — and, going the other way, may want its moderators to observe the
- * same rhythm as everyone else in a channel.
+ * Semeado a MODERATOR para nada mudar em quem já usava slow mode; admins passam
+ * direto sem linha.
  *
- * Seeded to MODERATOR so nothing changes for the forums already running slow
- * mode; administrators hold every permission and are covered without a row.
- *
- * The seed only runs when the group exists: a forum may have deleted it, and
- * `group_permission.group_id` is an FK to `groups`, so inserting blindly aborts
- * the whole extension's activation with SQLSTATE[23000]. Same guard that
- * `Migration::addPermissions` applies.
+ * Só semeia se o grupo existir: `group_permission.group_id` é FK para `groups`
+ * e inserir às cegas aborta a ativação (SQLSTATE[23000]).
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $db = $schema->getConnection();
 

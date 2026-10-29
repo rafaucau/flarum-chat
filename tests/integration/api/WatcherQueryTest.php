@@ -16,11 +16,8 @@ use Illuminate\Database\Events\QueryExecuted;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Watchers looked up for a notification that cannot be delivered.
- *
- * ChatMessageBlueprint has no delivery channel, so the "notify on every
- * message" branch can never send anything. It still read every watcher of the
- * channel, and of the thread, on each message before finding that out.
+ * O ChatMessageBlueprint não tem canal de entrega, então o ramo "avisar a cada
+ * mensagem" nunca envia nada e não deve ler os watchers do canal e do tópico.
  */
 class WatcherQueryTest extends TestCase
 {

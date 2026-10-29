@@ -20,19 +20,12 @@ use Ramon\Chat\Storage\Job\PrivatizeRemoteUploads;
 use Ramon\Chat\Upload;
 
 /**
- * Finishes moves to the private disk that nothing else will.
+ * Conclui as movimentações para o disco privado que ficaram pendentes.
  *
- * Two kinds of leftover. A file on fof/upload that was flagged private but
- * whose bytes are still in the bucket, because PrivatizeRemoteUploads ran out
- * of tries against a bucket that was down: it is already served only through
- * the permission check, but a public copy sits in the bucket until the move
- * finishes. And a file still on the public disk in a channel the world can no
- * longer read, because what made it private fired no event — flarum/tags
- * reorders its hierarchy with bulk updates, so a category moved under a
- * restricted parent is noticed only here.
- *
- * Scheduled hourly (see extend.php). Only queues work; the moves themselves
- * run in the jobs, a channel at a time.
+ * Dois casos: arquivo do fof/upload marcado privado cujos bytes ainda estão no
+ * bucket (o job esgotou as tentativas), e arquivo no disco público de um canal
+ * que ficou restrito sem disparar evento (o flarum/tags reordena a hierarquia
+ * com updates em massa). Roda de hora em hora e só enfileira jobs.
  */
 class PrivatizePendingUploadsCommand extends AbstractCommand
 {
@@ -87,9 +80,8 @@ class PrivatizePendingUploadsCommand extends AbstractCommand
     }
 
     /**
-     * A flagged remote file with no message has no channel to queue under. The
-     * flag is only ever set on a file that was sent, so this is a message
-     * deleted mid-move; there are never many, and each is moved here.
+     * Arquivo remoto marcado sem mensagem não tem canal para enfileirar: é uma
+     * mensagem apagada no meio da movimentação. São poucos, então move aqui mesmo.
      */
     protected function privatizeRemoteOrphans(): int
     {
@@ -110,11 +102,14 @@ class PrivatizePendingUploadsCommand extends AbstractCommand
     {
         $queued = 0;
 
+        // Com o fórum fechado a visitantes, todo canal conta; aberto, só os que
+        // podem pedir privacidade (DM, privado, apagado ou com tag).
         Channel::query()
-            ->where(fn (Builder $query) => $query
+            ->unless(UploadPrivacy::forumClosed(), fn (Builder $channels) => $channels->where(fn (Builder $query) => $query
                 ->where('type', Channel::TYPE_DIRECT)
                 ->orWhere('is_private', true)
-                ->orWhereNotNull('tag_id'))
+                ->orWhereNotNull('deleted_at')
+                ->orWhereNotNull('tag_id')))
             ->whereHas('messages', fn (Builder $messages) => $messages->whereHas(
                 'uploads',
                 fn (Builder $uploads) => $uploads->where('is_private', false)

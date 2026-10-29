@@ -16,8 +16,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A resolved mention extracted from a message at send time. Persisting these
- * means notification fan-out and unread-mention counts never re-parse content.
+ * Menção resolvida no envio. Persistida para que notificações e contagens de
+ * menções não reprocessem o conteúdo.
  *
  * @property int $id
  * @property int $message_id
@@ -34,16 +34,15 @@ class MessageMention extends AbstractModel
     public const TYPE_USER = 'user';
     public const TYPE_GROUP = 'group';
 
-    /** Everyone currently present in the channel. */
+    /** Todos presentes no canal agora. */
     public const TYPE_HERE = 'here';
 
-    /** Every channel member, present or not. */
+    /** Todos os membros, presentes ou não. */
     public const TYPE_ALL = 'all';
 
     protected $table = 'chat_message_mentions';
 
     public $timestamps = false;
-
 
     protected $casts = [
         'message_id' => 'integer',
@@ -57,16 +56,19 @@ class MessageMention extends AbstractModel
         return in_array($this->type, [self::TYPE_HERE, self::TYPE_ALL], true);
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<Group, $this> */
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class, 'group_id');

@@ -24,13 +24,12 @@ use Ramon\Chat\Storage\UploadStorage;
 use Ramon\Chat\Upload;
 
 /**
- * Which store a file goes to.
+ * Para qual store vai cada arquivo.
  *
- * The rule the whole feature hangs on: private files never leave the chat's own
- * private disk, and public ones go to fof/upload only when the admin chose it
- * and fof/upload is actually enabled. Every combination is spelled out, because
- * the one that matters most — private while fof/upload is chosen and enabled —
- * is exactly the one a careless refactor would get wrong.
+ * Privados nunca saem do disco privado do chat; públicos vão para o fof/upload
+ * só se o admin escolheu e ele está habilitado. Toda combinação está escrita
+ * porque a que mais importa (privado com fof/upload escolhido e habilitado) é a
+ * que um refactor descuidado erraria.
  */
 class UploadStorageTest extends TestCase
 {

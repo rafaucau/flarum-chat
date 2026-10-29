@@ -14,14 +14,12 @@ use PHPUnit\Framework\TestCase;
 use Ramon\Chat\Access\VisibilityCache;
 
 /**
- * The memo behind the policies' visibility answers.
+ * O memo por trás das respostas de visibilidade das policies.
  *
- * The nesting test is the one that matters. Resolvers nest — answering "can this
- * actor see thread 5" asks "can they see channel 1" from inside its own
- * `remember()` — and an earlier implementation held a plain array, so the outer
- * call wrote back a copy taken before the inner one ran and silently discarded
- * it. Nothing failed; the cache simply stopped caching, and a list of twenty
- * threads in two channels ran twenty visibility queries instead of two.
+ * O teste de aninhamento é o que importa: "o ator vê o tópico 5" pergunta "vê o
+ * canal 1" de dentro do próprio `remember()`. Com um array simples, a chamada
+ * externa regravaria uma cópia anterior e descartaria a interna; o cache
+ * pararia de cachear sem nada falhar.
  */
 class VisibilityCacheTest extends TestCase
 {
@@ -88,8 +86,8 @@ class VisibilityCacheTest extends TestCase
     }
 
     /**
-     * The regression this class was rewritten for: what a nested resolver stores
-     * has to survive the outer call returning.
+     * O que um resolver aninhado guarda precisa sobreviver ao retorno da chamada
+     * externa.
      */
     public function test_a_nested_answer_survives_the_outer_call(): void
     {
@@ -105,8 +103,8 @@ class VisibilityCacheTest extends TestCase
             });
         };
 
-        // Each thread resolves its own answer by asking about the same channel,
-        // exactly as MessagePolicy and ThreadPolicy do.
+        // Cada tópico resolve a própria resposta perguntando pelo mesmo canal, como
+        // MessagePolicy e ThreadPolicy fazem.
         foreach ([10, 11, 12, 13] as $threadId) {
             $cache->remember($actor, 'thread', $threadId, $channel);
         }

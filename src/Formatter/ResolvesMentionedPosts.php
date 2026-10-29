@@ -14,18 +14,11 @@ use Illuminate\Database\Eloquent\Collection;
 use s9e\TextFormatter\Utils;
 
 /**
- * Lets a chat model survive formatter callbacks written for forum posts.
+ * Deixa um model do chat sobreviver a callbacks do formatter escritos para posts.
  *
- * Every model that uses HasFormattedContent is handed to every render and
- * unparse callback any extension registers, and some of those (fof/move-posts
- * among them) assume the context is a Post and read `$context->mentionsPosts`
- * without checking. A Post has that relation; a chat message did not, so a
- * pasted quote made `find()` fatal on null and took the channel down with it.
- *
- * The accessor stands in for the relation: it resolves the posts the content
- * actually mentions, so a callback that corrects post numbers after a move
- * still does its job, and an empty collection is returned when nothing is
- * mentioned. Memoised per instance because unparse and render each call it.
+ * Callbacks de render/unparse de outras extensões (ex.: fof/move-posts) leem
+ * `$context->mentionsPosts` sem checar se é um Post. O accessor resolve os posts
+ * mencionados de fato; memoizado porque unparse e render o chamam.
  *
  * @property-read Collection<int, Post> $mentionsPosts
  */
@@ -55,7 +48,7 @@ trait ResolvesMentionedPosts
     }
 
     /**
-     * Ids of the posts the parsed content mentions, from the POSTMENTION tags.
+     * Ids dos posts mencionados, lidos das tags POSTMENTION.
      *
      * @return list<int>
      */
@@ -81,11 +74,10 @@ trait ResolvesMentionedPosts
     }
 
     /**
-     * The content as escaped plain text, for when rendering it threw.
+     * O conteúdo como texto simples escapado, para quando o render falhou.
      *
-     * Built from the parsed XML directly rather than from `$this->content`,
-     * because that getter runs the unparse callbacks and the fallback must not
-     * depend on the very pipeline that just failed.
+     * Lido direto do XML: `$this->content` roda os callbacks de unparse, o mesmo
+     * pipeline que acabou de falhar.
      */
     public function fallbackContentHtml(): string
     {

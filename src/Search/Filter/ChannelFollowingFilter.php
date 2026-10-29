@@ -16,14 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Ramon\Chat\Channel;
 
 /**
- * `filter[following]=1` — the actor's sidebar list.
- *
- * Guests can never hold a membership, so for them the filter resolves to "nothing"
- * rather than being silently ignored.
- *
- * Only ever narrows the visible set: ChannelSearcher starts from
- * `whereVisibleTo`, which is what keeps a channel for everyone out of the list
- * of someone who cannot see it.
+ * `filter[following]=1`: a lista da sidebar. Para visitante resulta em nada, em
+ * vez de ser ignorado. Só estreita o conjunto visível do ChannelSearcher.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -70,8 +64,8 @@ class ChannelFollowingFilter implements FilterInterface
                 ->whereNull('chat_channel_user.left_at');
         };
 
-        // A channel for everyone is followed by whoever has no row in it at all;
-        // the row someone gets by leaving is what takes it out of their list.
+        // Canal para todos é seguido por quem não tem linha nele; a linha criada ao
+        // sair é que o tira da lista.
         $implied = function (Builder $query) use ($actor) {
             Channel::onlyForEveryone($query->getQuery())
                 ->whereNotExists(function ($sub) use ($actor) {

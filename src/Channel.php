@@ -64,20 +64,23 @@ use Illuminate\Support\Str;
  */
 class Channel extends AbstractModel
 {
+    use CountsMessagesAtomically;
     use EventGeneratorTrait;
     use ScopeVisibilityTrait;
 
     /**
-     * A channel bound to a tag (or to the whole forum when tags is disabled).
-     * Visibility is inherited from the tag, so category permissions govern chat
-     * access without a second permission surface to maintain.
+     * Canal ligado a uma tag (ou ao fórum todo sem tags). Herda a visibilidade
+     * da tag, sem uma segunda camada de permissões.
      */
     public const TYPE_CATEGORY = 'category';
 
     /**
-     * A 1:1 or group conversation with an explicit participant list.
+     * Conversa 1:1 ou em grupo, com lista explícita de participantes.
      */
     public const TYPE_DIRECT = 'direct';
+
+    /** Teto de participantes de uma conversa direta, quem a abriu incluído. */
+    public const MAX_DIRECT_PARTICIPANTS = 20;
 
     public const STATUS_OPEN = 'open';
     public const STATUS_CLOSED = 'closed';
@@ -86,9 +89,8 @@ class Channel extends AbstractModel
     protected $table = 'chat_channels';
 
     /**
-     * App-wide services the model reads from, handed over by ChatServiceProvider
-     * the same way HasFormattedContent receives its formatter. Neither holds
-     * actor or request state, so sharing them across a worker's requests is safe.
+     * Serviços injetados pelo ChatServiceProvider. Não guardam estado de ator nem
+     * de request, então o static é seguro num worker.
      */
     protected static ?ExtensionManager $extensions = null;
 
@@ -97,22 +99,22 @@ class Channel extends AbstractModel
     public $timestamps = true;
 
     /**
-     * Memberships already looked up on this instance, by user id. Per-instance
-     * and not static: a static would survive between actors in a queue worker.
+     * Associações já consultadas, por user id. Por instância, não static: um
+     * static sobreviveria entre atores num worker de fila.
      *
      * @var array<int, ChannelUser|null>
      */
     protected array $membershipCache = [];
 
     /**
-     * Pending invites already looked up on this instance, by user id.
+     * Convites pendentes já consultados, por user id.
      *
      * @var array<int, ChannelInvite|null>
      */
     protected array $inviteCache = [];
 
     /**
-     * Whether a user has left this channel, by user id, for `hasLeft()`.
+     * Saídas já consultadas, por user id, para `hasLeft()`.
      *
      * @var array<int, bool>
      */
@@ -170,8 +172,7 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Slugs are only meaningful for category channels — direct channels are
-     * addressed by id because their name is derived from the participant list.
+     * Só canais de categoria usam slug; diretos são endereçados por id.
      */
     public function generateSlug(string $name): string
     {
@@ -196,28 +197,22 @@ class Channel extends AbstractModel
         return $this->type === self::TYPE_DIRECT;
     }
 
-    /**
-     * Invitation-only: visible to members alone, so it is absent from Browse and
-     * cannot be joined by someone who was not added.
-     *
-     * A direct channel is never marked private — it is private by construction, and
-     * treating it as both would make the flag mean two different things.
-     */
-    /** Only holders of `ramon-chat.moderate` may post. */
     public const POST_ALL = 'all';
+    /** Só quem tem `ramon-chat.moderate` posta. */
     public const POST_MODERATORS = 'moderators';
 
     /**
-     * Whether posting is narrowed to moderators — an announcement channel.
-     *
-     * Never true for a direct channel: a conversation only one side may write to is
-     * not a conversation, and the setting is not offered for them.
+     * Canal de anúncios: só moderadores postam. Nunca vale para canal direto.
      */
     public function restrictsPostingToModerators(): bool
     {
         return $this->isCategory() && $this->post_permission === self::POST_MODERATORS;
     }
 
+    /**
+     * Só por convite: fora do Browse e só membros veem. Canal direto nunca recebe
+     * a flag; já é privado por natureza.
+     */
     public function isPrivate(): bool
     {
         return $this->isCategory() && (bool) $this->is_private;
@@ -229,17 +224,11 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Whether everyone who can see the channel is in it — the "add all users"
-     * setting, an IRC-style room open to the whole forum.
+     * Todo mundo que vê o canal está nele ("adicionar todos").
      *
-     * Nobody gets a membership row for it up front. A row appears only when
-     * someone does something that has to be stored: reading the channel (the
-     * read marker lives on the row), changing how it notifies them, or leaving
-     * it. Writing one row per account to open a general channel is what made a
-     * forum of 400k users crawl.
-     *
-     * Never true for a private channel: "everyone" and "invitation only"
-     * contradict each other, and the invitation is the one that keeps people out.
+     * Não cria linha de associação antecipada: ela só surge ao ler, mudar a
+     * notificação ou sair. Uma linha por conta não escala em fóruns grandes.
+     * Nunca vale para canal privado.
      */
     public function isForEveryone(): bool
     {
@@ -247,8 +236,7 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Narrows a query over `chat_channels` to the channels for everyone: the SQL
-     * form of isForEveryone(), which the two must keep in step with.
+     * Versão SQL de isForEveryone(); as duas precisam ficar em sincronia.
      */
     public static function onlyForEveryone(QueryBuilder $query): QueryBuilder
     {
@@ -259,7 +247,7 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The ids of every channel for everyone, as a subquery.
+     * Ids dos canais para todos, como subquery.
      */
     public static function idsForEveryone(): \Closure
     {
@@ -267,12 +255,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Whether the user is in the channel: a live membership, or, in a channel
-     * for everyone, simply never having left it.
-     *
-     * Visibility is not part of the answer. Callers ask it of a channel the user
-     * can already see, which is what makes "everyone" mean everyone who may see
-     * the channel rather than every row in `users`.
+     * Se o usuário está no canal: associação ativa ou, em canal para todos, nunca
+     * ter saído. Não checa visibilidade; quem chama já garantiu.
      */
     public function includes(?User $user): bool
     {
@@ -288,9 +272,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Whether the user holds a membership they have left, memoised like
-     * `membershipFor()`. In a channel for everyone that row is the only thing
-     * that keeps them out.
+     * Se o usuário saiu, com memo como `membershipFor()`. Em canal para todos,
+     * essa linha é o que o mantém fora.
      */
     public function hasLeft(User $user): bool
     {
@@ -328,8 +311,7 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Whether new messages may be posted. Closed and archived channels stay
-     * readable but frozen, which is what makes archiving non-destructive.
+     * Canais fechados e arquivados continuam legíveis, mas congelados.
      */
     public function acceptsMessages(): bool
     {
@@ -337,28 +319,23 @@ class Channel extends AbstractModel
     }
 
     /**
-     * How long a message may be here, given the forum-wide default.
-     *
-     * Null and zero both mean "follow the forum": a channel that never had an
-     * opinion and a channel whose own limit was cleared must behave the same,
-     * and zero as a literal cap would forbid every message.
+     * Tamanho máximo de mensagem. Null e zero seguem o fórum; o canal só reduz,
+     * nunca passa do teto do fórum.
      */
     public function maxMessageLength(int $forumDefault): int
     {
-        return $this->max_message_length ?: $forumDefault;
+        return $this->max_message_length ? min($this->max_message_length, $forumDefault) : $forumDefault;
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
     }
 
     /**
-     * Whether the user created this channel. What that grants is decided by
-     * Service\ChannelOwnership, which reads the forum's ownership mode; this
-     * only answers the fact. Direct channels never qualify: their creator merely
-     * opened the conversation, and a group DM's participant list is governed by
-     * ChannelPolicy::manageMembers on its own terms.
+     * Se o usuário criou o canal; o que isso concede fica em
+     * Service\ChannelOwnership. Canais diretos nunca contam.
      */
     public function isOwnedBy(?User $user): bool
     {
@@ -369,44 +346,37 @@ class Channel extends AbstractModel
         return $this->isCategory() && (int) $this->creator_id === (int) $user->id;
     }
 
+    /** @return HasMany<Message, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'channel_id');
     }
 
+    /** @return HasMany<Thread, $this> */
     public function threads(): HasMany
     {
         return $this->hasMany(Thread::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function lastMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'last_message_id');
     }
 
+    /** @return HasMany<Webhook, $this> */
     public function webhooks(): HasMany
     {
         return $this->hasMany(Webhook::class, 'channel_id');
     }
 
     /**
-     * Every user with a membership row, including those who have muted the
-     * channel. Excludes users who left a direct channel.
-     */
-    /**
-     * The people in the channel, as everyone else sees them.
+     * Membros como os outros os veem; ocultos ficam de fora.
      *
-     * Hidden memberships are excluded: a moderator who joined to observe should not
-     * appear in the member list, which is the whole point of joining that way. They
-     * still have a membership row — see `memberships()`, which does not filter — so
-     * their unread state and sidebar entry work normally.
+     * Em canal para todos, só criador e moderadores (o resto nem tem linha). A
+     * restrição fica no SQL para valer também em eager loads.
      *
-     * In a channel for everyone it is the people who run the room: its creator
-     * and its moderators. Everyone else is in it whether or not they have a row,
-     * so the rows would list whoever happened to read the channel — in a general
-     * channel, most of the forum, which the members tab could never load. The
-     * constraint is in SQL rather than on the instance so it holds for eager
-     * loads too, which build the relation from a blank model.
+     * @return BelongsToMany<User, $this>
      */
     public function participants(): BelongsToMany
     {
@@ -426,34 +396,41 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The same set as `participants`, for the endpoints that label direct
-     * channels.
-     *
-     * A relation of its own rather than eager-loading `participants`: that one is
-     * what `?include=participants` serves, and constraining it to direct channels
-     * would hand the members tab of a category channel an empty list. The
-     * constraint lives at eager-load time (`eagerLoadWhere`), because loading
-     * every member of every listed channel to label the handful of direct ones is
-     * the cost this exists to avoid.
+     * Mesmo conjunto de `participants`, para rotular canais diretos. Relação à
+     * parte para restringir o eager load (`eagerLoadWhere`) só aos diretos sem
+     * esvaziar `?include=participants`.
      */
     public function directParticipants(): BelongsToMany
     {
         return $this->participants();
     }
 
+    /** Quem está na conversa agora, contando os membros ocultos. */
+    public function activeParticipantCount(): int
+    {
+        return $this->memberships()->whereNull('left_at')->count();
+    }
+
+    /**
+     * Toda linha de associação, inclusive ocultos e silenciados.
+     *
+     * @return HasMany<ChannelUser, $this>
+     */
     public function memberships(): HasMany
     {
         return $this->hasMany(ChannelUser::class, 'channel_id');
     }
 
+    /** @return HasMany<ChannelInvite, $this> */
     public function invites(): HasMany
     {
         return $this->hasMany(ChannelInvite::class, 'channel_id');
     }
 
     /**
-     * Who was invited and has not yet answered, for the members tab of whoever
-     * manages the channel.
+     * Convidados sem resposta, para a aba de membros de quem gerencia.
+     *
+     * @return BelongsToMany<User, $this>
      */
     public function invitedUsers(): BelongsToMany
     {
@@ -462,11 +439,10 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The invite of whoever is asking, for the endpoints that load it along.
+     * Convite de quem pede. Sem restrição aqui, como `actorMembership()`: o
+     * endpoint restringe o eager load. Só `pendingInviteFor()` deve lê-la.
      *
-     * Unconstrained here, like `actorMembership()`: only the endpoint knows who
-     * the actor is, and it is the one that constrains the eager load. Nothing
-     * but `pendingInviteFor()` should read this relation.
+     * @return HasOne<ChannelInvite, $this>
      */
     public function actorInvite(): HasOne
     {
@@ -474,12 +450,9 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The user's pending invite, memoized like `membershipFor()`.
-     *
-     * An already loaded `actorInvite` answers without a query, even when it came
-     * back empty: the relation is only loaded constrained to the request's
-     * actor, and without that trust the channel list would cost one query per
-     * row just to find out there is no invite at all.
+     * Convite pendente, com memo como `membershipFor()`. Um `actorInvite` já
+     * carregado responde sem query, mesmo vazio: ele só é carregado restrito ao
+     * ator da request.
      */
     public function pendingInviteFor(?User $user): ?ChannelInvite
     {
@@ -525,12 +498,9 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The tag this channel inherits permissions from. Resolved dynamically so
-     * the model does not hard-depend on flarum/tags being installed.
-     *
-     * Gated on the extension being *enabled*, not on the class existing: the
-     * class is autoloaded from vendor/ either way, and loading this relation
-     * against a `tags` table whose migrations never ran is a 500.
+     * Tag de onde vêm as permissões, resolvida sem depender de flarum/tags.
+     * Checa se a extensão está *ativa*, não se a classe existe: sem as
+     * migrations de tags a relação daria 500.
      */
     public function tag(): ?BelongsTo
     {
@@ -542,13 +512,13 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The membership of whoever is asking, for the endpoints that eager-load it.
+     * Associação de quem pede, para endpoints com eager load.
      *
-     * Deliberately unconstrained here: the constraint is applied at eager-load
-     * time (`eagerLoadWhere`), because only the endpoint knows the actor. Reading
-     * it directly off a model would give you an arbitrary member's row, which is
-     * why nothing but `membershipFor()` — which checks whose row it got — touches
-     * it.
+     * Sem restrição aqui: o endpoint aplica `eagerLoadWhere`, pois só ele conhece o
+     * ator. Lida direto seria a linha de qualquer membro; por isso só
+     * `membershipFor()`, que confere o dono da linha, a usa.
+     *
+     * @return HasOne<ChannelUser, $this>
      */
     public function actorMembership(): HasOne
     {
@@ -556,17 +526,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Memoised on the instance, including the misses.
-     *
-     * ChannelPolicy reaches this from `postMessage`, `join` and `edit`, and the
-     * resource resolves all three for every channel the sidebar lists — so a
-     * fifty channel list ran the same lookup several times per row. Model
-     * instances do not outlive the request, so the cache cannot leak between
-     * actors; `forgetMembership()` covers the one case where the answer changes
-     * while the request is still running.
-     *
-     * `array_key_exists` rather than `isset`, so a cached "not a member" is not
-     * re-queried on every ask.
+     * Memo por instância, inclusive ausências (`array_key_exists`, não `isset`).
+     * A ChannelPolicy consulta isto várias vezes por canal da sidebar.
      */
     public function membershipFor(?User $user): ?ChannelUser
     {
@@ -580,10 +541,8 @@ class Channel extends AbstractModel
             return $this->membershipCache[$id];
         }
 
-        // The eager-loaded row, but only once it has proved it belongs to the user
-        // being asked about. A null there is ambiguous — it could mean "this actor
-        // is not a member" or "the relation was constrained to somebody else" — so
-        // it falls through to the query rather than answering wrongly.
+        // Usa a linha do eager load só se for deste usuário. Null é ambíguo (não
+        // membro ou relação restrita a outro), então cai na query.
         if ($this->relationLoaded('actorMembership')) {
             $loaded = $this->getRelation('actorMembership');
 
@@ -599,10 +558,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Drops a memoised membership after joining, leaving, or being added or
-     * removed — the mutation happens mid-request and the next read must see it.
-     *
-     * Passing null clears the lot, for a bulk change.
+     * Descarta o memo após entrar, sair, adicionar ou remover, para a próxima
+     * leitura na mesma request ver a mudança. Null limpa tudo.
      */
     public function forgetMembership(?User $user = null): void
     {
@@ -617,10 +574,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * Answers membershipFor() and pendingInviteFor() for a whole list of users
-     * with one query each, for the requests that walk many people at once.
-     * Whoever has neither is remembered as having neither, so the walk does
-     * not fall back to a query per person.
+     * Preenche o memo de membershipFor() e pendingInviteFor() para vários
+     * usuários com uma query cada, inclusive ausências.
      *
      * @param  int[]  $userIds
      */
@@ -650,11 +605,8 @@ class Channel extends AbstractModel
     }
 
     /**
-     * The channel's picture, or null.
-     *
-     * Built from the assets base each time rather than stored as a URL, so moving
-     * the forum to another host does not leave every channel icon pointing at the
-     * old one. Mirrors how core resolves the logo path.
+     * Imagem do canal, ou null. Montada a partir da base de assets, como o logo
+     * do core, para sobreviver a uma troca de host.
      */
     public function imageUrl(): ?string
     {
@@ -666,15 +618,17 @@ class Channel extends AbstractModel
             .'/assets/'.$this->image_path;
     }
 
+    /** Conta uma mensagem nova; veja CountsMessagesAtomically. */
+    public function recordNewMessage(Message $message): static
+    {
+        $this->countNewMessage('messages_count', $message);
+
+        return $this;
+    }
+
     /**
-     * Recomputes the denormalised counters from the messages table. Used after
-     * bulk operations (message moves, retention pruning, archiving) where
-     * tracking increments incrementally would be error-prone.
-     *
-     * `user_count` counts visible members only, the same set MembershipManager
-     * keeps it to: a hidden member counted here made the card read one higher
-     * than the list for each observer, which is the presence joining hidden is
-     * meant to keep quiet.
+     * Recalcula os contadores após operações em lote (mover, podar, arquivar).
+     * `user_count` conta só membros visíveis, como o MembershipManager.
      */
     public function refreshMetadata(): static
     {

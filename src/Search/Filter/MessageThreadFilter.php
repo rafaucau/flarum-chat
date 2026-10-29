@@ -14,7 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[thread]=1` — every message in a thread, root included.
+ * `filter[thread]=1`: todas as mensagens da thread, raiz inclusa.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */

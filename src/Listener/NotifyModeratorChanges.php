@@ -15,13 +15,11 @@ use Ramon\Chat\Event\ChannelModeratorChanged;
 use Ramon\Chat\Notification\ModeratorPromotedBlueprint;
 
 /**
- * Notifies whoever just became a moderator of a channel.
+ * Notifica quem acabou de virar moderador de um canal.
  *
- * Only promotion notifies. A "you are no longer a moderator" in the bell would
- * read as a reprimand, and the members tab already shows the role; demotion
- * only removes the promotion notice, if it is still there. The previous notice
- * is deleted before a new one, so a second promotion arrives as new, not as an
- * old, already-read row coming back to the list.
+ * Só a promoção notifica; "você não é mais moderador" soaria como reprimenda.
+ * O rebaixamento só remove o aviso de promoção. O aviso anterior é apagado
+ * antes, para uma nova promoção chegar como nova e não como linha já lida.
  */
 class NotifyModeratorChanges
 {

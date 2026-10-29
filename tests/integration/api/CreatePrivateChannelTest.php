@@ -14,29 +14,27 @@ use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
 
 /**
- * `createChannel` creates both kinds of channel.
+ * `createChannel` cria os dois tipos de canal.
  *
- * Public or private is a choice made while creating one, not a second right: a
- * group trusted to open a room is trusted to decide who can find it. A separate
- * `createPrivateChannel` permission was tried and withdrawn, and this is what
- * keeps it from coming back.
+ * Público ou privado é uma escolha na criação, não um segundo direito: um grupo
+ * confiável para abrir uma sala decide quem pode achá-la. Este teste impede que
+ * uma permissão `createPrivateChannel` separada volte.
  *
- * Both cases are asserted on the response *and* on the stored row. The response
- * is what the modal reads back; the row is what visibility is scoped against, and
- * a value that reaches one but not the other is exactly the half-applied write
- * this is here to catch.
+ * Os dois casos são conferidos na resposta *e* na linha gravada: a resposta é o
+ * que o modal lê; a linha é contra o que a visibilidade filtra. Um valor que
+ * chega a uma e não à outra é uma escrita pela metade.
  */
 class CreatePrivateChannelTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
-    /** Holds `createChannel` and nothing else beyond using the chat. */
+    /** Tem `createChannel` e nada além de usar o chat. */
     private const CREATOR = 3;
 
-    /** Same groups as CREATOR, but the account was never confirmed. */
+    /** Mesmos grupos que CREATOR, mas a conta nunca foi confirmada. */
     private const UNCONFIRMED = 4;
 
     protected function setUp(): void
@@ -45,9 +43,9 @@ class CreatePrivateChannelTest extends TestCase
 
         $this->extension('ramon-chat');
 
-        // The permission only counts once channels are in members' hands; in the
-        // default "administrators" mode nobody else creates one, whatever the
-        // grid says. Registered before boot, as the harness asks for settings.
+        // A permissão só conta com os canais nas mãos dos membros; no modo padrão
+        // "administrators" ninguém mais cria, diga a grade o que disser. Registrado
+        // antes do boot, como o harness pede para settings.
         $this->setting('ramon-chat.channel_ownership', 'members');
 
         $this->prepareDatabase([
@@ -89,9 +87,8 @@ class CreatePrivateChannelTest extends TestCase
             $this->request('POST', '/api/chat-channels', [
                 'authenticatedAs' => $as,
                 'json'            => ['data' => ['attributes' => [
-                    // `type` is what ChannelFormModal sends on create, and the
-                    // schema requires it — without it the request never reaches
-                    // the question these tests are asking.
+                    // `type` é o que o ChannelFormModal manda na criação, e o schema exige; sem
+                    // ele a requisição nem chega à pergunta destes testes.
                     'type'      => 'category',
                     'name'      => $private ? 'secret room' : 'open room',
                     'isPrivate' => $private,
@@ -137,9 +134,9 @@ class CreatePrivateChannelTest extends TestCase
 
     public function test_a_member_without_the_permission_creates_neither(): void
     {
-        // The ownership migration seeds `createChannel` to the Member group, so
-        // "a member without the permission" has to be made by revoking it — which
-        // is also what an operator does to narrow creation to a smaller group.
+        // A migration de posse dá `createChannel` ao grupo Member, então "membro sem
+        // a permissão" sai de uma revogação, que é também o que um operador faz para
+        // restringir a criação a um grupo menor.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.createChannel')
@@ -150,17 +147,12 @@ class CreatePrivateChannelTest extends TestCase
     }
 
     /**
-     * The grid can say yes while the answer is no.
+     * A grade pode dizer sim enquanto a resposta é não.
      *
-     * `createChannel` needs `ramon-chat.use` *and* `ramon-chat.createChannel`, and
-     * core resolves an unconfirmed account to GUEST alone — see
-     * User::permissions(), which only merges MEMBER and the user's own groups when
-     * `is_email_confirmed` is set. So a user sitting in a group the admin panel
-     * shows as holding the permission still has neither, because the group
-     * membership itself is not counted.
-     *
-     * Same shape produces the same symptom for a *suspended* account, which
-     * flarum/suspend demotes to GUEST through the same group processor.
+     * `createChannel` exige `ramon-chat.use` *e* `ramon-chat.createChannel`, e o
+     * core resolve conta não confirmada só como GUEST: User::permissions() só junta
+     * MEMBER e os grupos do usuário com `is_email_confirmed`. O mesmo vale para
+     * conta *suspensa*, que o flarum/suspend rebaixa a GUEST pelo mesmo processor.
      */
     public function test_an_unconfirmed_account_is_refused_despite_the_group(): void
     {
@@ -170,19 +162,16 @@ class CreatePrivateChannelTest extends TestCase
             'unconfirmed, in a group that holds createChannel'
         );
 
-        // The control: identical groups, identical permissions, confirmed.
+        // O controle: mesmos grupos, mesmas permissões, conta confirmada.
         $this->assertSame(201, $this->create(self::CREATOR, false)->getStatusCode());
     }
 
     /**
-     * The exact body ChannelFormModal sends, replayed as a non-admin creator.
+     * O corpo exato que o ChannelFormModal manda, repetido por um criador não admin.
      *
-     * Reported from production: a user holding `createChannel` gets a permission
-     * error on every attempt, public or private, while an administrator doing the
-     * same thing succeeds. The narrow fixtures above missed it because they send
-     * three attributes and the modal sends thirteen — and json-api-server answers
-     * 403 for a field that is merely *present* while not writable, so one
-     * admin-only attribute in the payload refuses the whole request.
+     * O json-api-server responde 403 a um campo apenas *presente* e não gravável,
+     * então um único atributo só de admin no payload recusa a requisição inteira.
+     * Fixtures enxutas, com três atributos em vez dos treze do modal, não pegam isso.
      */
     public function test_the_modal_payload_is_accepted_from_a_non_admin(): void
     {
@@ -213,10 +202,10 @@ class CreatePrivateChannelTest extends TestCase
 
     public function test_a_creator_cannot_switch_auto_join_on(): void
     {
-        // The field is still accepted — the form sends it on every save, with
-        // `false` — but turning it on puts every account on the forum into the
-        // room, which is not a creator's call. Refused rather than dropped, so the
-        // creator is told instead of finding the switch quietly off.
+        // O campo continua aceito (o formulário o manda em todo save, com `false`),
+        // mas ligá-lo põe toda conta do fórum na sala, o que não cabe ao criador.
+        // Recusado em vez de descartado, para o criador ser avisado em vez de achar a
+        // chave desligada sem aviso.
         $response = $this->send(
             $this->request('POST', '/api/chat-channels', [
                 'authenticatedAs' => self::CREATOR,

@@ -14,11 +14,8 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[channel]=1` — the message stream for one channel.
- *
- * Thread replies are excluded by default, so the main stream shows a thread as a
- * single root message with a reply indicator instead of inlining every reply.
- * Pass `filter[includeThreadReplies]=1` alongside it to opt out.
+ * `filter[channel]=1`: o fluxo de um canal. Respostas de thread ficam de fora (a
+ * thread aparece só pela raiz); `filter[includeThreadReplies]=1` as inclui.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -45,7 +42,7 @@ class MessageChannelFilter implements FilterInterface
             return;
         }
 
-        // Keep thread roots — which carry a thread_id too — but drop their replies.
+        // A raiz também tem thread_id; fica ela, saem as respostas.
         $query->where(function ($query) {
             $query->whereNull('chat_messages.thread_id')
                 ->orWhereExists(function ($sub) {

@@ -12,23 +12,20 @@ namespace Ramon\Chat\Rank;
 use Ramon\Chat\ChannelRank;
 
 /**
- * A channel's rank book: the definitions in priority order, who is a
- * moderator, and who holds each owner-created rank.
+ * Os cargos de um canal: definições em ordem de prioridade, moderadores e quem
+ * tem cada cargo criado pelo dono.
  *
- * Priority is fixed at the top and free below: owner, moderator, then the
- * owner's ranks in the order they chose. A member with several ranks shows the
- * first one. The owner is not part of the cached book; it is added at read
- * time (`withOwner`), from the already-loaded channel's `creator_id`.
- *
- * The mirror in js/src/forum/utils/ranks.tsx follows this same priority.
+ * Ordem: dono, moderador, depois os cargos do dono na ordem escolhida; vale o
+ * primeiro. O dono não entra no cache e é somado na leitura (`withOwner`).
+ * Espelhado em js/src/forum/utils/ranks.tsx.
  */
 final class RankBook
 {
     /**
-     * The part of the book that goes into the cache.
+     * A parte que vai para o cache.
      *
      * @param  iterable<ChannelRank>  $ranks
-     * @param  iterable<object{user_id: int|string, is_moderator: int|string|bool, rank_id: int|string|null}>  $members  Visible, present members with a role or rank.
+     * @param  iterable<object{user_id: int|string, is_moderator: int|string|bool, rank_id: int|string|null}>  $members  membros presentes e visíveis com papel ou cargo
      * @return array{ranks: list<array<string, mixed>>, moderatorIds: list<int>, assignments: array<int, list<int>>}
      */
     public static function compile(iterable $ranks, iterable $members): array
@@ -99,7 +96,7 @@ final class RankBook
     }
 
     /**
-     * The rank shown next to the user's name, or null.
+     * O cargo exibido ao lado do nome, ou null.
      *
      * @param  array<string, mixed>  $book
      * @return array<string, mixed>|null

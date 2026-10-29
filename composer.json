@@ -28,16 +28,18 @@
         "flarum/core": "^2.0.0"
     },
     "require-dev": {
+        "flarum/audit": "^2.0",
+        "flarum/gdpr": "^2.0.0",
         "flarum/mentions": "^2.0.0",
-        "fof/upload": "^2.0",
+        "flarum/phpstan": "^2.0",
         "flarum/tags": "^2.0.0",
         "flarum/testing": "^2.0.1",
+        "fof/upload": "^2.0",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^12.5.22",
         "pusher/pusher-php-server": "^7.2",
-        "vimeo/psalm": "^6.0",
-        "flarum/gdpr": "^2.0.0"
+        "vimeo/psalm": "^6.0"
     },
     "suggest": {
         "flarum/tags": "Required for category-scoped channels, which inherit tag permissions (^2.0).",
@@ -95,12 +97,27 @@
         }
     },
     "scripts": {
-        "analyse": "phpstan analyse",
+        "analyse:phpstan": "phpstan analyse --memory-limit=2G",
+        "clear-cache:phpstan": "phpstan clear-result-cache",
         "taint": "psalm --taint-analysis",
-        "test": "phpunit",
-        "test:unit": "phpunit --testsuite unit",
-        "test:integration": "phpunit --testsuite integration"
+        "test": [
+            "@test:unit",
+            "@test:integration"
+        ],
+        "test:unit": "phpunit -c tests/phpunit.unit.xml",
+        "test:integration": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpunit -c tests/phpunit.integration.xml"
+        ],
+        "test:setup": "@php tests/integration/setup.php"
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts-descriptions": {
+        "analyse:phpstan": "Run static analysis",
+        "test": "Runs all tests.",
+        "test:unit": "Runs all unit tests.",
+        "test:integration": "Runs all integration tests.",
+        "test:setup": "Sets up a database for use with integration tests. Execute this only once."
+    }
 }

@@ -13,11 +13,10 @@ use Flarum\User\User;
 use Ramon\Chat\Message;
 
 /**
- * A message was pinned or unpinned.
+ * Mensagem fixada ou desafixada; `$message->isPinned()` diz qual.
  *
- * Its own event rather than reusing MessageWasEdited: the content did not change,
- * so nothing that reacts to an edit — revision history, mention re-parsing —
- * should run. Both directions share one event; `$message->isPinned()` says which.
+ * Separado de MessageWasEdited: o conteúdo não mudou, então histórico de
+ * revisões e reparse de menções não devem rodar.
  */
 class MessagePinToggled
 {

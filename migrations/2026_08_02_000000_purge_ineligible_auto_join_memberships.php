@@ -12,37 +12,26 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Removes the memberships an earlier AutoJoinUsers wrote for people who cannot
- * use the chat.
+ * Remove associações que o antigo AutoJoinUsers criou para quem não pode usar
+ * o chat.
  *
- * That listener added every row in `users` to an `auto_join` channel, with no
- * permission check and no visibility check. On a forum running the chat for one
- * group, everyone else was left holding memberships they could never open — and
- * those rows fed the header badge, which sums `unread_count` per membership
- * rather than re-deriving the permission. The listener now filters; this clears
- * what it already wrote.
+ * O listener incluía todo `users` em canais `auto_join` sem checar permissão nem
+ * visibilidade, e essas linhas inflavam o badge do cabeçalho. O listener já
+ * filtra; isto limpa o que ficou.
  *
- * Scope is deliberately narrow. Only `auto_join` channels are touched, because
- * only those were populated in bulk: a membership anywhere else was created by
- * someone joining, being invited, or being added by a moderator, and none of
- * those are this bug. Rows are removed whether or not the user has since left —
- * a departure from a channel they never had access to is not history worth
- * keeping.
+ * Só canais `auto_join`, os únicos populados em massa. Remove mesmo quem já saiu:
+ * não há histórico a manter num canal que nunca foi acessível.
  *
- * The eligibility rule is written out here rather than shared with
- * `Ramon\Chat\Listener\AutoJoinUsers`. A migration is frozen history: pointing it
- * at a helper would let a later edit change what this did to forums that have
- * not run it yet. It mirrors `User::permissions()` as of writing — permissions
- * are group-derived, an unconfirmed account gets guest rights only, and
- * administrators short-circuit.
+ * A regra de elegibilidade fica copiada aqui, não compartilhada com o listener:
+ * migration é histórico congelado. Espelha `User::permissions()` na época
+ * (permissões vêm de grupos, conta não confirmada só tem direitos de guest, admin
+ * passa direto).
  *
- * No rollback. Restoring a membership would mean inventing the read state that
- * came with it.
+ * Sem rollback: exigiria inventar o estado de leitura.
  */
 return [
     'up' => function (Builder $schema) {
-        // Flarum's Migrator hands a closure migration the schema builder and
-        // nothing else, so the connection is reached through it.
+        // O Migrator só entrega o schema builder; a conexão vem dele.
         $db = $schema->getConnection();
 
         $groupIds = $db->table('group_permission')
@@ -51,8 +40,7 @@ return [
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        // Granted to guests, so every account carries it — there is nobody
-        // ineligible to purge.
+        // Concedido a guests: toda conta tem, não há o que podar.
         if (in_array(Group::GUEST_ID, $groupIds, true)) {
             return;
         }
@@ -72,18 +60,15 @@ return [
             $query->select('users.id')
                 ->from('users')
                 ->where(function (QueryBuilder $query) use ($groupIds, $memberGranted, $inGroups) {
-                    // Administrators hold every permission implicitly, and
-                    // `isAdmin()` reads the group rows directly — confirmation
-                    // does not gate it.
+                    // Admin tem tudo implicitamente; `isAdmin()` lê os grupos direto, sem
+                    // depender de confirmação.
                     $inGroups($query, [Group::ADMINISTRATOR_ID]);
 
                     $query->orWhere(function (QueryBuilder $query) use ($groupIds, $memberGranted, $inGroups) {
-                        // Confirmation is what admits MEMBER and the account's
-                        // own groups into its permission set.
+                        // A confirmação é o que inclui MEMBER e os grupos da conta nas permissões.
                         $query->where('users.is_email_confirmed', true);
 
-                        // Granted to members, which every confirmed account
-                        // belongs to implicitly — no group check to make.
+                        // Concedido a membros, que toda conta confirmada é implicitamente.
                         if (! $memberGranted) {
                             $inGroups($query, $groupIds);
                         }
@@ -106,11 +91,8 @@ return [
             ->whereNotIn('user_id', $eligible)
             ->delete();
 
-        // `user_count` is denormalised — see Channel::refreshMetadata(). Left
-        // stale it reports members the browse page cannot list. Recomputed per
-        // channel rather than in one correlated UPDATE: `auto_join` channels are
-        // few, and a plain query builder is portable across the drivers Flarum
-        // supports.
+        // `user_count` é desnormalizado (ver Channel::refreshMetadata()). Recalculado
+        // por canal, não num UPDATE correlacionado: são poucos e fica portável entre bancos.
         foreach ($channelIds as $channelId) {
             $db->table('chat_channels')
                 ->where('id', $channelId)

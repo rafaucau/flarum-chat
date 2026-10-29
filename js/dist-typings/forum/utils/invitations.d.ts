@@ -1,36 +1,22 @@
-import type Channel from "../../common/models/Channel";
+import type Channel from '../../common/models/Channel';
 /**
- * Answering a channel invitation.
+ * Resposta a convites de canal, compartilhada pela notificação, pelo composer do
+ * canal público convidado, pelo card de navegação e pelo menu do canal.
  *
- * One place for both answers because four surfaces offer them: the notification
- * row, the composer of an invited public channel, the browse card and the
- * channel's action menu. Each used to be a candidate for its own request and its
- * own idea of what to do with the result; here the result is always the same.
- *
- * Accepting goes through the invite route rather than `join`. A private channel
- * is not visible to someone who has not joined it, so the model-scoped join
- * endpoint could never find it; the invite route authorises on the invitation
- * and answers with the channel as the member now sees it.
+ * Aceitar usa a rota de convite, não `join`: canal privado não é visível para quem
+ * não entrou, então o endpoint de join nunca o encontraria.
  */
 /**
- * Accepts, and returns the channel as the server now serialises it, or null
- * when the invitation was no longer open.
- *
- * The returned record already carries `canPostMessage` and the other
- * capability flags, which is what lets the composer appear at once instead of
- * after a reload.
+ * Aceita e devolve o canal como o servidor o serializa agora, ou null se o
+ * convite já não estava aberto. O registro já traz `canPostMessage` e as demais
+ * flags, então o composer aparece sem recarregar.
  */
 export declare function acceptInvitation(channelId: number): Promise<Channel | null>;
 export declare function declineInvitation(channelId: number): Promise<void>;
 /**
- * Pushes a JSON:API channel document into the store and returns the record.
- *
- * Shared by every endpoint that answers with a channel (join, accept, add
- * members), so the store is always the thing that holds the server's answer.
+ * Coloca um documento JSON:API de canal no store e devolve o registro. Usado por
+ * todo endpoint que responde com um canal (join, accept, add members).
  */
 export declare function adoptChannelPayload(payload: unknown): Channel | null;
-/**
- * The error text an invitation answer should show, from the server's reply when
- * it gave one and from the local fallback when it did not.
- */
+/** Texto de erro da resposta do servidor, ou o fallback local quando não houver. */
 export declare function invitationErrorText(error: any, fallbackKey: string): string;

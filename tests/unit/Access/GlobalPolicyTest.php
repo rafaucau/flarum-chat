@@ -17,9 +17,9 @@ use Ramon\Chat\Access\GlobalPolicy;
 use Ramon\Chat\Service\ChannelOwnership;
 
 /**
- * Creating channels obeys the `ramon-chat.channel_ownership` mode before the
- * permission: in "administrators" mode the grid does not count; in "members"
- * mode the `createChannel` permission decides again.
+ * Criar canais obedece ao modo `ramon-chat.channel_ownership` antes da
+ * permissão: em "administrators" a grade não conta; em "members" a permissão
+ * `createChannel` volta a decidir.
  */
 class GlobalPolicyTest extends TestCase
 {
@@ -75,7 +75,7 @@ class GlobalPolicyTest extends TestCase
         $this->assertFalse($policy->createChannel($this->actor(['ramon-chat.use' => true])));
     }
 
-    /** The base chat gate still applies: a group granted only `createChannel` gets nothing. */
+    /** O gate base do chat continua valendo: um grupo só com `createChannel` não ganha nada. */
     public function test_creating_a_channel_still_requires_using_the_chat(): void
     {
         $policy = $this->policy(ChannelOwnership::MODE_MEMBERS);

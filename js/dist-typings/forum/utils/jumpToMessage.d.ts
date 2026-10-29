@@ -1,21 +1,16 @@
-import type ChatState from "../state/ChatState";
+import type ChatState from '../state/ChatState';
 /**
- * Centers a stream row and highlights it for a few seconds.
+ * Centraliza uma linha do stream e a destaca por alguns segundos. Busca dentro do
+ * scroller que contém `from`: o painel de tópico e o canal desenham o mesmo
+ * `ChatMessage`, e uma busca no documento rolaria o stream errado.
  *
- * The target is looked up inside the scroller that contains `from`: the topic
- * panel and the channel draw the same `ChatMessage`, and a document-wide lookup
- * would scroll the wrong stream when both are open.
- *
- * Returns `false` when the row is not in the loaded window, so the caller can
- * warn instead of swallowing the click.
+ * Retorna `false` quando a linha não está na janela carregada, para quem chama avisar.
  */
 export declare function jumpToMessage(id: number | string, from?: HTMLElement | null): boolean;
 /**
- * Jumps to a channel message, first loading the slice of history that separates
- * it from the window when it is older than what is already on screen.
- *
- * The scroller is re-read after loading because the redraw may have recreated
- * it. Returns `false` only when the message cannot be in the channel stream:
- * a topic reply, a deleted one, or beyond the page limit.
+ * Salta para uma mensagem do canal, carregando antes o trecho de histórico que a
+ * separa da janela quando ela é mais antiga. O scroller é relido após carregar
+ * porque o redesenho pode tê-lo recriado. Retorna `false` só quando a mensagem não
+ * pode estar no stream: resposta de tópico, apagada ou além do limite de páginas.
  */
 export declare function revealAndJump(state: ChatState, channelId: number, id: number | string, from?: HTMLElement | null): Promise<boolean>;

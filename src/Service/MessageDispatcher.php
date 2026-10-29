@@ -26,14 +26,16 @@ use Ramon\Chat\ThreadUser;
 use Ramon\Chat\Upload;
 
 /**
- * The single path through which user-authored messages enter a channel.
+ * O único caminho por onde mensagens de usuários entram num canal.
  *
- * Centralising this keeps the invariants in one place: validation, rate
- * limiting, mention resolution, thread bookkeeping, attachment binding, counter
- * maintenance and unread fan-out all have to happen together or not at all.
+ * Validação, rate limit, menções, threads, anexos, contadores e não lidas
+ * precisam acontecer juntos ou não acontecer.
  */
 class MessageDispatcher
 {
+    /** Anexos por mensagem: o resto ficaria preso a ela para sempre. */
+    public const MAX_UPLOADS_PER_MESSAGE = 10;
+
     public function __construct(
         protected ExtensionManager $extensions,
         protected Events $events,
@@ -48,7 +50,7 @@ class MessageDispatcher
     }
 
     /**
-     * @param  int[]  $uploadIds  Ids of previously uploaded, not-yet-attached files.
+     * @param  int[]  $uploadIds  ids de arquivos já enviados e ainda sem mensagem
      *
      * @throws ValidationException
      */
@@ -62,20 +64,35 @@ class MessageDispatcher
         bool $createThread = false
     ): Message {
         $content = trim($content);
+        $uploadIds = array_values(array_unique(array_filter(array_map('intval', $uploadIds))));
+
+        if (count($uploadIds) > self::MAX_UPLOADS_PER_MESSAGE) {
+            throw new ValidationException([
+                'uploadIds' => $this->translator->trans('ramon-chat.api.uploads_too_many', ['max' => self::MAX_UPLOADS_PER_MESSAGE]),
+            ]);
+        }
+
+        // Só anexos que vão mesmo para a mensagem (do autor, ainda soltos) contam
+        // para "não está vazia"; ids inventados não passam.
+        $uploadIds = $uploadIds === [] ? [] : Upload::query()
+            ->whereIn('id', $uploadIds)
+            ->where('user_id', $actor->id)
+            ->whereNull('message_id')
+            ->when(! UploadPrivacy::requiredFor($channel), fn ($query) => $query->where('is_private', false))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         $this->assertValidContent($channel, $content, $uploadIds);
         $this->assertMaySendStickers($actor, $content);
         $this->rateLimiter->assertWithinLimit($actor);
 
-        // After the content checks, before anything is written. A message that
-        // fails validation must not cost the sender their turn — being told
-        // "too short" and then "wait 30 seconds" for the same keystroke is the
-        // kind of thing that makes people give up on a channel.
+        // Depois das checagens de conteúdo, antes de gravar: mensagem inválida não
+        // custa a vez.
         $this->slowMode->assertMayPost($channel, $actor);
 
-        // A reply that starts a thread must anchor to a message in this channel;
-        // otherwise the thread would span channels and break the (channel,
-        // number) ordering contract.
+        // A thread precisa partir de mensagem deste canal, senão quebraria a ordem
+        // (channel, number).
         if ($replyTo !== null && $replyTo->channel_id !== $channel->id) {
             throw new ValidationException([
                 'replyTo' => $this->translator->trans('ramon-chat.api.invalid_reply_target'),
@@ -90,12 +107,16 @@ class MessageDispatcher
 
         $threadWasCreated = false;
 
-        $message = Message::query()->getConnection()->transaction(function () use (
+        // Depois de todas as validações, para uma recusa não custar a vez.
+        $this->slowMode->claim($channel, $actor);
+
+        $message = $this->uploadPrivacy->deferringRemoteDeletes(function () use (
+            $channel, $actor, $content, &$thread, $replyTo, $uploadIds, $createThread, &$threadWasCreated
+        ) { return Message::query()->getConnection()->transaction(function () use (
             $channel, $actor, $content, &$thread, $replyTo, $uploadIds, $createThread, &$threadWasCreated
         ) {
-            // Starting a thread from a message that has none yet: create the
-            // thread, then back-fill the root message's thread_id so the thread
-            // reads as a single query.
+            // Primeira resposta: cria a thread e preenche o thread_id da raiz, para a
+            // thread sair numa consulta só.
             if ($createThread && $thread === null && $replyTo !== null) {
                 if ($replyTo->thread_id !== null) {
                     $thread = $replyTo->thread;
@@ -122,7 +143,7 @@ class MessageDispatcher
                 $actor->can('mentionChannelWide', $channel)
             );
 
-            // Reload relations the downstream listeners and serialisers rely on.
+            // Relações que listeners e serializers usam.
             $message->setRelation('channel', $channel);
             $message->setRelation('user', $actor);
 
@@ -133,30 +154,21 @@ class MessageDispatcher
                 $this->trackThread($thread, $actor);
             }
 
-            $channel->last_message_id = $message->id;
-            $channel->last_message_at = $message->created_at;
-            $channel->messages_count++;
-            $channel->save();
+            $channel->recordNewMessage($message);
 
-            // The sender is implicitly caught up; everyone else gains an unread.
+            // Quem envia fica em dia; os demais ganham uma não lida.
             $this->unread->recordNewMessage($message);
 
             return $message;
-        });
+        }); });
 
-        // Events fire *after* commit, never inside the transaction.
-        //
-        // Listeners have side effects the database cannot roll back: the realtime
-        // broadcast puts the message on subscribers' websockets, and notifications
-        // may send mail. Dispatching inside the transaction meant a client could
-        // receive the push — and act on it — before the row was committed, and a
-        // late rollback would leave a message that was announced but never existed.
+        // Eventos só depois do commit: o broadcast e o e-mail não têm rollback, e o
+        // cliente não pode receber uma mensagem que ainda não existe.
         if ($threadWasCreated && $thread !== null) {
             $this->events->dispatch(new ThreadWasCreated($thread, $actor));
         }
 
-        // Started only once the message is actually in. Marking the cooldown
-        // before the transaction would penalise a send that then failed.
+        // Só depois de a mensagem entrar, para um envio que falhou não custar a vez.
         $this->slowMode->noteSent($channel, $actor);
 
         $this->events->dispatch(new MessageWasSent($message, $actor));
@@ -165,9 +177,8 @@ class MessageDispatcher
     }
 
     /**
-     * Posts a system message (joins, status changes). System messages bypass
-     * rate limiting and mention resolution but still advance channel counters so
-     * they order correctly in the stream.
+     * Publica uma mensagem de sistema (entradas, mudanças de status). Pula rate
+     * limit e menções, mas avança os contadores para ordenar no stream.
      */
     public function sendSystem(Channel $channel, string $key, array $data = []): Message
     {
@@ -177,31 +188,24 @@ class MessageDispatcher
 
             $message->setRelation('channel', $channel);
 
-            $channel->last_message_id = $message->id;
-            $channel->last_message_at = $message->created_at;
-            $channel->messages_count++;
-            $channel->save();
+            $channel->recordNewMessage($message);
 
             return $message;
         });
 
-        // After commit, as above.
+        // Após o commit, como acima.
         $this->events->dispatch(new MessageWasSent($message, null));
 
         return $message;
     }
 
     /**
-     * Binds pending uploads to the message. Only the sender's own unattached
-     * uploads are eligible, which prevents claiming someone else's file by id.
+     * Vincula uploads pendentes à mensagem. Só os do próprio autor e ainda soltos,
+     * para ninguém pegar o arquivo de outro pelo id.
      *
-     * This is also the gate on where the file lives. The composer names the
-     * channel when it uploads, so the file normally starts on the right disk —
-     * but the upload endpoint takes the client's word for the destination, and
-     * this is where the destination is known for certain. A public file bound
-     * to a private channel is moved here, inside the same transaction as the
-     * message, so a move that fails is a send that fails rather than a picture
-     * left published.
+     * Também decide o disco: o endpoint de upload confia no destino que o cliente
+     * informa, e aqui o canal é certo. Arquivo público em canal privado é movido
+     * na mesma transação, então falhar a movimentação é falhar o envio.
      *
      * @param  int[]  $uploadIds
      */
@@ -213,16 +217,21 @@ class MessageDispatcher
             return;
         }
 
+        $private = UploadPrivacy::requiredFor($channel);
+
         Upload::query()
             ->whereIn('id', $uploadIds)
             ->where('user_id', $actor->id)
             ->whereNull('message_id')
+            // Arquivo enviado para canal privado ou DM não vai para canal público: o
+            // acesso ao anexo segue o da mensagem.
+            ->when(! $private, fn ($query) => $query->where('is_private', false))
             ->update([
                 'message_id' => $message->id,
                 'updated_at' => Carbon::now(),
             ]);
 
-        if (! UploadPrivacy::requiredFor($channel)) {
+        if (! $private) {
             return;
         }
 
@@ -238,9 +247,8 @@ class MessageDispatcher
     }
 
     /**
-     * Replying to a thread opts you into it at "always", mirroring Discourse's
-     * thread tracking. An existing membership is left untouched so a user who
-     * deliberately lowered their level is not re-escalated by replying.
+     * Responder numa thread inscreve em "always", como no Discourse. Membership
+     * existente fica intacta, para não reelevar quem baixou o nível.
      */
     protected function trackThread(Thread $thread, ?User $user): void
     {
@@ -248,12 +256,8 @@ class MessageDispatcher
             return;
         }
 
-        // One statement rather than a select followed by an insert. The unique
-        // index on (thread_id, user_id) is what enforces "leave an existing
-        // membership alone" — and it enforces it better than the read did, since a
-        // read-then-write races with a second reply from the same user and can
-        // still hit the constraint. Ignoring the duplicate is the intended outcome
-        // either way.
+        // Um statement só: o índice único (thread_id, user_id) garante "não mexer na
+        // existente" melhor que ler e gravar, que corre contra uma segunda resposta.
         $now = Carbon::now();
 
         ThreadUser::query()->insertOrIgnore([
@@ -266,33 +270,15 @@ class MessageDispatcher
     }
 
     /**
-     * Refuses a message carrying a sticker shortcode from someone not allowed to
-     * send one.
-     *
-     * The composer hides its button for these people, but a hidden button is a
-     * courtesy — the shortcode is plain text and anyone can type it, or post it
-     * straight to the API. Without this the permission would decorate the
-     * interface and grant nothing.
-     *
-     * Only shortcodes that match a real sticker count. Someone writing `:-)` or
-     * quoting `:not_a_sticker:` is writing text, and refusing that would make the
-     * permission feel arbitrary.
-     *
-     * Skipped entirely when ramon/stickers is absent: there is nothing to send, so
-     * there is nothing to gate, and an install without it should not have messages
-     * refused for mentioning a colon.
+     * Recusa shortcode de sticker de quem não pode enviar sticker. Esconder o
+     * botão não basta: o shortcode é texto e vai direto pela API. Só conta
+     * shortcode de sticker real, e sem o ramon/stickers nada é checado.
      *
      * @throws ValidationException
      */
     /**
-     * The checks a send makes on its words, for an edit.
-     *
-     * An edit replaces the content wholesale, so it is held to everything the
-     * content was held to: the length limits, the sticker permission, and the
-     * per-user rate limit. Without them PATCH was a way around all three: a
-     * message could be sent short and edited past the cap, a sticker typed in
-     * afterwards, and edits fired as fast as the client could send them.
-     *
+     * As checagens de conteúdo do envio, para a edição: limites de tamanho,
+     * permissão de sticker e rate limit. Sem elas o PATCH contornaria as três.
      * @throws ValidationException
      */
     public function assertMayRevise(Channel $channel, User $actor, string $content): void
@@ -310,11 +296,9 @@ class MessageDispatcher
             return;
         }
 
-        // Asked of the extension manager rather than by probing for a `stickers`
-        // table: what matters is whether the extension is enabled, not whether a
-        // table happens to be left over from an uninstall. The table itself is
-        // read directly so the chat never takes a class dependency on the
-        // stickers package, which is an optional integration.
+        // Pergunta ao gerenciador de extensões, não à existência da tabela, que pode
+        // sobrar de uma desinstalação. A tabela é lida direto para não depender do
+        // pacote de stickers, que é opcional.
         if (! $this->extensions->isEnabled('ramon-stickers')) {
             return;
         }
@@ -347,15 +331,13 @@ class MessageDispatcher
     {
         $min = (int) $this->settings->get('ramon-chat.min_message_length', 1);
 
-        // The channel's own cap when it has one, the forum's otherwise. Read
-        // here rather than passed in, so every path into `send()` is held to the
-        // same limit as the composer shows.
+        // O teto do canal, se houver, senão o do fórum. Lido aqui para todo caminho
+        // até `send()` ter o mesmo limite que o composer mostra.
         $max = $channel->maxMessageLength(
             (int) $this->settings->get('ramon-chat.max_message_length', 3000)
         );
 
-        // An attachment-only message is legitimate, so the minimum applies to
-        // the text only when there is nothing else being sent.
+        // Mensagem só com anexo é válida; o mínimo vale para o texto só quando não há mais nada.
         if ($content === '' && $uploadIds === []) {
             throw new ValidationException([
                 'content' => $this->translator->trans('ramon-chat.api.message_empty'),

@@ -16,20 +16,14 @@ use Illuminate\Support\Collection;
 use Ramon\Chat\Channel;
 
 /**
- * Fans a tag that became restricted out to the channels it now hides.
- *
- * A channel bound to the tag, or to any tag below it, may still have files on
- * the public disk from when the category was open. Each such channel gets a
- * PrivatizeChannelUploads of its own, so one busy room's history does not hold
- * up the rest and a retry only repeats the room that failed.
- *
- * Only ever queued by Listener\KeepUploadsPrivate when flarum/tags is enabled,
- * which is why the `tags` table can be read here.
+ * Distribui uma tag que ficou restrita entre os canais dela e das tags filhas, um
+ * PrivatizeChannelUploads por canal, para o retry repetir só o que falhou. Só é
+ * enfileirado com flarum/tags ligado, por isso pode ler a tabela `tags`.
  */
 class PrivatizeTagChannels extends AbstractJob
 {
     /**
-     * Same bound as UploadPrivacy's walk up the hierarchy, for the same reason.
+     * O mesmo limite da subida na hierarquia do UploadPrivacy.
      */
     protected const MAX_DEPTH = 8;
 

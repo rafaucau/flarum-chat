@@ -12,36 +12,30 @@ namespace Ramon\Chat\Service;
 use Flarum\Foundation\ValidationException;
 use Flarum\Locale\Translator;
 use Flarum\User\User;
-use Illuminate\Contracts\Cache\Store;
+use Illuminate\Contracts\Cache\Repository;
 use Ramon\Chat\Channel;
 
 /**
- * Slow mode: the minimum gap between one person's messages in a channel.
+ * Modo lento: intervalo mínimo entre as mensagens de uma pessoa num canal.
  *
- * Distinct from RateLimiter, which is a forum-wide flood guard measured in
- * messages per second and exists to keep the server standing. This is a
- * moderation tool a channel owner reaches for when a conversation is moving too
- * fast to follow — Discord draws the same line, and so the two coexist rather than
- * one subsuming the other.
+ * Diferente do RateLimiter (proteção global contra flood, por segundo): é uma
+ * ferramenta de moderação do dono do canal, como no Discord.
  *
- * Held in the cache rather than derived from the last message row. The check runs
- * on every send, which is the hottest path the extension has, and a cache key with
- * a TTL expires itself: no query, no index, and nothing to clean up. The cost is
- * that flushing the cache clears everyone's cooldown, which is the right trade for
- * friction — this is not a security control, and Discord's own slow mode is
- * best-effort in the same way.
+ * Fica no cache, não na última mensagem: a checagem roda em todo envio e a
+ * chave com TTL expira sozinha. Limpar o cache zera os cooldowns, o que é
+ * aceitável: não é controle de segurança.
  */
 class SlowMode
 {
     public function __construct(
-        protected Store $cache,
+        protected Repository $cache,
         protected Translator $translator,
         protected ChannelOwnership $ownership
     ) {
     }
 
     /**
-     * Refuses the send when the actor is still within the channel's cooldown.
+     * Recusa o envio se o ator ainda está no cooldown do canal.
      *
      * @throws ValidationException
      */
@@ -68,8 +62,36 @@ class SlowMode
     }
 
     /**
-     * Starts the actor's cooldown. Called after a message is accepted, never
-     * before — a send that fails validation should not cost the sender their turn.
+     * Reserva a vez do ator, de forma atômica, logo antes de gravar a mensagem.
+     *
+     * A checagem acima sozinha deixa N envios em paralelo passarem. O `add` só
+     * grava se a chave não existe, então só um fica com a vez.
+     *
+     * @throws ValidationException
+     */
+    public function claim(Channel $channel, User $actor): void
+    {
+        $seconds = $this->secondsFor($channel);
+
+        if ($seconds <= 0 || $this->isExempt($channel, $actor)) {
+            return;
+        }
+
+        if ($this->cache->add($this->key($channel, $actor), time() + $seconds, $seconds + 1)) {
+            return;
+        }
+
+        throw new ValidationException([
+            'content' => $this->translator->trans(
+                'ramon-chat.api.slow_mode_wait',
+                ['seconds' => max(1, $this->remainingFor($channel, $actor))]
+            ),
+        ]);
+    }
+
+    /**
+     * Inicia o cooldown. Chamado só depois de aceitar a mensagem: envio que falha
+     * na validação não custa a vez.
      */
     public function noteSent(Channel $channel, User $actor): void
     {
@@ -79,14 +101,13 @@ class SlowMode
             return;
         }
 
-        // The value is when the cooldown ends, so `remainingFor` needs no second
-        // source of truth about how long the channel's window is — a moderator
-        // shortening it mid-conversation does not strand anyone on the old one.
+        // O valor é quando o cooldown termina, então `remainingFor` não depende da
+        // janela atual: encurtá-la no meio da conversa não prende ninguém na antiga.
         $this->cache->put($this->key($channel, $actor), time() + $seconds, $seconds + 1);
     }
 
     /**
-     * Seconds the actor must still wait, or 0 when they may post now.
+     * Segundos que o ator ainda precisa esperar, ou 0.
      */
     public function remainingFor(Channel $channel, User $actor): int
     {
@@ -94,8 +115,7 @@ class SlowMode
             return 0;
         }
 
-        // `Store::get()` takes no default, unlike the cache Repository's.
-        $until = (int) ($this->cache->get($this->key($channel, $actor)) ?? 0);
+        $until = (int) $this->cache->get($this->key($channel, $actor), 0);
 
         return max(0, $until - time());
     }
@@ -106,19 +126,12 @@ class SlowMode
     }
 
     /**
-     * Who slow mode does not apply to.
+     * A quem o modo lento não se aplica.
      *
-     * Its own permission rather than `ramon-chat.moderate`, which conflated two
-     * questions: who may act on other people's messages, and who the channel's
-     * pace applies to. A bot account or a support agent may need to answer
-     * without waiting while holding no moderation power at all, and a forum may
-     * equally want its moderators keeping the same rhythm as everyone else.
-     *
-     * Seeded to MODERATOR, so the forums already running slow mode see no change.
-     *
-     * The people running the room are exempt too — its owner and the moderators
-     * they appointed. They are the ones answering in it, and a cooldown on them
-     * slows the room down rather than calming it.
+     * Permissão própria, separada de `ramon-chat.moderate`: um bot ou atendente pode
+     * precisar responder sem esperar sem poder moderar, e um fórum pode querer os
+     * moderadores no mesmo ritmo. Semeada para MODERATOR. Dono e moderadores do
+     * canal também ficam isentos.
      */
     public function isExempt(Channel $channel, User $actor): bool
     {

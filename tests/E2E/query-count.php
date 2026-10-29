@@ -11,7 +11,7 @@
  * Conta as queries SQL de cada requisição quente do chat, como um membro.
  *
  * Sobe o fórum no próprio processo, despacha cada requisição pelo handler HTTP
- * do Flarum e agrupa o SQL repetido — o mesmo texto com bindings diferentes é a
+ * do Flarum e agrupa o SQL repetido: o mesmo texto com bindings diferentes é a
  * assinatura de um N+1. Lê os tokens de tests/E2E/.tokens.json.
  *
  *     php tests/E2E/query-count.php <channelId> [verbose] [as=<b|mod|admin>]
@@ -70,8 +70,8 @@ $cases = [
     'newest 50'         => ['GET', "/api/chat-messages?filter[channel]=$channelId&sort=-id&page[limit]=50", null],
     'poll (empty)'      => ['GET', "/api/chat-messages?filter[channel]=$channelId&filter[greaterThan]=999999999&sort=id&page[limit]=50", null],
     'send'              => ['POST', '/api/chat-messages', ['data' => ['type' => 'chat-messages', 'attributes' => ['content' => 'qc '.uniqid(), 'channelId' => $channelId]]]],
-    // What every member's client used to ask ~500 ms after each pushed message:
-    // the rows from the newest one on, to learn their own capability flags.
+    // A reconciliação que o cliente faria após cada mensagem recebida: as linhas a
+    // partir da mais nova, para saber as próprias flags de capacidade.
     'reconcile (1 new)' => function () use (&$lastSent) { return ['GET', "/api/chat-messages?filter[channel]=$channelId&filter[greaterThan]=".($lastSent - 1).'&sort=id&page[limit]=50', null]; },
     'read marker'       => ['POST', "/api/chat-channels/$channelId/read", null],
     'forum /api'        => ['GET', '/api', null],
@@ -95,14 +95,14 @@ foreach ($cases as $name => $case) {
         ->withMethod($method)
         ->withHeader('Accept', $forumPage ? 'text/html' : 'application/vnd.api+json');
 
-    // A page is authenticated the way a browser is, by the remember cookie; the
-    // API by token. The forum stack does not read the Authorization header.
+    // A página autentica como o navegador, pelo cookie de lembrar-me; a API, por
+    // token. A stack do fórum não lê o header Authorization.
     $request = $forumPage
         ? $request->withCookieParams(['flarum_remember' => $member['remember']])
         : $request->withHeader('Authorization', 'Token '.$member['token']);
 
     if ($body !== null) {
-        // The JSON:API layer reads the raw body, not the parsed one.
+        // A camada JSON:API lê o corpo cru, não o já interpretado.
         $stream = (new \Laminas\Diactoros\StreamFactory())->createStream((string) json_encode($body));
         $request = $request->withParsedBody($body)->withBody($stream)->withHeader('Content-Type', 'application/vnd.api+json');
     }

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * A threaded sub-conversation hanging off one channel message.
+ * Subconversa pendurada numa mensagem do canal.
  *
  * @property int $id
  * @property int $channel_id
@@ -43,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class Thread extends AbstractModel
 {
+    use CountsMessagesAtomically;
     use EventGeneratorTrait;
     use ScopeVisibilityTrait;
 
@@ -55,8 +56,8 @@ class Thread extends AbstractModel
     public $timestamps = true;
 
     /**
-     * Memberships already looked up on this instance, by user id. Per-instance
-     * and not static: a static would survive between actors in a queue worker.
+     * Associações já consultadas, por user id. Por instância, não static: um
+     * static sobreviveria entre atores num worker de fila.
      *
      * @var array<int, ThreadUser|null>
      */
@@ -79,7 +80,7 @@ class Thread extends AbstractModel
 
         $thread->channel_id = $channel->id;
         $thread->original_message_id = $originalMessage->id;
-        $thread->creator_id = $creator?->id ?? $originalMessage->user_id;
+        $thread->creator_id = $creator->id ?? $originalMessage->user_id;
         $thread->status = self::STATUS_OPEN;
         $thread->replies_count = 0;
 
@@ -101,26 +102,31 @@ class Thread extends AbstractModel
         return $this->isOpen() && ! $this->isDeleted();
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function originalMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'original_message_id');
     }
 
+    /** @return BelongsTo<Message, $this> */
     public function lastMessage(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'last_message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
     }
 
+    /** @return HasMany<Message, $this> */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'thread_id');
@@ -135,17 +141,11 @@ class Thread extends AbstractModel
     }
 
     /**
-     * The membership of whoever is asking, for the endpoints that eager-load it.
+     * Associação de quem pede, para endpoints com eager load.
      *
-     * Deliberately unconstrained here: the constraint is applied at eager-load
-     * time (`eagerLoadWhere`), because only the endpoint knows the actor. Reading
-     * it directly off a model would give you an arbitrary member's row, which is
-     * why nothing but `membershipFor()` — which checks whose row it got — touches
-     * it.
-     *
-     * The same shape Channel uses, and for the same reason: four fields on every
-     * thread read this membership, and a page of threads was asking the database
-     * once per row.
+     * Sem restrição aqui: o endpoint aplica `eagerLoadWhere`, pois só ele conhece o
+     * ator. Lida direto seria a linha de qualquer membro; por isso só
+     * `membershipFor()`, que confere o dono da linha, a usa. Mesmo padrão de Channel.
      */
     /**
      * @return HasOne<ThreadUser, $this>
@@ -156,11 +156,7 @@ class Thread extends AbstractModel
     }
 
     /**
-     * Memoised on the instance, including the misses.
-     *
-     * `array_key_exists` rather than `isset`, so a cached "not a member" is not
-     * re-queried on every ask. Model instances do not outlive the request, so the
-     * cache cannot leak between actors.
+     * Memo por instância, inclusive ausências (`array_key_exists`, não `isset`).
      */
     public function membershipFor(?User $user): ?ThreadUser
     {
@@ -174,10 +170,8 @@ class Thread extends AbstractModel
             return $this->membershipCache[$id];
         }
 
-        // The eager-loaded row, but only once it has proved it belongs to the user
-        // being asked about. A null there is ambiguous — it could mean "this actor
-        // is not a member" or "the relation was constrained to somebody else" — so
-        // it falls through to the query rather than answering wrongly.
+        // Usa a linha do eager load só se for deste usuário. Null é ambíguo (não
+        // membro ou relação restrita a outro), então cai na query.
         if ($this->relationLoaded('actorMembership')) {
             $loaded = $this->getRelation('actorMembership');
 
@@ -192,10 +186,8 @@ class Thread extends AbstractModel
     }
 
     /**
-     * Drops a memoised membership after joining or leaving — the mutation happens
-     * mid-request and the next read must see it.
-     *
-     * Passing null clears the lot, for a bulk change.
+     * Descarta o memo após entrar ou sair, para a próxima leitura na mesma request
+     * ver a mudança. Null limpa tudo.
      */
     public function forgetMembership(?User $user = null): void
     {
@@ -209,23 +201,21 @@ class Thread extends AbstractModel
     }
 
     /**
-     * Records one freshly-posted reply.
-     *
-     * The append path deliberately does not call refreshMetadata(): the new message
-     * is by definition the newest, and the count can only have gone up by one, so
-     * recounting asks the database to rediscover what the caller already knows. That
-     * cost is not constant — the COUNT scans every message in the thread — so the
-     * busiest threads were the slowest to reply in, which is exactly backwards.
-     *
-     * The channel counters next to this in the dispatcher have always been
-     * incremental; this makes the thread behave the same way.
+     * Registra uma resposta nova de forma incremental, sem refreshMetadata(): o
+     * COUNT varre a thread inteira e deixaria as threads movimentadas mais lentas.
+     * Já gravada, a thread é atualizada no banco; veja CountsMessagesAtomically.
      */
     public function noteReply(Message $message): static
     {
-        // The root is not a reply. It cannot normally arrive here — the dispatcher
-        // only ever passes the message it just created — but guarding keeps the
-        // invariant local to the method that maintains the counter.
+        // A raiz não é resposta. Não deveria chegar aqui, mas a guarda mantém a
+        // invariante local.
         if ($this->original_message_id !== null && (int) $message->id === (int) $this->original_message_id) {
+            return $this;
+        }
+
+        if ($this->exists) {
+            $this->countNewMessage('replies_count', $message);
+
             return $this;
         }
 
@@ -237,14 +227,8 @@ class Thread extends AbstractModel
     }
 
     /**
-     * Recomputes the counters from the messages themselves.
-     *
-     * Needed wherever the change is not a simple append — deleting, restoring or
-     * moving messages can invalidate both the count and the last-message pointer,
-     * and neither can be derived from the event alone. New replies use noteReply().
-     *
-     * Replies exclude the root message, which is why this is not simply a count
-     * of the messages relation.
+     * Recalcula os contadores a partir das mensagens, para exclusão, restauração
+     * ou movimentação. Respostas novas usam noteReply(). A raiz não conta.
      */
     public function refreshMetadata(): static
     {

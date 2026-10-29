@@ -14,7 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[q]=term` — name and description match for the browse page.
+ * `filter[q]=termo`: busca por nome e descrição na página de navegação.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -33,8 +33,7 @@ class ChannelNameFilter implements FilterInterface
             return;
         }
 
-        // addcslashes over the LIKE metacharacters, so searching for "100%" does
-        // not degenerate into matching every channel.
+        // Escapa os curingas do LIKE: buscar "100%" não casa com todo canal.
         $like = '%'.addcslashes($term, '\%_').'%';
 
         $state->getQuery()->where(function ($query) use ($like, $negate) {

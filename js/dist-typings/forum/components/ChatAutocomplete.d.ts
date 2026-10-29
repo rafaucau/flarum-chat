@@ -1,15 +1,11 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import type User from "flarum/common/models/User";
-import type Mithril from "mithril";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import type User from 'flarum/common/models/User';
+import type Mithril from 'mithril';
 /**
- * One suggestion. `insert` is what replaces the typed fragment, `label` is what
- * the row shows — they differ for an emoji, where the row shows the glyph and the
- * insert is the shortcode.
- *
- * `emoji` is `Children` rather than `string` because a Flamoji custom emoji is an
- * image, not a codepoint. Mithril renders a string child as text either way, so
- * the Unicode case is unaffected.
+ * Uma sugestão. `insert` substitui o trecho digitado e `label` é o que a linha
+ * mostra; num emoji diferem (glifo vs. shortcode). `emoji` é `Children` porque
+ * emoji customizado do Flamoji é imagem.
  */
 export interface Suggestion {
     key: string;
@@ -27,11 +23,8 @@ export interface ChatAutocompleteAttrs extends ComponentAttrs {
     onHover: (index: number) => void;
 }
 /**
- * The suggestion list above the composer.
- *
- * Deliberately presentational: which trigger opened it, what matched and how the
- * insertion is spliced into the textarea all live in ChatComposer, because they
- * depend on the caret. This only draws rows and reports clicks.
+ * Lista de sugestões acima do composer. Só desenha e reporta cliques; gatilho,
+ * busca e inserção ficam no ChatComposer, que conhece o cursor.
  */
 export default class ChatAutocomplete extends Component<ChatAutocompleteAttrs> {
     onupdate(vnode: Mithril.VnodeDOM<ChatAutocompleteAttrs>): void;

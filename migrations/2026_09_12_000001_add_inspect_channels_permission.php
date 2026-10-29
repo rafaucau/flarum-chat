@@ -11,17 +11,11 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Inspecting a channel unnoticed, as a right of its own.
+ * Inspecionar canal sem ser notado como direito próprio, antes embutido em
+ * `ramon-chat.moderate`.
  *
- * Hidden entry (no place in the member list, no join or leave announcement, no
- * notification to anyone) used to come bundled with `ramon-chat.moderate`.
- * That tied together two questions: who acts on other people's messages, and
- * who may watch a room in silence. A forum may want the second for an admin or
- * audit group without granting the first, and vice versa.
- *
- * Seeded for every group that already has `moderate`, so no moderator loses a
- * capability they already used on upgrade. Administrators hold every
- * permission and need no row.
+ * Semeado para todo grupo que já tem `moderate`, para nenhum moderador perder a
+ * capacidade no upgrade. Admins não precisam de linha.
  */
 return [
     'up' => function (Builder $schema) {

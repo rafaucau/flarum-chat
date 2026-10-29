@@ -1,36 +1,30 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import humanTime from "flarum/common/helpers/humanTime";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import humanTime from 'flarum/common/helpers/humanTime';
+import type Mithril from 'mithril';
 
-import type Message from "../../common/models/Message";
-import type Upload from "../../common/models/Upload";
-import { safeFileUrl } from "../utils/url";
-import { authorName } from "../utils/bot";
-import iconLabel from "../utils/iconLabel";
+import type Message from '../../common/models/Message';
+import type Upload from '../../common/models/Upload';
+import { safeFileUrl } from '../utils/url';
+import { authorName } from '../utils/bot';
+import iconLabel from '../utils/iconLabel';
 
 export interface ImageLightboxAttrs extends ComponentAttrs {
-  /** Every image in the message, so the viewer can move between them. */
+  /** Todas as imagens da mensagem, para navegar entre elas. */
   uploads: Upload[];
-  /** Which one was clicked. */
+  /** A que foi clicada. */
   index: number;
   message: Message;
   onClose: () => void;
 }
 
 /**
- * Full-screen image viewer, opened by clicking an image in the stream.
+ * Visualizador de imagem em tela cheia, aberto ao clicar numa imagem do stream.
  *
- * A plain `target="_blank"` link used to be the whole feature, which threw the
- * reader out of the conversation to look at a picture and made them find their
- * way back. This keeps them where they are.
- *
- * Deliberately not a Flarum `Modal`: the modal manager centres a white dialog
- * with a title bar and a close button, and constrains its width. What an image
- * viewer wants is the opposite — the picture as large as the viewport allows, on
- * a dark backdrop, with the chrome out of the way.
+ * Não é um `Modal` do Flarum: ele limita a largura e põe barra de título; aqui a
+ * imagem ocupa o viewport sobre fundo escuro.
  */
 export default class ImageLightbox extends Component<ImageLightboxAttrs> {
   private index = 0;
@@ -46,20 +40,18 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
     super.oncreate(vnode);
 
     this.keyListener = (e: KeyboardEvent) => this.onKey(e);
-    document.addEventListener("keydown", this.keyListener);
+    document.addEventListener('keydown', this.keyListener);
 
-    // The page behind must not scroll while the viewer is open, or a scroll
-    // gesture aimed at the image moves the conversation instead.
-    document.body.style.overflow = "hidden";
+    // Sem isso, rolar sobre a imagem rola a conversa por trás.
+    document.body.style.overflow = 'hidden';
 
     (vnode.dom as HTMLElement).focus();
   }
 
   onremove(): void {
-    if (this.keyListener)
-      document.removeEventListener("keydown", this.keyListener);
+    if (this.keyListener) document.removeEventListener('keydown', this.keyListener);
 
-    document.body.style.overflow = "";
+    document.body.style.overflow = '';
   }
 
   view(): Mithril.Children {
@@ -76,19 +68,16 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
         tabindex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label={upload.fileName() ?? ""}
+        aria-label={upload.fileName() ?? ''}
         onclick={(e: Event) => {
-          // Only the backdrop closes. Clicking the picture itself is what someone
-          // does to look at it more closely, not to dismiss it.
+          // Só o fundo fecha; clicar na imagem não.
           if (e.target === e.currentTarget) onClose();
         }}
       >
         <div className="ChatLightbox-bar">
           <div className="ChatLightbox-meta">
             <span className="ChatLightbox-author">{authorName(message)}</span>
-            {at ? (
-              <span className="ChatLightbox-time">{humanTime(at)}</span>
-            ) : null}
+            {at ? <span className="ChatLightbox-time">{humanTime(at)}</span> : null}
             <span className="ChatLightbox-name">{upload.fileName()}</span>
           </div>
 
@@ -102,32 +91,14 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
             <Button
               className="Button Button--icon Button--flat"
               icon="fas fa-arrow-up-right-from-square"
-              {...iconLabel(
-                app.translator.trans(
-                  "ramon-chat.forum.lightbox.open_original",
-                  {},
-                  true,
-                ),
-              )}
-              onclick={() =>
-                window.open(
-                  safeFileUrl(upload.url()),
-                  "_blank",
-                  "noopener,noreferrer",
-                )
-              }
+              {...iconLabel(app.translator.trans('ramon-chat.forum.lightbox.open_original', {}, true))}
+              onclick={() => window.open(safeFileUrl(upload.url()), '_blank', 'noopener,noreferrer')}
             />
 
             <Button
               className="Button Button--icon Button--flat"
               icon="fas fa-xmark"
-              {...iconLabel(
-                app.translator.trans(
-                  "ramon-chat.forum.lightbox.close",
-                  {},
-                  true,
-                ),
-              )}
+              {...iconLabel(app.translator.trans('ramon-chat.forum.lightbox.close', {}, true))}
               onclick={onClose}
             />
           </div>
@@ -137,13 +108,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
           <Button
             className="Button Button--icon Button--flat ChatLightbox-nav ChatLightbox-nav--prev"
             icon="fas fa-chevron-left"
-            {...iconLabel(
-              app.translator.trans(
-                "ramon-chat.forum.lightbox.previous",
-                {},
-                true,
-              ),
-            )}
+            {...iconLabel(app.translator.trans('ramon-chat.forum.lightbox.previous', {}, true))}
             onclick={(e: Event) => {
               e.stopPropagation();
               this.step(-1);
@@ -154,7 +119,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
         <img
           className="ChatLightbox-image"
           src={safeFileUrl(upload.url())}
-          alt={upload.fileName() ?? ""}
+          alt={upload.fileName() ?? ''}
           onclick={(e: Event) => e.stopPropagation()}
         />
 
@@ -162,9 +127,7 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
           <Button
             className="Button Button--icon Button--flat ChatLightbox-nav ChatLightbox-nav--next"
             icon="fas fa-chevron-right"
-            {...iconLabel(
-              app.translator.trans("ramon-chat.forum.lightbox.next", {}, true),
-            )}
+            {...iconLabel(app.translator.trans('ramon-chat.forum.lightbox.next', {}, true))}
             onclick={(e: Event) => {
               e.stopPropagation();
               this.step(1);
@@ -176,17 +139,17 @@ export default class ImageLightbox extends Component<ImageLightboxAttrs> {
   }
 
   protected onKey(e: KeyboardEvent): void {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       this.attrs.onClose();
 
       return;
     }
 
-    if (e.key === "ArrowLeft") this.step(-1);
-    if (e.key === "ArrowRight") this.step(1);
+    if (e.key === 'ArrowLeft') this.step(-1);
+    if (e.key === 'ArrowRight') this.step(1);
   }
 
-  /** Wraps, so the arrows never dead-end on the first or last image. */
+  /** Dá a volta, para as setas não travarem na primeira ou na última imagem. */
   protected step(by: number): void {
     const total = this.attrs.uploads.length;
 

@@ -18,44 +18,48 @@ use Ramon\Chat\Message;
 use Ramon\Chat\MessageMention;
 
 /**
- * Extracts the mentions from a message and persists them as rows.
+ * Extrai as menções de uma mensagem e grava como linhas.
  *
- * Resolving once at send time (rather than re-parsing on every read) is what
- * lets notification fan-out and unread-mention counters stay cheap queries.
+ * Resolver uma vez no envio mantém baratas as notificações e os contadores de menção.
  */
 class MentionResolver
 {
     /**
-     * Matches @username, @"display name", @group-name, @here and @all.
+     * Casa @username, @"nome exibido", @grupo, @here e @all.
      *
-     * Flarum's own mentions extension rewrites @mentions into `@"name"#uid`
-     * tokens at parse time, so we read the parsed XML form when present and fall
-     * back to the plain-text form otherwise (e.g. webhook-delivered messages).
+     * O flarum/mentions reescreve menções em `@"nome"#uid` no parse; lê o XML
+     * quando existe e cai no texto simples (ex.: mensagens de webhook).
      */
     private const PLAIN_PATTERN = '/(?<![\w\/])@("(?<quoted>[^"]{1,80})"|(?<plain>[a-z0-9_.\-]{1,80}))/i';
 
     /**
-     * The parsed representation flarum/mentions produces, which carries the
-     * resolved id and is therefore authoritative when available.
+     * Forma parseada do flarum/mentions; traz o id resolvido, então prevalece.
      */
+    /**
+     * Máximo de pessoas mencionadas que ainda notificam (como o
+     * `max_mentions_per_chat_message` do Discourse); acima disso nenhuma notifica.
+     */
+    public const MAX_USER_MENTIONS = 10;
+
+    /** Nomes soltos (`@nome` sem a marcação do mentions) lidos de uma mensagem. */
+    private const MAX_PLAIN_NAMES = 30;
+
     private const TAG_PATTERN = '/<(?<kind>USERMENTION|GROUPMENTION)[^>]*\b(?<attr>id|username|groupname)="(?<value>[^"]+)"/i';
 
     /**
-     * @return Collection<int, MessageMention> Unsaved mention rows.
+     * @return Collection<int, MessageMention> linhas ainda não salvas
      */
     public function resolve(Message $message, bool $allowChannelWide): Collection
     {
-        // Read the stored (parsed) representation directly rather than through
-        // the accessor, which would unparse it back to author-facing text.
+        // Lê a forma armazenada direto; o accessor faria o unparse.
         $raw = $message->getAttributes()['content'] ?? '';
 
-        if ($raw === '' || $raw === null) {
+        if ($raw === '') {
             return collect();
         }
 
         $mentions = collect();
-        // Asked only when a group is actually named: it reads the author, and
-        // most messages mention no group at all.
+        // Só quando um grupo é citado: lê o autor, e a maioria não cita grupo.
         $mayMentionGroupsMemo = null;
         $mayMentionGroups = function () use ($message, &$mayMentionGroupsMemo): bool {
             return $mayMentionGroupsMemo ??= $this->mayMentionGroups($message);
@@ -73,10 +77,8 @@ class MentionResolver
             if ($type === MessageMention::TYPE_GROUP && ! isset($seenGroups[$id])) {
                 $seenGroups[$id] = true;
 
-                // The parsed form records the group, not whether the author was
-                // allowed to name it: flarum/mentions only checks when it parses
-                // with an actor in hand, and not every path that stores content
-                // has one.
+                // O XML registra o grupo, não se o autor podia citá-lo: o flarum/mentions
+                // só checa quando parseia com um ator, e nem todo caminho tem um.
                 if (! $mayMentionGroups() || $this->mentionableGroup($id) === null) {
                     continue;
                 }
@@ -85,8 +87,7 @@ class MentionResolver
             }
         }
 
-        // @here / @all are never encoded by flarum/mentions, so they are always
-        // read from the plain text.
+        // @here / @all nunca são codificados pelo flarum/mentions.
         if ($allowChannelWide) {
             foreach ($this->channelWideMentions($raw) as $type) {
                 if (isset($seenChannelWide[$type])) {
@@ -98,11 +99,26 @@ class MentionResolver
             }
         }
 
-        // Fall back to name-based resolution only when the parsed form produced
-        // nothing — otherwise we would double-count the same mention.
+        // Nomes só quando o XML não trouxe nada, senão a menção contaria duas vezes.
         if ($seenUsers === [] && $seenGroups === []) {
+            // Nomes distintos numa consulta só, cortados no teto. Só `username`:
+            // `display_name` não é coluna, e apelidos ficam com o flarum/mentions.
+            $names = [];
+
             foreach ($this->plainNames($raw) as $name) {
-                $user = $this->findUserByName($name);
+                $names[mb_strtolower($name)] ??= $name;
+
+                if (count($names) > self::MAX_PLAIN_NAMES) {
+                    break;
+                }
+            }
+
+            $users = $names === []
+                ? collect()
+                : User::query()->whereIn('username', array_values($names))->get()->keyBy(fn (User $user) => mb_strtolower($user->username));
+
+            foreach ($names as $key => $name) {
+                $user = $users->get($key);
 
                 if ($user !== null && ! isset($seenUsers[$user->id])) {
                     $seenUsers[$user->id] = true;
@@ -111,9 +127,8 @@ class MentionResolver
                     continue;
                 }
 
-                // Groups by name only for someone allowed to ping a group at all.
-                // Without the check any member's `@Moderators` reached every user
-                // in the group.
+                // Grupo por nome só para quem pode mencionar grupos; sem isso qualquer
+                // `@Moderators` alcançava o grupo inteiro.
                 $group = $mayMentionGroups() ? $this->findGroupByName($name) : null;
 
                 if ($group !== null && ! isset($seenGroups[$group->id])) {
@@ -123,13 +138,16 @@ class MentionResolver
             }
         }
 
+        if (count($seenUsers) > self::MAX_USER_MENTIONS) {
+            $mentions = $mentions->reject(fn (MessageMention $mention) => $mention->type === MessageMention::TYPE_USER)->values();
+        }
+
         return $mentions;
     }
 
     /**
-     * Replaces the message's mention rows with a freshly resolved set. Used on
-     * both send and edit so an edit that removes a mention also removes the
-     * corresponding unread-mention pressure.
+     * Substitui as menções da mensagem por um conjunto novo. Usado no envio e na
+     * edição, para que remover uma menção também tire a pendência de não lida.
      */
     public function sync(Message $message, bool $allowChannelWide): Collection
     {
@@ -154,8 +172,8 @@ class MentionResolver
         }
 
         foreach ($matches as $match) {
-            // Only the numeric `id` attribute is trustworthy; username/groupname
-            // attributes are display copies that may be stale after a rename.
+            // Só o `id` numérico é confiável; username/groupname podem estar
+            // desatualizados após renomear.
             if (strtolower($match['attr']) !== 'id') {
                 continue;
             }
@@ -177,7 +195,7 @@ class MentionResolver
      */
     protected function channelWideMentions(string $raw): iterable
     {
-        // Word-boundary guards keep "@allen" and "email@here.com" from matching.
+        // Limites de palavra evitam casar "@allen" e "email@here.com".
         if (preg_match('/(?<![\w\/])@here\b/i', $raw)) {
             yield MessageMention::TYPE_HERE;
         }
@@ -207,15 +225,6 @@ class MentionResolver
         }
     }
 
-    /**
-     * Matches on `username` only. `display_name` is a computed property, not a
-     * column, so it cannot be queried; nickname-based lookup is left to
-     * flarum/mentions, whose parsed output this method is only a fallback for.
-     */
-    protected function findUserByName(string $name): ?User
-    {
-        return User::query()->where('username', $name)->first();
-    }
 
     protected function findGroupByName(string $name): ?Group
     {
@@ -233,9 +242,8 @@ class MentionResolver
     }
 
     /**
-     * The groups a mention may name: never guests or members, which would be
-     * the whole forum, and never a hidden group, whose membership is not public.
-     * The same exclusions flarum/mentions applies to a post.
+     * Grupos mencionáveis: nunca convidados nem membros (o fórum inteiro) nem
+     * grupos ocultos. As mesmas exclusões do flarum/mentions em posts.
      *
      * @return Builder<Group>
      */
@@ -243,8 +251,8 @@ class MentionResolver
     {
         $query = Group::query();
 
-        // Statements rather than a chain: the where* methods are typed as
-        // returning the base query builder, which would lose the Eloquent one.
+        // Instruções separadas: os where* são tipados como query builder base e
+        // perderiam o Eloquent.
         $query->where('is_hidden', false);
         $query->whereNotIn('id', [Group::GUEST_ID, Group::MEMBER_ID]);
 
@@ -252,8 +260,8 @@ class MentionResolver
     }
 
     /**
-     * `mentionGroups` is core's permission for the same act in a post. A bot or
-     * webhook message has no author and so cannot ping a group.
+     * `mentionGroups` é a permissão do core para o mesmo em posts. Mensagem de
+     * bot ou webhook não tem autor e não menciona grupo.
      */
     protected function mayMentionGroups(Message $message): bool
     {

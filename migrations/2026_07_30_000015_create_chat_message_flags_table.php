@@ -11,13 +11,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Reports against chat messages.
+ * Denúncias de mensagens do chat.
  *
- * Deliberately a table of this extension's own rather than a row in `flags`.
- * flarum/flags declares `flags_post_id_foreign` as a non-nullable foreign key into
- * `posts`, so a chat message id can never be stored there — the database refuses
- * it. Reusing that table would mean altering another extension's schema, which the
- * next update of it would undo.
+ * Tabela própria, não `flags`: `flags_post_id_foreign` é FK não nula para `posts`
+ * e recusaria o id. Alterar o schema de outra extensão seria desfeito no update dela.
  */
 return [
     'up' => function (Builder $schema) {
@@ -27,34 +24,29 @@ return [
             $table->unsignedInteger('message_id');
             $table->unsignedInteger('user_id')->nullable();
 
-            // One of the keys MessageFlag::REASONS lists, kept as a string rather
-            // than an enum so a later release can add one without a schema change.
+            // Chave de MessageFlag::REASONS. String, não enum, para novos motivos não
+            // exigirem migration.
             $table->string('reason', 30);
 
-            // The reporter's own words. Optional for every reason but `other`,
-            // where the reason alone says nothing.
+            // Opcional, exceto para `other`.
             $table->text('detail')->nullable();
 
-            // Set when a moderator resolves the report. Kept rather than deleted:
-            // a message reported, cleared, and reported again is a different thing
-            // from one reported once, and only a history shows that.
+            // Preenchido ao resolver. Mantido, não apagado: o histórico distingue uma
+            // mensagem denunciada de novo de uma denunciada só uma vez.
             $table->dateTime('resolved_at')->nullable();
             $table->unsignedInteger('resolved_by_id')->nullable();
 
             $table->dateTime('created_at')->nullable();
 
-            // One report per person per message. Reporting twice is not a stronger
-            // signal, and without this a single user could inflate the count.
+            // Uma denúncia por pessoa por mensagem, para ninguém inflar a contagem.
             $table->unique(['message_id', 'user_id']);
 
-            // The queue's own query: open reports, newest first.
+            // Query da fila: abertas, mais novas primeiro.
             $table->index(['resolved_at', 'created_at']);
 
             $table->foreign('message_id')->references('id')->on('chat_messages')->cascadeOnDelete();
 
-            // The report outlives the account that made it. Losing the row when a
-            // reporter deletes their account would let someone erase the evidence
-            // against a message by leaving.
+            // A denúncia sobrevive à conta: apagar a conta não pode apagar a evidência.
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('resolved_by_id')->references('id')->on('users')->nullOnDelete();
         });

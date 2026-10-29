@@ -11,11 +11,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * The ranks of each channel: the ones the owner creates and, in a row only
- * when customised, the two built-in ones (owner and moderator).
+ * Cargos de cada canal: os criados pelo dono e, só se personalizados, os dois
+ * embutidos (dono e moderador).
  *
- * A null `builtin` is a rank created by the owner. A null name and color on a
- * built-in mean the default: the translated name and the theme color.
+ * `builtin` null é cargo do dono. Nome e cor null num embutido usam o padrão
+ * (nome traduzido e cor do tema).
  */
 return [
     'up' => function (Builder $schema) {

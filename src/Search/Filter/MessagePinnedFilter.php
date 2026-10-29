@@ -14,11 +14,8 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[pinned]=1` — only pinned messages.
- *
- * Combined with `filter[channel]` to build a channel's pinned list. Negated
- * (`filter[-pinned]=1`) it excludes them, which is what makes it composable rather
- * than a special-case endpoint.
+ * `filter[pinned]=1`: só as fixadas. Com `filter[channel]` monta a lista de fixadas
+ * do canal; negado (`filter[-pinned]=1`), as exclui.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */
@@ -41,9 +38,8 @@ class MessagePinnedFilter implements FilterInterface
             return;
         }
 
-        // `pinned_at IS NOT NULL` is the single source of truth for a pin, so the
-        // filter reads that column rather than `pinned_by_id`, which is attribution
-        // and may be nulled by a user deletion.
+        // `pinned_at` é a fonte da verdade; `pinned_by_id` é só autoria e pode
+        // virar null quando o usuário é apagado.
         $query = $state->getQuery();
 
         if ($wanted xor $negate) {

@@ -15,23 +15,11 @@ use Flarum\User\User;
 use Ramon\Chat\Message;
 
 /**
- * "There is a new message in a channel you watch."
+ * "Há uma mensagem nova em um canal que você acompanha."
  *
- * Deliberately implements no delivery channel.
- *
- * Chat activity belongs in the chat, not in Flarum's bell. The bell is for things
- * that happened elsewhere on the forum and that you would otherwise miss; a new
- * message in a channel you are reading is already surfaced by the chat itself —
- * the unread bubble on the header button, the per-channel badge in the sidebar,
- * the count on the collapsed drawer. Putting it in the bell as well meant a busy
- * channel drowned every other notification you had.
- *
- * Email was never an option here either: this fires for members at notification
- * level "always", so in a busy channel it fires per message.
- *
- * The blueprint is kept rather than deleted because rows of this type already
- * exist in installs that ran the earlier version, and the type has to stay
- * resolvable for those to render.
+ * Sem canal de entrega de propósito: atividade do chat aparece no próprio chat,
+ * não no sino nem por e-mail. Mantido porque ainda há notificações desse tipo
+ * gravadas que precisam renderizar.
  */
 class ChatMessageBlueprint implements BlueprintInterface
 {

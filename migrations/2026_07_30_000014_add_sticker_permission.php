@@ -11,26 +11,18 @@ use Flarum\Group\Group;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Sending stickers, as a right of its own.
+ * Enviar stickers como direito próprio: é o que um fórum mais quer barrar num
+ * canal de suporte sem fechar o chat.
  *
- * Separate from `ramon-chat.use` because a sticker is not an ordinary message: it
- * is large, loud, and the thing a forum most often wants to keep out of a support
- * channel while leaving normal chat open to everyone.
+ * Semeado a MEMBER, como uploads e reações; moderadores e admins herdam pelos
+ * grupos, e semeá-los duplicaria o badge.
  *
- * Seeded to MEMBER, matching the extension's other conveniences (uploads,
- * reactions). Moderators and administrators reach it through the groups they
- * already hold, so seeding them explicitly would only duplicate the badge in the
- * admin grid.
- *
- * The seed only runs when the group exists: a forum may have deleted it, and
- * `group_permission.group_id` is an FK to `groups`, so inserting blindly aborts
- * the whole extension's activation with SQLSTATE[23000]. Same guard that
- * `Migration::addPermissions` applies.
+ * Só semeia se o grupo existir: `group_permission.group_id` é FK para `groups`
+ * e inserir às cegas aborta a ativação (SQLSTATE[23000]).
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         $db = $schema->getConnection();
 

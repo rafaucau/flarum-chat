@@ -14,7 +14,7 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[channel]=1` — threads belonging to one channel.
+ * `filter[channel]=1`: threads de um canal.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */

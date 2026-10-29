@@ -14,7 +14,7 @@ use Flarum\Database\AbstractModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A member holding a rank created by the channel owner.
+ * Membro com um cargo criado pelo dono do canal.
  *
  * @property int $rank_id
  * @property int $user_id
@@ -40,11 +40,13 @@ class ChannelRankUser extends AbstractModel
         'created_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<ChannelRank, $this> */
     public function rank(): BelongsTo
     {
         return $this->belongsTo(ChannelRank::class, 'rank_id');
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');

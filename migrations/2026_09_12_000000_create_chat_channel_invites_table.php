@@ -11,12 +11,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Pending invites to a channel.
+ * Convites pendentes.
  *
- * One row per invitee, deleted when they accept or decline, or when whoever
- * manages the channel cancels. Kept apart from `chat_channel_user` on purpose:
- * an invite is not a membership, and every visibility and member-count query
- * keeps reading only the members table.
+ * Uma linha por convidado, apagada ao aceitar, recusar ou cancelar. Separada de
+ * `chat_channel_user`: convite não é associação, e as queries de visibilidade e
+ * contagem seguem lendo só a tabela de membros.
  */
 return [
     'up' => function (Builder $schema) {

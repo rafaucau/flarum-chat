@@ -1,10 +1,10 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import type Mithril from 'mithril';
 
-import { playOnHover } from "../utils/stickers";
+import { playOnHover } from '../utils/stickers';
 
 export interface StickerPickerAttrs extends ComponentAttrs {
   onInsert: (shortcode: string) => void;
@@ -12,25 +12,16 @@ export interface StickerPickerAttrs extends ComponentAttrs {
 }
 
 /**
- * The chat's own sticker picker.
+ * Seletor de figurinhas do chat.
  *
- * ramon/stickers ships one, and reusing it was the first attempt — but it is
- * `require`d lazily inside that extension's own open handler, so it registers
- * itself in Flarum's export registry only *after* somebody has opened it from a
- * discussion composer. Until then the lookup correctly reports it as absent, and
- * the chat's button never appeared. Nothing here can force that module to load.
- *
- * So this reads the same data through the API instead: `stickers` is a JSON:API
- * resource, and the extension registers its model in the store at boot, which is
- * a signal that is true from the first render.
- *
- * Inserting is a shortcode, not markup: the formatter turns `:name:` into the
- * sticker on send, exactly as it does for a message typed by hand.
+ * O do ramon/stickers só entra no registro de exports depois de aberto num
+ * composer de discussão, então este lê o recurso JSON:API `stickers`. Insere o
+ * shortcode `:name:`, que o formatter converte no envio.
  */
 export default class StickerPicker extends Component<StickerPickerAttrs> {
   private stickers: any[] = [];
   private loading = true;
-  private filter = "";
+  private filter = '';
   private outsideListener?: (e: MouseEvent) => void;
 
   oninit(vnode: Mithril.Vnode<StickerPickerAttrs>): void {
@@ -42,29 +33,21 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
   oncreate(vnode: Mithril.VnodeDOM<StickerPickerAttrs>): void {
     super.oncreate(vnode);
 
-    // Deferred by a frame: the click that opened the picker is still propagating,
-    // and binding synchronously would close it again immediately.
+    // Um frame depois: o clique que abriu ainda está propagando e fecharia o seletor.
     requestAnimationFrame(() => {
       this.outsideListener = (e: MouseEvent) => {
         if (!vnode.dom.contains(e.target as Node)) this.attrs.onClose();
       };
 
-      document.addEventListener("click", this.outsideListener);
+      document.addEventListener('click', this.outsideListener);
     });
 
-    (
-      vnode.dom.querySelector(
-        ".ChatStickerPicker-search",
-      ) as HTMLInputElement | null
-    )?.focus();
+    (vnode.dom.querySelector('.ChatStickerPicker-search') as HTMLInputElement | null)?.focus();
 
     playOnHover(vnode.dom as HTMLElement);
   }
 
-  /**
-   * Hydrate after every render, not only on create: the grid is rebuilt whenever
-   * the filter changes, and the new nodes arrive unhydrated.
-   */
+  /** Hidrata a cada render: o filtro recria a grade com nós novos. */
   onupdate(vnode: Mithril.VnodeDOM<StickerPickerAttrs>): void {
     super.onupdate(vnode);
 
@@ -72,8 +55,7 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
   }
 
   onremove(): void {
-    if (this.outsideListener)
-      document.removeEventListener("click", this.outsideListener);
+    if (this.outsideListener) document.removeEventListener('click', this.outsideListener);
   }
 
   view(): Mithril.Children {
@@ -81,25 +63,16 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
 
     const shown = term
       ? this.stickers.filter((sticker) =>
-          `${sticker.title() ?? ""} ${sticker.textToReplace() ?? ""} ${sticker.categoryName() ?? ""}`
-            .toLowerCase()
-            .includes(term),
+          `${sticker.title() ?? ''} ${sticker.textToReplace() ?? ''} ${sticker.categoryName() ?? ''}`.toLowerCase().includes(term)
         )
       : this.stickers;
 
     return (
-      <div
-        className="ChatStickerPicker"
-        onkeydown={(e: KeyboardEvent) => this.onKey(e)}
-      >
+      <div className="ChatStickerPicker" onkeydown={(e: KeyboardEvent) => this.onKey(e)}>
         <input
           className="FormControl ChatStickerPicker-search"
           type="search"
-          placeholder={app.translator.trans(
-            "ramon-chat.forum.composer.sticker_search",
-            {},
-            true,
-          )}
+          placeholder={app.translator.trans('ramon-chat.forum.composer.sticker_search', {}, true)}
           value={this.filter}
           oninput={(e: Event) => {
             this.filter = (e.target as HTMLInputElement).value;
@@ -111,9 +84,7 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
             <LoadingIndicator display="inline" size="small" />
           </div>
         ) : shown.length === 0 ? (
-          <div className="ChatStickerPicker-empty">
-            {app.translator.trans("ramon-chat.forum.composer.sticker_none")}
-          </div>
+          <div className="ChatStickerPicker-empty">{app.translator.trans('ramon-chat.forum.composer.sticker_none')}</div>
         ) : (
           <div className="ChatStickerPicker-grid">
             {shown.map((sticker) => (
@@ -122,9 +93,7 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
                 key={sticker.id()}
                 className="ChatStickerPicker-item"
                 title={sticker.title() ?? sticker.textToReplace()}
-                onclick={() =>
-                  this.attrs.onInsert(sticker.textToReplace() ?? "")
-                }
+                onclick={() => this.attrs.onInsert(sticker.textToReplace() ?? '')}
               >
                 {this.thumbnail(sticker)}
               </button>
@@ -136,39 +105,21 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
   }
 
   /**
-   * The thumbnail, in the markup ramon/stickers itself emits.
-   *
-   * A `.tgs` is gzip-compressed Lottie and a `.json` is Lottie; neither renders in
-   * an `<img>`, and the first version of this drew their names instead — which on
-   * a library of animated stickers meant a grid of words.
-   *
-   * Rather than reimplementing those renderers, this emits the exact markup the
-   * extension's formatter produces, and its MutationObserver on `document.body`
-   * picks them up and animates them. That observer already exists to hydrate
-   * stickers inside posts; it does not care where the nodes came from.
-   *
-   * The path is resolved the same way too: a relative one is served from the forum
-   * root, which is what their PHP does before writing the attribute.
+   * Miniatura no mesmo markup que o ramon/stickers gera. `.tgs` e `.json` são
+   * Lottie e não rodam em `<img>`; o MutationObserver da extensão em
+   * `document.body` os anima. Caminho relativo é servido a partir da raiz do fórum.
    */
   protected thumbnail(sticker: any): Mithril.Children {
-    const path = this.absolute(String(sticker.path() ?? ""));
-    const title = sticker.title() ?? "";
+    const path = this.absolute(String(sticker.path() ?? ''));
+    const title = sticker.title() ?? '';
     const lower = path.toLowerCase();
 
-    if (lower.endsWith(".tgs")) {
-      return (
-        <span className="Sticker Sticker--tgs" data-tgs={path} title={title} />
-      );
+    if (lower.endsWith('.tgs')) {
+      return <span className="Sticker Sticker--tgs" data-tgs={path} title={title} />;
     }
 
-    if (lower.endsWith(".json")) {
-      return (
-        <span
-          className="Sticker Sticker--lottie"
-          data-lottie={path}
-          title={title}
-        />
-      );
+    if (lower.endsWith('.json')) {
+      return <span className="Sticker Sticker--lottie" data-lottie={path} title={title} />;
     }
 
     return (
@@ -181,16 +132,13 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
   protected absolute(path: string): string {
     if (/^https?:\/\//i.test(path)) return path;
 
-    const base = String(app.forum.attribute("baseUrl") ?? "").replace(
-      /\/$/,
-      "",
-    );
+    const base = String(app.forum.attribute('baseUrl') ?? '').replace(/\/$/, '');
 
-    return base + (path.startsWith("/") ? path : `/${path}`);
+    return base + (path.startsWith('/') ? path : `/${path}`);
   }
 
   protected onKey(e: KeyboardEvent): void {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       e.stopPropagation();
       this.attrs.onClose();
     }
@@ -198,7 +146,7 @@ export default class StickerPicker extends Component<StickerPickerAttrs> {
 
   protected async load(): Promise<void> {
     try {
-      const results = await app.store.find<any[]>("stickers", {
+      const results = await app.store.find<any[]>('stickers', {
         page: { limit: 200 },
       });
 

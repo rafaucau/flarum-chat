@@ -22,13 +22,11 @@ use Ramon\Chat\Notification\OwnershipTransferBlueprint;
 use Ramon\Chat\Notification\OwnershipTransferDeclinedBlueprint;
 
 /**
- * Keeps the transfer request in the recipient's bell while it is open,
- * notifies the initiator when the request is declined, and notifies whoever
- * inherited a channel whose owner left.
+ * Mantém o pedido de transferência no sino do destinatário enquanto está
+ * aberto, avisa o autor da recusa e avisa quem herdou um canal.
  *
- * Each recipient is checked against the channel's visibility before receiving
- * anything: the notification's subject is the channel, and a notice about a
- * channel the person cannot see should not exist.
+ * Cada destinatário é checado contra a visibilidade do canal, o subject da
+ * notificação.
  */
 class NotifyOwnershipTransfers
 {
@@ -71,9 +69,8 @@ class NotifyOwnershipTransfers
     }
 
     /**
-     * An accepted transfer only removes the request from the bell. A succession
-     * notifies the new owner, who asked for nothing and needs to know they are
-     * now responsible for the channel.
+     * Transferência aceita só tira o pedido do sino. Sucessão avisa o novo dono,
+     * que não pediu nada e precisa saber que agora responde pelo canal.
      */
     public function whenTransferred(ChannelOwnershipTransferred $event): void
     {
@@ -92,10 +89,8 @@ class NotifyOwnershipTransfers
     }
 
     /**
-     * Removes the request from the bell of whoever was going to receive it. Via
-     * the transfer, not the NotificationSyncer: the request may have been made
-     * by someone who no longer exists as a party, and there is only one per
-     * channel at a time.
+     * Tira o pedido do sino de quem ia recebê-lo. Pela transferência, não pelo
+     * NotificationSyncer: o autor pode não existir mais, e há só uma por canal.
      */
     protected function withdraw(Channel $channel, ChannelTransfer $transfer): void
     {

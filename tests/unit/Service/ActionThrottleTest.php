@@ -15,7 +15,8 @@ use PHPUnit\Framework\TestCase;
 use Ramon\Chat\Service\ActionThrottle;
 
 /**
- * The counter behind the typing, reaction, draft, bookmark and webhook limits.
+ * O contador por trás dos limites de digitação, reação, rascunho, favorito e
+ * webhook.
  */
 class ActionThrottleTest extends TestCase
 {

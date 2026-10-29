@@ -1,104 +1,64 @@
-import Page from "flarum/common/components/Page";
-import type { IPageAttrs } from "flarum/common/components/Page";
-import type Mithril from "mithril";
-import type Channel from "../../common/models/Channel";
+import Page from 'flarum/common/components/Page';
+import type { IPageAttrs } from 'flarum/common/components/Page';
+import type Mithril from 'mithril';
+import type Channel from '../../common/models/Channel';
 /**
- * Full-screen chat.
- *
- * Sidebar plus channel side by side on desktop; on mobile the router shows one or
- * the other, since a 280px sidebar beside a channel is unusable at phone widths.
+ * Chat em tela cheia. No desktop, sidebar e canal lado a lado; no celular, um ou
+ * outro.
  */
 export default class ChatPage<CustomAttrs extends IPageAttrs = IPageAttrs> extends Page<CustomAttrs> {
     /**
-     * Whether the page has nothing to draw yet.
-     *
-     * Seeded from the state rather than hardcoded to `true`. The channel list is
-     * fetched once per session and kept current by realtime, so on every visit
-     * after the first the data is already in hand — starting at `true` threw it
-     * away and showed a skeleton over a list that was ready to render, which is
-     * the flash that made re-entering the chat look like a reload.
+     * Se ainda não há nada a desenhar. Vem do state: a lista de canais é buscada uma
+     * vez por sessão e o realtime a mantém atualizada, então nas visitas seguintes
+     * não há skeleton.
      */
     private loading;
-    /** What was last handed to `app.history`; see `recordHistory`. */
+    /** Última entrada passada ao `app.history` (ver `recordHistory`). */
     private historyKey;
     /**
-     * Marks `<body>` while this page is mounted, so the stylesheet can suppress
-     * whatever else the forum draws around it.
-     *
-     * Core's `Page.bodyClass` puts its class on `#app`, which is not enough: the
-     * things this page has to hide are appended to `document.body` as siblings of
-     * `#app` — `huseyinfiliz/modern-footer` mounts `<footer id="modern-footer">`
-     * there from an `app.mount` extender, and it is not the only extension that
-     * does. A class on `#app` cannot select an element outside `#app`.
+     * Classe no `<body>` enquanto a página está montada, para o CSS esconder o que o
+     * fórum desenha em volta. O `Page.bodyClass` do core usa `#app`, mas algumas
+     * extensões (ex.: rodapés) montam elementos irmãos de `#app` no body.
      */
     protected static readonly BODY_CLASS = "ChatFullPage";
     oncreate(vnode: Mithril.VnodeDOM<CustomAttrs, this>): void;
     /**
-     * Leaving for the forum with a drawer to put back: it grows out of the page
-     * this was, the reverse of the way in.
+     * Ao sair com um drawer para restaurar, ele cresce a partir da página (o
+     * inverso da entrada).
      */
     onbeforeremove(vnode: Mithril.VnodeDOM<CustomAttrs, this>): void;
     oninit(vnode: Mithril.Vnode<CustomAttrs>): void;
     /**
-     * Fires when the chat is left for the rest of the forum — not when moving between
-     * chat routes, which share one mounted page (see ChatPageResolver).
+     * Dispara ao sair do chat para o fórum, não entre rotas do chat, que dividem a
+     * mesma página montada (ChatPageResolver).
      */
     onremove(vnode: Mithril.VnodeDOM<CustomAttrs, this>): void;
     onbeforeupdate(vnode: Mithril.VnodeDOM<CustomAttrs, this>): void;
     /**
-     * Registers the current chat route with core's history stack.
+     * Registra a rota atual no histórico do core, o que dá a seta de voltar na
+     * toolbar do celular (`Navigation` só a mostra com `app.history.canGoBack()`).
      *
-     * This is what puts a back button in the phone toolbar. Core mounts its
-     * `Navigation` into `#app-navigation` and that component shows the back arrow
-     * only when `app.history.canGoBack()` — otherwise it shows the drawer toggle.
-     * `ForumApplication.mount()` seeds the stack with one entry (the index), and
-     * every core page pushes its own on arrival: `IndexPage`, `DiscussionPage`,
-     * `UserPage`, `NotificationsPage`, and outside core `TagsPage` and
-     * flarum/messages' `MessagesPage`. This page never did, so the stack stayed one
-     * deep on every chat route and the toolbar had nothing but the hamburger — on
-     * `/chat`, `/chat/threads`, `/chat/bookmarks`, `/chat/search` and `/chat/flags`
-     * alike.
-     *
-     * Three names rather than one, because the name is what core uses to decide
-     * whether a visit is a new step or a replacement (`History#push` overwrites an
-     * entry of the same name). Distinct names for the list, a channel and a section
-     * make "back" walk channel → list → forum, which is the order the user arrived
-     * in. One shared name would collapse all three into a single step and send them
-     * from a channel straight out of the chat.
-     *
-     * Called from `onbeforeupdate` as well as `oninit` because every chat route
-     * shares one mounted page (see ChatPageResolver): moving between them is an
-     * update, not a create. The key guard keeps that to one push per actual change
-     * rather than one per redraw.
+     * Nomes distintos para lista, canal e seção: `History#push` substitui entradas
+     * de mesmo nome, e assim voltar segue canal → lista → fórum. Chamado também no
+     * `onbeforeupdate` porque as rotas do chat dividem uma página montada; a key
+     * evita um push por redraw.
      */
     protected recordHistory(): void;
     /**
-     * Brings the active channel and thread back in line with the URL.
-     *
-     * Every chat route shares one mounted page (see ChatPageResolver), so `oninit`
-     * runs once and cannot be where the route is read. In-app navigation sets the
-     * state before it routes, which makes this a no-op most of the time; it exists
-     * for the paths that do not — browser back and forward, and a link arriving from
-     * outside the page.
+     * Alinha canal e thread ativos com a URL. As rotas dividem uma página montada,
+     * então não dá para ler a rota só no `oninit`. Cobre voltar/avançar do
+     * navegador e links de fora; a navegação interna já ajusta o state antes.
      */
     protected syncFromRoute(): void;
     view(): Mithril.Children;
     /**
-     * Whether the route names one of the sidebar's sections rather than a channel.
-     *
-     * These fill the main pane on their own — a section is shown whether or not a
-     * channel happens to be selected — and unlike a channel they render no header,
-     * so on a phone they are also the routes that need a back control put in the
-     * toolbar for them.
+     * Se a rota é uma seção da sidebar, não um canal. Seções ocupam o painel
+     * principal e não têm cabeçalho, então no celular precisam de voltar na toolbar.
      */
     protected static isSectionRoute(routeName: string | undefined): boolean;
     /**
-     * What the phone toolbar calls this page.
-     *
-     * Keyed off the route rather than the open channel, for the reason given on
-     * `mobileTitleControl`. The strings are the sidebar's own, so a section is named
-     * the same in the bar as in the list it came from and no new translations are
-     * introduced for installs that have already been translated.
+     * Título da toolbar do celular, pela rota (ver `mobileTitleControl`). Reusa as
+     * traduções da sidebar.
      */
     protected toolbarTitle(routeName: string | undefined): string;
     protected mainPane(routeName: string | undefined, channel: Channel | null, narrow: boolean, threadId: number | null): Mithril.Children;
@@ -106,9 +66,6 @@ export default class ChatPage<CustomAttrs extends IPageAttrs = IPageAttrs> exten
     protected boot(): Promise<void>;
     protected select(channel: Channel): void;
     protected deselect(): void;
-    /**
-     * Closing the panel also drops the thread from the URL, so a reload does not
-     * reopen what was just dismissed.
-     */
+    /** Fechar o painel tira a thread da URL, para recarregar não reabri-la. */
     protected closeThread(channel: Channel): void;
 }

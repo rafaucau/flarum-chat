@@ -1,47 +1,42 @@
-import app from "flarum/forum/app";
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import Button from "flarum/common/components/Button";
-import Dropdown from "flarum/common/components/Dropdown";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import Button from 'flarum/common/components/Button';
+import Dropdown from 'flarum/common/components/Dropdown';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import chatState from "../state/chat";
-import { channelIcon } from "../utils/channelIcon";
-import { channelActions, openChannelInfo } from "../utils/channelActions";
-import ChatSidebar from "./ChatSidebar";
-import ErrorBoundary from "./ErrorBoundary";
-import ChannelView from "./ChannelView";
-import PinnedPanel from "./PinnedPanel";
-import ChatSearch from "./ChatSearch";
-import ThreadPanel from "./ThreadPanel";
-import ThreadsList from "./ThreadsList";
-import { chatTitle, chatIcon } from "../utils/branding";
-import { isNarrowViewport } from "../utils/surface";
-import iconLabel from "../utils/iconLabel";
-import { morphIn, rememberOrigin } from "../utils/morph";
+import type Channel from '../../common/models/Channel';
+import chatState from '../state/chat';
+import { channelIcon } from '../utils/channelIcon';
+import { channelActions, openChannelInfo } from '../utils/channelActions';
+import ChatSidebar from './ChatSidebar';
+import ErrorBoundary from './ErrorBoundary';
+import ChannelView from './ChannelView';
+import PinnedPanel from './PinnedPanel';
+import ChatSearch from './ChatSearch';
+import ThreadPanel from './ThreadPanel';
+import ThreadsList from './ThreadsList';
+import { chatTitle, chatIcon } from '../utils/branding';
+import { isNarrowViewport } from '../utils/surface';
+import iconLabel from '../utils/iconLabel';
+import { morphIn, rememberOrigin } from '../utils/morph';
 
 /**
- * The floating chat panel, pinned bottom-right over whatever page is open.
+ * Painel flutuante do chat, no canto inferior direito de qualquer página.
  *
- * Mounted once at the app root rather than per-page, so navigating the forum does
- * not tear down an open conversation — which is the entire point of a drawer.
- *
- * Below the mobile breakpoint it is not a panel at all. There is no room for one
- * over the page: it filled the viewport, covering the header, the phone toolbar
- * and its drawer toggle, so the forum underneath was unreachable until the chat
- * was closed. At that width the open drawer renders as a floating button
- * instead, and tapping it hands the conversation to the full-screen page — the
- * surface a phone has for the chat anyway (see `shouldUseChatDrawer`).
- *
- * Lives in the lazily loaded chat UI chunk; ChatDrawer is the eager shell that
- * mounts it once that chunk has arrived, and owns `open()`.
+ * Montado uma vez na raiz do app, para navegar pelo fórum não fechar a conversa.
+ * Em telas estreitas vira um botão flutuante que abre a página cheia (ver
+ * `shouldUseChatDrawer`). Fica no chunk lazy; o ChatDrawer é a casca que o monta.
  */
 export default class ChatDrawerPanel extends Component<ComponentAttrs> {
-  /** Last known answer to `isNarrowViewport()`, so resize only redraws on a change. */
+  /** Último `isNarrowViewport()`, para o resize só redesenhar quando muda. */
   private narrow = isNarrowViewport();
 
+  /**
+   * A escolha entre painel e botão é feita em `view()`, não por media query; sem
+   * isto uma rotação manteria o formato antigo até outro redraw.
+   */
   private onResize = () => {
     const narrow = isNarrowViewport();
 
@@ -51,18 +46,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
     m.redraw();
   };
 
-  /**
-   * Nothing else watches the viewport, and the panel-versus-button choice is made
-   * in `view()` rather than by a media query, so without this a rotation left the
-   * old shape on screen until some other event happened to redraw.
-   */
-  /** Whether the drawer's box was on screen at the last render. */
+  /** Se a caixa do drawer estava na tela no último render. */
   private shown = false;
 
   oncreate(vnode: Mithril.VnodeDOM<ComponentAttrs, this>): void {
     super.oncreate(vnode);
 
-    window.addEventListener("resize", this.onResize);
+    window.addEventListener('resize', this.onResize);
     this.morphWhenShown(vnode.dom);
   }
 
@@ -73,17 +63,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   /**
-   * The moment the drawer appears it grows out of whatever opened it — the
-   * header button, or the full-screen page it is coming back from. See
-   * utils/morph; without a recent origin this does nothing.
+   * Ao aparecer, o drawer cresce a partir de quem o abriu (botão do cabeçalho ou
+   * página cheia). Sem origem recente não faz nada (ver utils/morph).
    */
   protected morphWhenShown(dom: Element | null): void {
-    const box =
-      dom instanceof HTMLElement && dom.classList.contains("ChatDrawer")
-        ? dom
-        : null;
+    const box = dom instanceof HTMLElement && dom.classList.contains('ChatDrawer') ? dom : null;
 
-    if (box && !this.shown) morphIn(box, "drawer");
+    if (box && !this.shown) morphIn(box, 'drawer');
 
     this.shown = box !== null;
   }
@@ -91,15 +77,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   onremove(vnode: Mithril.VnodeDOM<ComponentAttrs, this>): void {
     super.onremove(vnode);
 
-    window.removeEventListener("resize", this.onResize);
+    window.removeEventListener('resize', this.onResize);
   }
 
   view(): Mithril.Children {
     if (!chatState.drawerOpen) return null;
 
-    // Read here as well as in the resize handler: the drawer can be opened at any
-    // width (a restored session, an invite followed on a phone) without a resize
-    // ever firing.
+    // Lido aqui também: o drawer pode abrir em qualquer largura sem resize.
     this.narrow = isNarrowViewport();
 
     if (this.narrow) return this.floatingButton();
@@ -111,31 +95,20 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
 
     return (
       <div
-        className={classList("ChatDrawer", {
-          "ChatDrawer--collapsed": chatState.drawerCollapsed,
+        className={classList('ChatDrawer', {
+          'ChatDrawer--collapsed': chatState.drawerCollapsed,
         })}
         role="complementary"
         aria-label={title}
       >
-        <div
-          className="ChatDrawer-header"
-          onclick={(e: Event) => this.onHeaderClick(e)}
-        >
+        <div className="ChatDrawer-header" onclick={(e: Event) => this.onHeaderClick(e)}>
           {channel ? (
             <Button
               className="Button Button--icon Button--flat"
               icon="fas fa-chevron-left"
-              {...iconLabel(
-                app.translator.trans(
-                  "ramon-chat.forum.sidebar.back_to_channels",
-                  {},
-                  true,
-                ),
-              )}
+              {...iconLabel(app.translator.trans('ramon-chat.forum.sidebar.back_to_channels', {}, true))}
               onclick={() => {
-                // Whatever was covering the conversation belongs to the channel
-                // being left; carrying it back would show one channel's results
-                // over the list.
+                // Os painéis sobrepostos pertencem ao canal que está sendo deixado.
                 chatState.closeOverlays();
                 chatState.setActiveChannel(null);
               }}
@@ -144,11 +117,8 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             <i className={icon} aria-hidden="true" />
           ) : null}
 
-          {/* The channel's mark and name, in the drawer's own bar.
-              ChannelView draws no header of its own while embedded — two bars
-              stacked in a 320px panel spent 88px naming the same channel twice.
-              Clicking opens the details, the way the channel header's title
-              does, so the gesture is the same in both places. */}
+          {/* Ícone e nome do canal na barra do drawer, já que o ChannelView embedded
+              não desenha cabeçalho. O clique abre os detalhes, como no título. */}
           {channel ? (
             <button
               type="button"
@@ -157,83 +127,46 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
                 openChannelInfo(channel);
               }}
             >
-              {channelIcon(channel, "ChatDrawer-icon")}
-              <span className="ChatDrawer-titleText">
-                {channel.displayName()}
-              </span>
+              {channelIcon(channel, 'ChatDrawer-icon')}
+              <span className="ChatDrawer-titleText">{channel.displayName()}</span>
             </button>
           ) : (
             <span className="ChatDrawer-title">{title}</span>
           )}
 
-          {/* Collapsed, the drawer is a bar with no stream to look at — so unread
-              activity has to surface on the header itself or it goes unnoticed.
-              Both cases show a number: a dot says "something happened" and leaves
-              you to open the drawer to find out how much. Mentions keep their own
-              colour because they are addressed to you specifically. */}
+          {/* Recolhido, as não lidas aparecem na própria barra, com número.
+              Menções têm cor própria. */}
           {chatState.drawerCollapsed && unread.mentions > 0 ? (
             <span
               className="ChatDrawer-badge ChatDrawer-badge--mention"
-              title={app.translator.trans(
-                "ramon-chat.forum.nav.unread_mentions",
-                { count: unread.mentions },
-                true,
-              )}
+              title={app.translator.trans('ramon-chat.forum.nav.unread_mentions', { count: unread.mentions }, true)}
             >
-              {unread.mentions > 99 ? "99+" : unread.mentions}
+              {unread.mentions > 99 ? '99+' : unread.mentions}
             </span>
           ) : chatState.drawerCollapsed && unread.messages > 0 ? (
-            <span
-              className="ChatDrawer-badge"
-              title={app.translator.trans(
-                "ramon-chat.forum.nav.unread_messages",
-                { count: unread.messages },
-                true,
-              )}
-            >
-              {unread.messages > 99 ? "99+" : unread.messages}
+            <span className="ChatDrawer-badge" title={app.translator.trans('ramon-chat.forum.nav.unread_messages', { count: unread.messages }, true)}>
+              {unread.messages > 99 ? '99+' : unread.messages}
             </span>
           ) : null}
 
           <div className="ChatDrawer-actions">
-            {/* The channel's own actions, behind one control rather than four.
-                They are the same set the full-screen header spreads across its
-                bar — see utils/channelActions — but the window controls beside
-                them are not optional, and seven icons do not fit 320px. Absent
-                while collapsed, where there is no channel on screen to act on. */}
-            {channel && !chatState.drawerCollapsed
-              ? this.channelMenu(channel)
-              : null}
+            {/* As ações do canal (utils/channelActions) num menu só: sete ícones não
+                cabem em 320px. Some quando recolhido. */}
+            {channel && !chatState.drawerCollapsed ? this.channelMenu(channel) : null}
 
             <Button
               className="Button Button--icon Button--flat"
               icon="fas fa-expand"
-              {...iconLabel(
-                app.translator.trans(
-                  "ramon-chat.forum.drawer.full_screen",
-                  {},
-                  true,
-                ),
-              )}
+              {...iconLabel(app.translator.trans('ramon-chat.forum.drawer.full_screen', {}, true))}
               onclick={() => {
                 this.goFullScreen();
               }}
             />
             <Button
               className="Button Button--icon Button--flat"
-              icon={
-                chatState.drawerCollapsed
-                  ? "fas fa-chevron-up"
-                  : "fas fa-chevron-down"
-              }
+              icon={chatState.drawerCollapsed ? 'fas fa-chevron-up' : 'fas fa-chevron-down'}
               {...iconLabel(
-                app.translator.trans(
-                  chatState.drawerCollapsed
-                    ? "ramon-chat.forum.drawer.expand"
-                    : "ramon-chat.forum.drawer.collapse",
-                  {},
-                  true,
-                ),
+                app.translator.trans(chatState.drawerCollapsed ? 'ramon-chat.forum.drawer.expand' : 'ramon-chat.forum.drawer.collapse', {}, true)
               )}
               onclick={() => {
                 this.toggleCollapsed();
@@ -242,9 +175,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             <Button
               className="Button Button--icon Button--flat"
               icon="fas fa-times"
-              {...iconLabel(
-                app.translator.trans("ramon-chat.forum.drawer.close", {}, true),
-              )}
+              {...iconLabel(app.translator.trans('ramon-chat.forum.drawer.close', {}, true))}
               onclick={() => {
                 this.close();
               }}
@@ -254,7 +185,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
 
         {chatState.drawerCollapsed ? null : (
           <div className="ChatDrawer-body">
-            <ErrorBoundary area="drawer">{this.body(channel)}</ErrorBoundary>
+            <ErrorBoundary area="drawer" render={() => this.body(channel)} />
           </div>
         )}
       </div>
@@ -262,36 +193,24 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   /**
-   * Clicking the bar folds the drawer — unless the click was on something in it.
+   * Clicar na barra recolhe o drawer, a menos que o clique seja num controle.
    *
-   * The controls used to each call `stopPropagation` to opt out, which worked
-   * only for as long as every one of them was a plain button. It stopped working
-   * the moment the overflow menu arrived: Bootstrap opens a dropdown from a
-   * handler delegated on `document`, so the very thing that kept the bar from
-   * folding also kept the menu from opening.
-   *
-   * Asking what was clicked instead leaves the event free to reach the document,
-   * which is what both opening the menu and closing it by clicking away depend
-   * on. `.Dropdown` is listed alongside the elements because the menu's own
-   * padding is part of it and is not a button.
+   * Verifica o alvo em vez de usar `stopPropagation`: o Bootstrap abre dropdowns
+   * por um handler delegado no `document`. `.Dropdown` entra na lista porque o
+   * padding do menu não é botão.
    */
   protected onHeaderClick(e: Event): void {
     const target = e.target as HTMLElement | null;
 
-    if (target?.closest("button, a, input, .Dropdown")) return;
+    if (target?.closest('button, a, input, .Dropdown')) return;
 
     this.toggleCollapsed();
   }
 
   /**
-   * The channel's actions, as a menu.
-   *
-   * The wrapper carries no click handler, and must not: Bootstrap opens a
-   * dropdown from a handler delegated on `document` —
-   * `on('click.bs.dropdown.data-api', '[data-toggle="dropdown"]', …)` — so a
-   * `stopPropagation` anywhere between the toggle and the document swallows the
-   * click that would have opened it. That is what left this menu inert. The
-   * header guards itself instead; see `onHeaderClick`.
+   * Menu de ações do canal. O wrapper não pode ter handler de clique: o Bootstrap
+   * abre o dropdown por handler delegado no `document`, e um `stopPropagation` no
+   * caminho o impediria (ver `onHeaderClick`).
    */
   protected channelMenu(channel: Channel): Mithril.Children {
     const actions = channelActions(channel, chatState, { embedded: true });
@@ -303,22 +222,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
         <Dropdown
           buttonClassName="Button Button--icon Button--flat"
           icon="fas fa-ellipsis"
-          label={app.translator.trans(
-            "ramon-chat.forum.drawer.channel_actions",
-            {},
-            true,
-          )}
-          accessibleToggleLabel={app.translator.trans(
-            "ramon-chat.forum.drawer.channel_actions",
-            {},
-            true,
-          )}
+          label={app.translator.trans('ramon-chat.forum.drawer.channel_actions', {}, true)}
+          accessibleToggleLabel={app.translator.trans('ramon-chat.forum.drawer.channel_actions', {}, true)}
         >
           {actions.map((action) => (
             <Button
               key={action.key}
-              // `active` is not a Button attr; core marks a selected menu item
-              // with the class, which is what its own dropdowns are styled on.
+              // `active` não é attr do Button; o core marca o item com a classe.
               className={classList({ active: action.active })}
               icon={action.icon}
               loading={action.loading}
@@ -333,100 +243,57 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   /**
-   * The drawer, at a width where a panel over the page would cover the page.
-   *
-   * A bubble in the corner, over the forum rather than instead of it: the header,
-   * the phone toolbar and its drawer toggle all stay reachable, which is the whole
-   * complaint against the full-bleed panel this replaces. Tapping it opens the
-   * full-screen chat, so the button is a way *in* rather than a second chat.
-   *
-   * The dismiss cross is small but present, and deliberately so: `drawerOpen`
-   * survives reloads, so without it a drawer opened once on a desktop would
-   * follow the reader onto their phone with no way to send it away — the header
-   * button only opens the chat.
+   * O drawer em telas estreitas: um botão no canto que abre o chat em tela cheia,
+   * sem cobrir o fórum. Tem um X porque `drawerOpen` sobrevive a recargas e o
+   * botão do cabeçalho só abre o chat.
    */
   protected floatingButton(): Mithril.Children {
     const label = chatTitle();
     const unread = chatState.unreadSummary();
     const count = unread.mentions > 0 ? unread.mentions : unread.messages;
 
-    // A bubble with neither icon nor text would be an unlabelled circle, so the
-    // admin's "no icon" setting cannot apply here the way it does to the header
-    // button, which sits beside its own label in the drawer.
-    const icon = chatIcon() ?? "fas fa-comments";
+    // Aqui sempre há ícone: sem ícone nem texto o botão seria um círculo vazio.
+    const icon = chatIcon() ?? 'fas fa-comments';
 
-    const close = app.translator.trans(
-      "ramon-chat.forum.drawer.close",
-      {},
-      true,
-    );
+    const close = app.translator.trans('ramon-chat.forum.drawer.close', {}, true);
 
     return (
       <div className="ChatFab">
-        <button
-          className="ChatFab-button"
-          type="button"
-          aria-label={label}
-          title={label}
-          onclick={() => this.goFullScreen()}
-        >
+        <button className="ChatFab-button" type="button" aria-label={label} title={label} onclick={() => this.goFullScreen()}>
           <i className={icon} aria-hidden="true" />
 
           {count > 0 ? (
             <span
-              className={classList("ChatFab-badge", {
-                "ChatFab-badge--mention": unread.mentions > 0,
+              className={classList('ChatFab-badge', {
+                'ChatFab-badge--mention': unread.mentions > 0,
               })}
             >
-              {count > 99 ? "99+" : count}
+              {count > 99 ? '99+' : count}
             </span>
           ) : null}
         </button>
 
-        <Button
-          className="Button Button--icon ChatFab-dismiss"
-          icon="fas fa-times"
-          title={close}
-          aria-label={close}
-          onclick={() => this.close()}
-        />
+        <Button className="Button Button--icon ChatFab-dismiss" icon="fas fa-times" title={close} aria-label={close} onclick={() => this.close()} />
       </div>
     );
   }
 
   /**
-   * The drawer's contents: the conversation, or the channel list, plus the pinned
-   * panel over the top when it is open.
+   * Conteúdo do drawer: a conversa ou a lista de canais, mais o painel sobreposto.
    *
-   * Built as an array rather than a JSX fragment with a conditional slot. Mithril
-   * decides a fragment is keyed from its first child and then demands every other
-   * child be keyed too — and it counts `null` as unkeyed. `[<ChannelView key=…/>,
-   * null]`, which is what a closed pinned panel produced, therefore threw "In
-   * fragments, vnodes must either all have keys or none have keys" on every redraw.
-   * The drawer is mounted at the app root, so that fired on every page of the forum,
-   * not only inside the chat.
+   * Array, não fragment com slot condicional: o Mithril exige que todos os filhos
+   * tenham key se o primeiro tiver, e conta `null` como sem key.
    */
   protected body(channel: Channel | null): Mithril.Children {
     const panes: Mithril.Children[] = [
       channel ? (
-        <ChannelView
-          key={`channel-${channel.id()}`}
-          channel={channel}
-          state={chatState}
-          embedded
-        />
+        <ChannelView key={`channel-${channel.id()}`} channel={channel} state={chatState} embedded />
       ) : (
-        <ChatSidebar
-          key="sidebar"
-          state={chatState}
-          onSelect={(c: Channel) => this.select(c)}
-        />
+        <ChatSidebar key="sidebar" state={chatState} onSelect={(c: Channel) => this.select(c)} />
       ),
     ];
 
-    // A thread takes the same overlay slot as the pinned list. Only one of the two
-    // can be open: opening a thread is what the reply indicator does, and the
-    // pinned toggle clears the thread, so they cannot both claim the space.
+    // Thread e fixadas dividem o slot sobreposto; só uma abre por vez.
     if (channel && chatState.activeThreadId !== null) {
       panes.push(
         <ThreadPanel
@@ -438,14 +305,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             chatState.closeThread();
             m.redraw();
           }}
-        />,
+        />
       );
 
       return panes;
     }
 
-    // The channel's threads, over the conversation, for the same reason search
-    // is: `chat.threads` is a page, and routing there closes the drawer.
+    // `chat.threads` é página; rotear fecharia o drawer.
     if (channel && chatState.showThreads) {
       panes.push(
         <ThreadsList
@@ -457,15 +323,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             chatState.showThreads = false;
             m.redraw();
           }}
-        />,
+        />
       );
 
       return panes;
     }
 
-    // Search covers the conversation the same way, and for the same reason it is
-    // here at all: `chat.search` is a page, so opening it from the drawer routed
-    // away and closed the drawer on arrival.
+    // `chat.search` é página; rotear fecharia o drawer.
     if (channel && chatState.showSearch) {
       panes.push(
         <ChatSearch
@@ -477,14 +341,13 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             chatState.showSearch = false;
             m.redraw();
           }}
-        />,
+        />
       );
 
       return panes;
     }
 
-    // The drawer has no room for a side panel, so the pinned list covers the
-    // conversation instead — the arrangement the thread panel uses on a phone.
+    // Sem espaço para painel lateral, as fixadas cobrem a conversa.
     if (channel && chatState.showPinned) {
       panes.push(
         <PinnedPanel
@@ -496,7 +359,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
             chatState.showPinned = false;
             m.redraw();
           }}
-        />,
+        />
       );
     }
 
@@ -504,8 +367,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   protected select(channel: Channel): void {
-    // Same reason as the back button: a search left open would have the next
-    // channel opening straight into the previous one's results.
+    // Como no botão de voltar: o próximo canal não deve abrir com a busca anterior.
     chatState.closeOverlays();
     chatState.setActiveChannel(Number(channel.id()));
     m.redraw();
@@ -517,8 +379,7 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   /**
-   * The only way to close the drawer. Navigating the forum, reloading the page and
-   * collapsing the header all leave it open — dismissal has to be deliberate.
+   * Única forma de fechar o drawer; navegar, recarregar e recolher o mantêm aberto.
    */
   protected close(): void {
     chatState.setDrawerOpen(false);
@@ -526,22 +387,16 @@ export default class ChatDrawerPanel extends Component<ComponentAttrs> {
   }
 
   /**
-   * Hands the current channel over to the full-screen page. The drawer closes so
-   * the two never render the same conversation at once.
-   *
-   * Suspended rather than closed: the user did not dismiss the chat, they moved it,
-   * so leaving the full-screen page puts the drawer back where it was. See
-   * ChatPage.onremove, which is what restores it.
+   * Passa o canal atual para a página cheia. O drawer fica suspenso, não fechado:
+   * ao sair da página ele volta (ChatPage.onremove).
    */
   protected goFullScreen(): void {
     const id = chatState.activeChannelId;
 
-    rememberOrigin(document.querySelector(".ChatDrawer"), "page");
+    rememberOrigin(document.querySelector('.ChatDrawer'), 'page');
 
     chatState.suspendDrawer();
 
-    m.route.set(
-      id ? app.route("chat.channel", { id }) : app.route("chat.index"),
-    );
+    m.route.set(id ? app.route('chat.channel', { id }) : app.route('chat.index'));
   }
 }

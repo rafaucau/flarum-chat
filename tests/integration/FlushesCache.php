@@ -10,15 +10,14 @@
 namespace Ramon\Chat\Tests\integration;
 
 /**
- * Starts each test with an empty cache.
+ * Começa cada teste com o cache vazio.
  *
- * The harness rebuilds the database for every test but keeps the file cache in
- * its tmp directory, so whatever one test wrote there is still there for the
- * next — and for the next run. Throttle counters and the invitation cooldown
- * live in the cache, keyed by channel and user ids every test reuses, so without
- * this a decline in one test silently suppresses an invite in another.
+ * O harness recria o banco a cada teste mas mantém o cache em arquivo no tmp.
+ * Contadores de throttle e o cooldown de convites moram ali, com ids de canal e
+ * usuário que todo teste reusa, então uma recusa num teste suprimiria um
+ * convite em outro.
  *
- * Boots the application, so it belongs after prepareDatabase() and setting().
+ * Sobe a aplicação, então vem depois de prepareDatabase() e setting().
  */
 trait FlushesCache
 {

@@ -13,12 +13,9 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * Typing and presence signals.
- *
- * Kept separate from BroadcastListener because it is wired unconditionally —
- * TypingController is always routable — and therefore has to be a safe no-op when
- * flarum/realtime is absent. ChatBroadcaster queues nothing without a Pusher
- * binding, so no extension check is needed here.
+ * Sinais de digitação e presença. Fora do BroadcastListener porque é ligado
+ * sempre (o TypingController sempre tem rota); sem flarum/realtime o
+ * ChatBroadcaster não faz nada.
  */
 class PresenceBroadcaster
 {
@@ -39,8 +36,8 @@ class PresenceBroadcaster
                 'userId'    => (int) $actor->id,
                 'username'  => $actor->display_name,
                 'typing'    => $typing,
-                // The client expires stale indicators on its own; a "stopped
-                // typing" event can be lost and the dots must not stick.
+                // O cliente expira o indicador sozinho: o evento de "parou de
+                // digitar" pode se perder.
                 'expiresIn' => 6,
             ],
             (int) $actor->id

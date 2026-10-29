@@ -17,18 +17,17 @@ use Ramon\Chat\Message;
 use Ramon\Chat\Thread;
 
 /**
- * `ramon-chat.createThread` gates *starting* a thread, and nothing else.
+ * `ramon-chat.createThread` controla só *iniciar* um tópico.
  *
- * Someone without it must still be able to talk: a plain channel message, and a
- * reply inside a thread that already exists. Getting this wrong in the restrictive
- * direction would silence people rather than merely limit them, which is why both
- * halves are asserted here rather than only the refusal.
+ * Sem ela a pessoa ainda conversa: mensagem comum no canal e resposta num tópico
+ * que já existe. Errar para o lado restritivo calaria gente em vez de só
+ * limitar, por isso as duas metades são conferidas, não só a recusa.
  */
 class CreateThreadPermissionTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     protected function setUp(): void
@@ -40,16 +39,15 @@ class CreateThreadPermissionTest extends TestCase
         $this->prepareDatabase([
             'users' => [
                 $this->normalUser(),
-                // `password` is NOT NULL on `users`; omitting it aborts the whole
-                // fixture before a single assertion runs. `normalUser()` supplies
-                // its own, which is why only the hand-written rows need this.
+                // `password` é NOT NULL em `users`; sem ele a fixture inteira aborta. O
+                // `normalUser()` traz o próprio, por isso só as linhas escritas à mão
+                // precisam dele.
                 ['id' => 3, 'username' => 'brancher', 'password' => self::PASSWORD_HASH, 'email' => 'brancher@machine.local', 'is_email_confirmed' => 1],
             ],
             'group_permission' => [
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.use'],
-                // Deliberately NOT granting createThread to members; user 3 gets it
-                // through a group of its own so the two cases differ by exactly that
-                // permission and nothing else.
+                // createThread de propósito NÃO vai para membros; o usuário 3 a recebe por um
+                // grupo próprio, para os dois casos diferirem só por essa permissão.
             ],
             'groups' => [
                 ['id' => 100, 'name_singular' => 'Brancher', 'name_plural' => 'Branchers'],
@@ -80,9 +78,9 @@ class CreateThreadPermissionTest extends TestCase
                     'user_id'    => 2,
                     'number'     => 1,
                     'type'       => 'text',
-                    // Stored content is s9e/TextFormatter XML, not raw text — every
-                    // write path goes through `setContentAttribute`. A bare string
-                    // here renders as a 500 the moment the message is serialized.
+                    // O conteúdo gravado é XML do s9e/TextFormatter, não texto cru (toda escrita
+                    // passa por `setContentAttribute`). Uma string pura aqui vira 500 na hora de
+                    // serializar.
                     'content'    => '<t>branch off me</t>',
                     'created_at' => Carbon::now()->toDateTimeString(),
                     'updated_at' => Carbon::now()->toDateTimeString(),
@@ -90,9 +88,9 @@ class CreateThreadPermissionTest extends TestCase
             ],
         ]);
 
-        // `2026_07_30_000003` seeds createThread to MEMBER, and the extension's
-        // migrations run after prepareDatabase() — so without this revoke, user 2
-        // holds the permission and the "refused" case silently tests nothing.
+        // `2026_07_30_000003` dá createThread a MEMBER, e as migrations da extensão
+        // rodam depois de prepareDatabase(): sem esta revogação o usuário 2 teria a
+        // permissão e o caso "recusado" não testaria nada.
         $this->database()->table('group_permission')
             ->where('group_id', Group::MEMBER_ID)
             ->where('permission', 'ramon-chat.createThread')
@@ -147,7 +145,7 @@ class CreateThreadPermissionTest extends TestCase
 
     public function test_replying_inside_an_existing_thread_needs_no_permission(): void
     {
-        // Created by the user who does hold the permission.
+        // Criado por quem tem a permissão.
         $this->send_message(3, ['content' => 'root', 'replyToId' => 1, 'createThread' => true]);
 
         $thread = Thread::query()->firstOrFail();
@@ -163,7 +161,7 @@ class CreateThreadPermissionTest extends TestCase
         $this->assertEquals($thread->id, $body['data']['attributes']['threadId']);
     }
 
-    /** Threads are one level deep: a reply inside one cannot be branched again. */
+    /** Tópicos têm um nível só: uma resposta dentro de um não abre outro. */
     public function test_a_thread_reply_cannot_be_branched(): void
     {
         $this->send_message(3, ['content' => 'root', 'replyToId' => 1, 'createThread' => true]);

@@ -1,14 +1,12 @@
-import Page from "flarum/common/components/Page";
-import type { IPageAttrs } from "flarum/common/components/Page";
-import type Mithril from "mithril";
-import type Channel from "../../common/models/Channel";
-type BrowseFilter = "all" | "open" | "closed" | "archived" | "mine";
+import Page from 'flarum/common/components/Page';
+import type { IPageAttrs } from 'flarum/common/components/Page';
+import type Mithril from 'mithril';
+import type Channel from '../../common/models/Channel';
+type BrowseFilter = 'all' | 'open' | 'closed' | 'archived' | 'mine';
 /**
- * Discourse's "Browse channels" page: every channel the actor can see, with join
- * controls and — for those who may — a way to create one.
- *
- * This is also the only place a channel can be created, so it is reachable from
- * the sidebar even when the actor has joined nothing.
+ * Página "Explorar canais": todos os canais visíveis, com botões de entrar e, para
+ * quem pode, de criar. É o único lugar onde se cria canal, por isso a sidebar
+ * aponta para cá mesmo sem canais.
  */
 export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAttrs> extends Page<CustomAttrs> {
     private channels;
@@ -19,38 +17,31 @@ export default class BrowseChannelsPage<CustomAttrs extends IPageAttrs = IPageAt
     oninit(vnode: Mithril.Vnode<CustomAttrs>): void;
     view(): Mithril.Children;
     /**
-     * Nothing to show.
-     *
-     * Two different situations wearing one sentence before: a forum with no
-     * channels at all, and a search that matched none. The first needs a way to
-     * create one, the second needs a way back to the full list — and being told
-     * "no channels match" on a forum that has none reads as a bug.
+     * Estado vazio. Fórum sem canais oferece criar um; busca sem resultado oferece
+     * voltar à lista completa.
      */
     protected empty(): Mithril.Children;
     protected card(channel: Channel): Mithril.Children;
     /**
-     * A round icon-only control on a card. The label is both the tooltip and
-     * the accessible name, since the glyph alone says nothing to a screen reader.
+     * Botão redondo só com ícone. O label serve de tooltip e de nome acessível.
      */
     protected iconButton(icon: string, labelKey: string, onclick: () => void, danger?: boolean): Mithril.Children;
     protected setFilter(filter: BrowseFilter): void;
-    /** Debounced so typing does not issue a request per keystroke. */
+    /** Com debounce, para não disparar uma requisição por tecla. */
     protected onSearch(value: string): void;
-    /** Back to the unfiltered list, without waiting out the search debounce. */
+    /** Volta à lista sem filtro, sem esperar o debounce. */
     protected clearSearch(): void;
     protected load(): Promise<void>;
     protected create(): void;
     protected edit(channel: Channel): void;
     /**
-     * Joins, or with `hidden` inspects: in the channel with no place in the
-     * member list, nothing announced and nothing notified. The server refuses
-     * the hidden form for anyone without `inspectChannels`.
+     * Entra no canal ou, com `hidden`, inspeciona: sem aparecer na lista de membros
+     * nem notificar. O servidor exige `inspectChannels` para o modo oculto.
      */
     protected join(channel: Channel, hidden?: boolean): Promise<void>;
     /**
-     * Accepts or declines an invitation from the card. Accepting leaves the
-     * card in place as a joined one; declining leaves it as a plain channel the
-     * reader may still join on their own.
+     * Aceita ou recusa um convite pelo card. Recusar deixa o canal disponível para
+     * entrar por conta própria.
      */
     protected answerInvitation(channel: Channel, accept: boolean): Promise<void>;
     protected open(channel: Channel): void;

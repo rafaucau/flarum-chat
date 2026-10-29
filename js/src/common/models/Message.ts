@@ -1,14 +1,14 @@
-import app from "flarum/forum/app";
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Channel from "./Channel";
-import type { RankEntry } from "./Channel";
-import type Thread from "./Thread";
-import type Upload from "./Upload";
+import app from 'flarum/forum/app';
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Channel from './Channel';
+import type { RankEntry } from './Channel';
+import type Thread from './Thread';
+import type Upload from './Upload';
 
 /**
- * A single reaction bucket, as sent by MessageResource::reactionSummary().
- * Pre-aggregated on the server so the client never holds every reaction row.
+ * Agregado no servidor (MessageResource::reactionSummary()) para o cliente não
+ * receber cada reação.
  */
 export interface ReactionSummaryEntry {
   count: number;
@@ -18,124 +18,109 @@ export interface ReactionSummaryEntry {
 export type ReactionSummary = Record<string, ReactionSummaryEntry>;
 
 export default class Message extends Model {
-  // ── Content ────────────────────────────────────────────────────────────────
-  /**
-   * Author-facing source text. Null on a deleted message the actor may not see.
-   */
-  content = Model.attribute<string | null>("content");
-  contentHtml = Model.attribute<string | null>("contentHtml");
+  // ── Conteúdo ──
+  /** Texto-fonte. Null em mensagem apagada que o usuário não pode ver. */
+  content = Model.attribute<string | null>('content');
+  contentHtml = Model.attribute<string | null>('contentHtml');
 
-  type = Model.attribute<string>("type");
-  systemKey = Model.attribute<string | null>("systemKey");
-  systemData = Model.attribute<Record<string, unknown> | null>("systemData");
+  type = Model.attribute<string>('type');
+  systemKey = Model.attribute<string | null>('systemKey');
+  systemData = Model.attribute<Record<string, unknown> | null>('systemData');
 
-  // ── Position ───────────────────────────────────────────────────────────────
-  number = Model.attribute<number | null>("number");
-  channelId = Model.attribute<number>("channelId");
-  threadId = Model.attribute<number | null>("threadId");
-  replyToId = Model.attribute<number | null>("replyToId");
+  // ── Posição ──
+  number = Model.attribute<number | null>('number');
+  channelId = Model.attribute<number>('channelId');
+  threadId = Model.attribute<number | null>('threadId');
+  replyToId = Model.attribute<number | null>('replyToId');
 
-  createdAt = Model.attribute("createdAt", Model.transformDate);
-  editedAt = Model.attribute("editedAt", Model.transformDate);
-  deletedAt = Model.attribute("deletedAt", Model.transformDate);
+  createdAt = Model.attribute('createdAt', Model.transformDate);
+  editedAt = Model.attribute('editedAt', Model.transformDate);
+  deletedAt = Model.attribute('deletedAt', Model.transformDate);
 
   /**
-   * Advanced by every change the row can undergo — an edit, a deletion, a pin,
-   * a reaction. The polling fallback reconciles against it; see pollChanges()
-   * in forum/index.tsx.
+   * Avança a cada mudança (edição, exclusão, fixar, reação). O polling de
+   * fallback se reconcilia por ele (pollChanges() em forum/index.tsx).
    */
-  updatedAt = Model.attribute("updatedAt", Model.transformDate);
+  updatedAt = Model.attribute('updatedAt', Model.transformDate);
 
-  isDeleted = Model.attribute<boolean>("isDeleted");
+  isDeleted = Model.attribute<boolean>('isDeleted');
 
   /**
-   * Whether someone other than the author removed it.
-   *
-   * Distinct from `isRedacted()`, which only says the text was withheld from
-   * this reader — true for a self-deleted message too.
+   * Apagada por alguém que não o autor. `isRedacted()` só diz que o texto foi
+   * ocultado deste leitor, o que vale também para autoexclusão.
    */
-  isModeratorDeleted = Model.attribute<boolean>("isModeratorDeleted");
-  isEdited = Model.attribute<boolean>("isEdited");
+  isModeratorDeleted = Model.attribute<boolean>('isModeratorDeleted');
+  isEdited = Model.attribute<boolean>('isEdited');
 
-  isPinned = Model.attribute<boolean>("isPinned");
-  pinnedAt = Model.attribute("pinnedAt", Model.transformDate);
+  isPinned = Model.attribute<boolean>('isPinned');
+  pinnedAt = Model.attribute('pinnedAt', Model.transformDate);
 
-  // ── Engagement ─────────────────────────────────────────────────────────────
-  reactionSummary = Model.attribute<ReactionSummary>("reactionSummary");
-  mentionedUsers = Model.attribute<number[]>("mentionedUsers");
-  mentionsChannelWide = Model.attribute<boolean>("mentionsChannelWide");
-  isBookmarked = Model.attribute<boolean>("isBookmarked");
+  // ── Interação ──
+  reactionSummary = Model.attribute<ReactionSummary>('reactionSummary');
+  mentionedUsers = Model.attribute<number[]>('mentionedUsers');
+  mentionsChannelWide = Model.attribute<boolean>('mentionsChannelWide');
+  isBookmarked = Model.attribute<boolean>('isBookmarked');
 
   /**
-   * The author's rank in this channel when the row was read. Superseded by
-   * the channel's `rankBook` once that is loaded, which realtime keeps current.
+   * Rank do autor no momento da leitura. O `rankBook` do canal, mantido em dia
+   * pelo realtime, tem precedência quando carregado.
    */
-  authorRank = Model.attribute<RankEntry | null>("authorRank");
+  authorRank = Model.attribute<RankEntry | null>('authorRank');
 
-  /** Whether *this* reader has an open report against it. */
-  isFlagged = Model.attribute<boolean>("isFlagged");
+  /** Se *este* leitor tem denúncia aberta contra ela. */
+  isFlagged = Model.attribute<boolean>('isFlagged');
 
   /**
-   * Open reports on this message.
-   *
-   * Withheld from anyone without `ramon-chat.moderate`, so it is undefined rather
-   * than zero for ordinary readers — a visible count would tell everyone which
-   * messages are being reported, and tell an author they had been.
+   * Só para quem tem `ramon-chat.moderate`; para os demais é undefined, não
+   * zero, para não revelar quais mensagens foram denunciadas.
    */
-  flagsCount = Model.attribute<number | undefined>("flagsCount");
+  flagsCount = Model.attribute<number | undefined>('flagsCount');
 
-  // ── Capability flags ───────────────────────────────────────────────────────
-  canEdit = Model.attribute<boolean>("canEdit");
-  canDelete = Model.attribute<boolean>("canDelete");
-  canReact = Model.attribute<boolean>("canReact");
-  canReply = Model.attribute<boolean>("canReply");
-  canCreateThread = Model.attribute<boolean>("canCreateThread");
-  canMove = Model.attribute<boolean>("canMove");
-  canPin = Model.attribute<boolean>("canPin");
-  canFlag = Model.attribute<boolean>("canFlag");
+  // ── Permissões ──
+  canEdit = Model.attribute<boolean>('canEdit');
+  canDelete = Model.attribute<boolean>('canDelete');
+  canReact = Model.attribute<boolean>('canReact');
+  canReply = Model.attribute<boolean>('canReply');
+  canCreateThread = Model.attribute<boolean>('canCreateThread');
+  canMove = Model.attribute<boolean>('canMove');
+  canPin = Model.attribute<boolean>('canPin');
+  canFlag = Model.attribute<boolean>('canFlag');
 
-  /** Whether the row itself may be removed, tombstone and all. */
-  canForceDelete = Model.attribute<boolean>("canForceDelete");
+  /** Remover a linha de vez, sem deixar tombstone. */
+  canForceDelete = Model.attribute<boolean>('canForceDelete');
 
-  // ── Relationships ──────────────────────────────────────────────────────────
-  user = Model.hasOne<User | null>("user");
-  editedBy = Model.hasOne<User | null>("editedBy");
-  deletedBy = Model.hasOne<User | null>("deletedBy");
-  replyTo = Model.hasOne<Message | null>("replyTo");
-  thread = Model.hasOne<Thread | null>("thread");
-  channel = Model.hasOne<Channel | null>("channel");
-  uploads = Model.hasMany<Upload>("uploads");
+  // ── Relações ──
+  user = Model.hasOne<User | null>('user');
+  editedBy = Model.hasOne<User | null>('editedBy');
+  deletedBy = Model.hasOne<User | null>('deletedBy');
+  replyTo = Model.hasOne<Message | null>('replyTo');
+  thread = Model.hasOne<Thread | null>('thread');
+  channel = Model.hasOne<Channel | null>('channel');
+  uploads = Model.hasMany<Upload>('uploads');
 
-  // ── Derived helpers ────────────────────────────────────────────────────────
+  // ── Derivados ──
 
   isSystem(): boolean {
-    return this.type() === "system";
+    return this.type() === 'system';
   }
 
   /**
-   * Posted by the chat's bot rather than a person.
-   *
-   * Not a system message: it has real content and renders through the ordinary
-   * message path. Only the author differs — there is no user record, so the name
-   * and avatar come from the admin's settings.
+   * Não é mensagem de sistema: renderiza como mensagem comum, mas sem registro
+   * de usuário; nome e avatar vêm das settings.
    */
   isBot(): boolean {
-    return this.type() === "bot";
+    return this.type() === 'bot';
   }
 
   /**
-   * True when the row exists but its text was withheld — a moderator-removed
-   * message shown to someone who may not read it. The stream renders a
-   * tombstone so it does not silently reflow.
+   * A linha existe mas o texto foi ocultado deste leitor. O stream desenha um
+   * tombstone para não haver reflow silencioso.
    */
   isRedacted(): boolean {
     return Boolean(this.isDeleted()) && this.content() === null;
   }
 
-  /**
-   * Whether this message mentions the current user, either by name or through
-   * @here / @all. Drives the mention highlight.
-   */
+  /** Por nome ou via @here / @all. */
   mentionsActor(): boolean {
     const actor = app.session.user;
 
@@ -146,23 +131,14 @@ export default class Message extends Model {
     return (this.mentionedUsers() ?? []).includes(Number(actor.id()));
   }
 
-  /**
-   * Whether this message should render collapsed under the previous one: same
-   * author, close in time, and neither is a system message.
-   */
-  isGroupedWith(
-    previous: Message | null | undefined,
-    withinSeconds = 300,
-  ): boolean {
+  /** Mesmo autor, perto no tempo e nenhuma das duas é de sistema. */
+  isGroupedWith(previous: Message | null | undefined, withinSeconds = 300): boolean {
     if (!previous) return false;
     if (this.isSystem() || previous.isSystem()) return false;
     if (this.threadId() !== previous.threadId()) return false;
 
-    // Two bot posts in a row have the same author, the same as two from one
-    // person. Without this they compare `user()` — null for both — and fail the
-    // "unknown author" check below, so consecutive announcements each drew their
-    // own avatar and header instead of collapsing into a run. A bot post and a
-    // human one are never the same author, whichever way round they fall.
+    // Posts do bot não têm `user()`; dois seguidos contam como mesmo autor, e
+    // bot com humano nunca.
     if (this.isBot() || previous.isBot()) {
       if (!this.isBot() || !previous.isBot()) return false;
     } else {
@@ -172,8 +148,7 @@ export default class Message extends Model {
       if (!a || !b || a.id() !== b.id()) return false;
     }
 
-    // Reached by both branches: same author is necessary but not sufficient, and
-    // the time window applies to the bot exactly as it does to anyone else.
+    // A janela de tempo vale também para o bot.
     const t1 = this.createdAt();
     const t2 = previous.createdAt();
 
@@ -185,13 +160,10 @@ export default class Message extends Model {
   totalReactions(): number {
     const summary: ReactionSummary = this.reactionSummary() ?? {};
 
-    return Object.values(summary).reduce<number>(
-      (sum, entry) => sum + entry.count,
-      0,
-    );
+    return Object.values(summary).reduce<number>((sum, entry) => sum + entry.count, 0);
   }
 
   apiEndpoint(): string {
-    return "/chat-messages" + (this.exists ? "/" + this.id() : "");
+    return '/chat-messages' + (this.exists ? '/' + this.id() : '');
   }
 }

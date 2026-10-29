@@ -10,16 +10,11 @@
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Clears archive stamps from channels that are no longer archived.
+ * Limpa marcas de arquivamento de canais que não estão mais arquivados.
  *
- * The status endpoint used to accept "open" and "closed" on an archived
- * channel, which took it out of the archive by status alone and left
- * `archived_at`, `archived_by_id` and `archived_discussion_id` behind. The
- * channel then read as archived to everything that looked at the stamps, and
- * the archive action never came back for it. Unarchiving now clears them, and
- * this puts the rows that went through the old path in the same state.
- *
- * Idempotent: it only touches rows whose status says they are not archived.
+ * O endpoint de status reabria canais arquivados sem limpar `archived_at`,
+ * `archived_by_id` e `archived_discussion_id`, e o canal seguia parecendo
+ * arquivado. Isto corrige as linhas afetadas. Idempotente.
  */
 return [
     'up' => function (Builder $schema) {
@@ -40,8 +35,7 @@ return [
             ]);
     },
 
-    // Nothing to put back: the stamps described an archive that had already
-    // been undone.
+    // Nada a restaurar: o arquivamento já tinha sido desfeito.
     'down' => function (Builder $schema) {
     },
 ];

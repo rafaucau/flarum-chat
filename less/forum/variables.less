@@ -1,156 +1,123 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Chat-specific tokens
+// Tokens próprios do chat
 //
-// Only values the chat needs that Avocado has no opinion about. Anything Avocado
-// already defines is consumed, not redefined — see fallbacks.less.
-// ─────────────────────────────────────────────────────────────────────────────
+// Só valores em que o Avocado não opina; o que ele já define é consumido, não
+// redefinido (ver fallbacks.less).
 
-// ── Layout ───────────────────────────────────────────────────────────────────
+// ── Layout ──
 @chat-sidebar-width:        280px;
 @chat-thread-panel-width:   380px;
 @chat-drawer-width:         420px;
 @chat-drawer-height:        560px;
 @chat-drawer-collapsed:     48px;
 @chat-header-height:        56px;
-// One line of text plus its padding, no more. The controls used to share this
-// row and needed clearance; they now sit on their own row underneath, and the
-// extra height here was showing up as a permanently taller composer.
+// Uma linha de texto mais o padding; os controles ficam numa linha própria abaixo.
 @chat-composer-min-height:  34px;
 @chat-composer-max-height:  220px;
 
-// Breakpoint at which the drawer goes full-bleed and the thread panel stacks
-// over the channel instead of beside it.
+// Abaixo disto o drawer ocupa a tela toda e a thread empilha sobre o canal.
 @chat-mobile-breakpoint:    767px;
 
-// ── Message rhythm ───────────────────────────────────────────────────────────
+// ── Ritmo das mensagens ──
 @chat-avatar-size:          32px;
 @chat-avatar-size-compact:  24px;
-@chat-message-gutter:       44px;  // avatar + gap, so grouped messages align
-@chat-message-gap:          2px;   // between grouped messages from one author
-@chat-message-group-gap:    12px;  // between authors
+@chat-message-gutter:       44px;  // avatar + gap, para alinhar mensagens agrupadas
+@chat-message-gap:          2px;   // entre mensagens agrupadas do mesmo autor
+@chat-message-group-gap:    12px;  // entre autores
 
-// ── Spacing ──────────────────────────────────────────────────────────────────
-// A scale, rather than a number chosen per rule. Everything that spaces one thing
-// from another picks from this, so a form field and a section heading elsewhere
-// are separated by the same amount and the whole surface reads as one design.
-//
-// The steps are deliberately few. Given a free choice, each rule ended up with its
-// own value — 6px here, 7px there — and the result was elements that looked stuck
-// together in some places and adrift in others.
-@chat-space-xs:             4px;   // inside a control: icon to its label
-@chat-space-sm:             8px;   // between siblings that belong together
-@chat-space-md:             14px;  // between a label and its field
-@chat-space-lg:             20px;  // between fields in a form
-@chat-space-xl:             28px;  // between sections
+// ── Espaçamento ──
+// Uma escala em vez de um número por regra, para tudo se separar pelas mesmas
+// medidas. Poucos passos de propósito.
+@chat-space-xs:             4px;   // dentro de um controle: ícone e label
+@chat-space-sm:             8px;   // entre irmãos que andam juntos
+@chat-space-md:             14px;  // entre label e campo
+@chat-space-lg:             20px;  // entre campos de um formulário
+@chat-space-xl:             28px;  // entre seções
 
-// Not spacing: the rendered width of a checkbox. Named so the indent that lines
-// help text up with a checkbox's label reads as "past the box" rather than as an
-// arbitrary number sitting among the spacing steps.
+// Não é espaçamento: a largura renderizada do checkbox, usada para alinhar o help
+// com o label.
 @chat-checkbox-size:        16px;
 
-// Also not spacing: the rendered width of ramon/verified's badge inside a message
-// row. Named because three rules depend on it agreeing — the badge's own box, and
-// the popover arrow that has to be centred under it.
+// Também não: a largura do selo do ramon/verified numa linha de mensagem. O box
+// do selo e a seta do popover precisam concordar com ela.
 @chat-verified-badge-size:  13px;
 
-// How far the popover's arrow sits from the panel's left edge.
-//
-// Not a free choice. The panel is a 10px square rotated 45°, so it reaches
-// ~7.1px either side of its centre, and the panel's corner is rounded by 8px —
-// closer in than 15.1px and the arrow meets the curve instead of a straight run
-// of border, which is what makes it look detached from the panel. 16px is the
-// first whole pixel clear of that.
+// Distância da seta do popover até a borda esquerda do painel. A seta é um
+// quadrado de 10px girado 45° (~7.1px para cada lado) e o canto tem raio 8px;
+// abaixo de 15.1px ela encosta na curva. 16px é o primeiro pixel inteiro livre.
 @chat-verified-arrow-inset: 16px;
 
-// ── Channel-form dialog geometry ─────────────────────────────────────────────
-// The form is long enough that it must scroll inside the dialog rather than run
-// off the screen, and a scroll cap is only correct if it agrees with the space
-// the dialog takes outside it. These three are that agreement, so none of them
-// can be changed without the others.
-@chat-modal-margin:         40px;                          // above and below the dialog
-@chat-modal-reserved:       (@chat-modal-margin * 2);      // what the margins cost
-@chat-modal-bands:          150px;                         // header + footer, neither scrolls
+// ── Geometria do diálogo de canal ──
+// O formulário rola dentro do diálogo, e o limite de rolagem só acerta se bater
+// com o espaço ocupado fora dele. Os três mudam juntos.
+@chat-modal-margin:         40px;                          // acima e abaixo do diálogo
+@chat-modal-reserved:       (@chat-modal-margin * 2);      // o que as margens ocupam
+@chat-modal-bands:          150px;                         // header + footer, que não rolam
 
-// The gutter core's `.Checkbox--switch` reserves for the switch itself. Core
-// sets it as `--left-pad: 65px` on the element, which is generous for a form
-// laid out in two columns; this value overrides it, and the help text under a
-// switch is indented by the same amount so label and sentence share an edge.
+// Recuo que o `.Checkbox--switch` do core reserva para o switch (`--left-pad: 65px`
+// no core). O help sob o switch usa o mesmo recuo para alinhar com o label.
 @chat-switch-indent:        58px;
 
-// The composer's round controls. One value, because attach and send sit side by
-// side on the same line: two different sizes put their centres at different
-// heights no matter how the row is aligned.
+// Botões redondos do composer. Um valor só: anexar e enviar ficam lado a lado, e
+// tamanhos diferentes desalinham os centros.
 @chat-composer-button:      32px;
 
-// ── Radii ────────────────────────────────────────────────────────────────────
-// Deliberately tighter than Avocado's 14px card radius: chat rows are dense and
-// a large radius reads as noise at this size.
+// ── Raios ──
+// Mais justos que os 14px do Avocado: as linhas do chat são densas.
 @chat-radius-sm:            8px;
 @chat-radius-md:            12px;
 @chat-radius-pill:          999px;
 
-// ── Typography ───────────────────────────────────────────────────────────────
+// ── Tipografia ──
 @chat-font-message:         15px;
 @chat-font-meta:            12px;
 @chat-font-label:           13px;
 
-// ── Timings ──────────────────────────────────────────────────────────────────
-// How long a row stays lit after the stream jumps to it. Long enough to find
-// the row with your eyes after the smooth scroll settles, short enough that it
-// never reads as a state the message is stuck in. `jumpToMessage` removes the
-// class on the same schedule — keep the two in step.
+// ── Tempos ──
+// Quanto tempo a linha fica destacada depois do salto. `jumpToMessage` remove a
+// classe no mesmo tempo; mantenha os dois iguais.
 @chat-jump-highlight:       3s;
 
-// ── Chat-only semantic colours ───────────────────────────────────────────────
+// ── Cores semânticas do chat ──
 :root {
-  // The unread divider — Discourse's red "new messages" rule. Kept independent
-  // of --alert-error-color so a theme restyling alerts does not move it.
+  // Divisor de não lidas. Independente de --alert-error-color para um tema que
+  // reestilize alertas não mexer nele.
   --chat-unread-line:        #e03e3e;
 
-  // Mention highlight on a message addressed to you.
+  // Destaque de menção ao leitor.
   --chat-mention-bg:         rgba(255, 196, 0, 0.14);
   --chat-mention-border:     rgba(255, 196, 0, 0.55);
 
-  // A pinned message. Deliberately not the mention amber: the two can apply to
-  // the same row, and they mean different things — one is addressed to you, the
-  // other to the whole channel.
+  // Mensagem fixada. Diferente do âmbar da menção: os dois podem valer na mesma
+  // linha e significam coisas distintas.
   --chat-pinned-bg:          rgba(99, 102, 241, 0.10);
   --chat-pinned-border:      rgba(99, 102, 241, 0.75);
 
-  // A message with open reports, as a moderator sees it. Core's error red, and
-  // only a bar and a label: the row is still somebody's message to be read.
+  // Mensagem com denúncias abertas, vista por moderador. Só uma barra e um label:
+  // a linha continua sendo uma mensagem para ler.
   --chat-flagged-border:     #d83e3e;
 
-  // The hover behind a destructive text control. A tint rather than a fill: the
-  // control is an offer, and a solid red block reads as an error state.
-  //
-  // Core's own `@error-color` (#d83e3e) at low alpha, so it sits under a label
-  // painted `--error-color` and the two read as one control. Note that the
-  // token that *sounds* right for that label — `--alert-error-color` — is #fff:
-  // it colours text on a red alert background, and using it here would paint
-  // the label white on a white dialog.
+  // Hover de controle destrutivo em texto: um tom, não um preenchimento. É o
+  // `@error-color` do core com alpha baixo, para combinar com o label em `--error-color`.
   --chat-danger-tint:        rgba(216, 62, 62, 0.10);
 
-  // Row states.
+  // Estados da linha.
   --chat-row-hover-bg:       rgba(0, 0, 0, 0.035);
   --chat-row-selected-bg:    rgba(59, 130, 246, 0.10);
 
 
-  // Reaction chips.
+  // Chips de reação.
   --chat-reaction-bg:        var(--avocado-surface-1);
   --chat-reaction-bg-active: rgba(59, 130, 246, 0.14);
   --chat-reaction-border:    var(--avocado-border-chip);
 
-  // A deleted message's tombstone.
+  // Tombstone de mensagem apagada.
   --chat-tombstone-color:    var(--avocado-muted-icon);
 
-  // Thread indicator strip under a threaded message.
+  // Faixa de thread sob a mensagem.
   --chat-thread-strip:       var(--avocado-border-subtle);
 
-  // The chat's own scrollbars. Translucent rather than a fixed grey, so the
-  // thumb tints with whatever surface it is drawn over — the stream, a modal
-  // and the emoji dropdown are three different backgrounds, and one opaque
-  // colour looks wrong on at least one of them.
+  // Translúcido em vez de cinza fixo, para o thumb se tingir com a superfície
+  // (stream, modal e dropdown de emoji têm fundos diferentes).
   --chat-scrollbar-thumb:       rgba(0, 0, 0, 0.18);
   --chat-scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
 }
@@ -166,8 +133,7 @@
   --chat-pinned-border:      rgba(129, 140, 248, 0.85);
   --chat-flagged-border:     #ff6b6b;
 
-  // Light on dark, at slightly lower alpha: the same opacity that reads as a
-  // soft grey on white reads as a bright stripe on a dark surface.
+  // Claro no escuro, com alpha menor: o mesmo alpha vira uma faixa forte no escuro.
   --chat-scrollbar-thumb:       rgba(255, 255, 255, 0.16);
   --chat-scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
 }

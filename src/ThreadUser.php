@@ -15,7 +15,7 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A user's tracking level and read state within a thread.
+ * Nível de acompanhamento e estado de leitura de um usuário numa thread.
  *
  * @property int $id
  * @property int $thread_id
@@ -36,7 +36,6 @@ class ThreadUser extends AbstractModel
 
     public $timestamps = true;
 
-
     protected $casts = [
         'thread_id'            => 'integer',
         'user_id'              => 'integer',
@@ -45,11 +44,13 @@ class ThreadUser extends AbstractModel
         'unread_count'         => 'integer',
     ];
 
+    /** @return BelongsTo<Thread, $this> */
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class, 'thread_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

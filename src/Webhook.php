@@ -17,8 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
- * An incoming webhook that posts into one channel. Slack-compatible payloads
- * are accepted, matching Discourse's integration surface.
+ * Webhook de entrada que posta num canal. Aceita payloads no formato do Slack.
  *
  * @property int $id
  * @property string $name
@@ -43,17 +42,14 @@ class Webhook extends AbstractModel
     protected $table = 'chat_webhooks';
 
     /**
-     * Handed over by ChatServiceProvider; see Channel::$extensions for why a
-     * static is safe here.
+     * Injetado pelo ChatServiceProvider (ver Channel::$extensions sobre o static).
      */
     protected static ?UrlGenerator $url = null;
 
     public $timestamps = true;
 
-
     /**
-     * The key authenticates deliveries, so it must never reach a non-admin
-     * client through the API layer.
+     * A key autentica entregas; nunca pode chegar a um cliente não admin.
      */
     protected $hidden = ['key'];
 
@@ -93,18 +89,22 @@ class Webhook extends AbstractModel
         return $key;
     }
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
     }
 
     /**
-     * The account deliveries are posted as. Null posts as the chat's bot.
+     * Conta usada nas entregas; null posta como o bot.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {
@@ -112,11 +112,8 @@ class Webhook extends AbstractModel
     }
 
     /**
-     * Who a delivery is attributed to, or null for the bot.
-     *
-     * Only an administrator qualifies: the choice is offered as "the bot or an
-     * admin account", and an account demoted since then must not keep posting
-     * under its name on the strength of a key it never held.
+     * Autor da entrega, ou null para o bot. Só admin vale: uma conta rebaixada
+     * não pode continuar postando por uma key que nunca teve.
      */
     public function author(): ?User
     {

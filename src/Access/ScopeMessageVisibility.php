@@ -15,23 +15,14 @@ use Ramon\Chat\Channel;
 use Ramon\Chat\Message;
 
 /**
- * A message is visible when its channel is visible. Deleted messages remain
- * visible to their author and to moderators so the tombstone can be rendered
- * with its original content on request, matching discussion post behaviour.
- *
- * The rule is written twice — once as SQL in `__invoke`, once in PHP in
- * `rowVisibleTo` — and the two must stay in step. They live in the same file for
- * that reason: the PHP form is what lets MessagePolicy answer for a message
- * already in memory without asking the database whether a row it is holding
- * exists, which was fifty `EXISTS` queries on every page of a channel.
+ * Mensagem é visível quando o canal é. Apagadas continuam visíveis ao autor e à
+ * moderação, como posts de discussão. A regra existe em SQL (`__invoke`) e em PHP
+ * (`rowVisibleTo`, usado pela MessagePolicy); as duas precisam andar juntas.
  */
 class ScopeMessageVisibility
 {
     /**
-     * The row-level half of the scope, for a message already loaded.
-     *
-     * `$channelVisible` is passed in rather than resolved here: it is the same
-     * answer for every message in a channel, so the caller resolves it once.
+     * `$channelVisible` vem de fora porque é a mesma resposta para todo o canal.
      */
     public static function rowVisibleTo(User $actor, Message $message, bool $channelVisible): bool
     {
@@ -39,8 +30,8 @@ class ScopeMessageVisibility
             return false;
         }
 
-        // Seeing the channel is not reading it: an invitee to a private channel
-        // sees the row and none of its messages until they accept.
+        // Ver o canal não é ler: o convidado de um canal privado vê a linha, mas
+        // nenhuma mensagem até aceitar.
         if ($message->channel !== null && ! ScopeChannelVisibility::readsContents($actor, $message->channel)) {
             return false;
         }

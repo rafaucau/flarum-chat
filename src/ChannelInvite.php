@@ -15,9 +15,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A pending invite: someone with `manageMembers` called a user into the
- * channel and they have not answered yet. Goes away when accepted, declined or
- * cancelled.
+ * Convite pendente feito por quem tem `manageMembers`. Some ao ser aceito,
+ * recusado ou cancelado.
  *
  * @property int $id
  * @property int $channel_id
@@ -41,16 +40,19 @@ class ChannelInvite extends AbstractModel
         'inviter_id' => 'integer',
     ];
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function inviter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'inviter_id');

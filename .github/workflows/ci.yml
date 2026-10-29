@@ -1,48 +1,76 @@
 name: CI
 
-# Mesmo formato dos demais repositórios ramon/*. Os jobs abaixo são só os que esta
-# extensão tem como executar: um passo que roda contra algo inexistente não é
-# cobertura, é um X vermelho que ensina a ignorar X vermelhos.
-
+# Mesmo CI do tema Canela, ajustado ao Chat: PHP (testes unitários, lint,
+# PHPStan, auditoria) numa matriz de versões e do flarum/core, auditoria do
+# npm, typings publicadas e paridade das traduções. Os testes de integração
+# (MySQL, MariaDB, PostgreSQL e SQLite) ficam no backend.yml, o workflow do
+# core/FoF.
 on:
   push:
     branches:
       - main
-      - master
   pull_request:
   workflow_dispatch:
-  # Segunda 05:00 UTC. Como as dependências são resolvidas com `composer update`,
-  # o agendamento testa contra o flarum/core mais recente e detecta quebras
-  # trazidas por novas versões antes que cheguem a você.
+  # Segunda 05:00 UTC: roda mesmo sem push. Como as dependências vêm de
+  # `composer update`, isso testa contra o flarum/core mais novo e pega
+  # quebras de uma versão nova do Flarum antes de chegarem ao fórum.
   schedule:
     - cron: '0 5 * * 1'
 
-# Evita empilhar execuções redundantes para o mesmo PR ou branch.
+# Nega tudo ao GITHUB_TOKEN por padrão; cada job declara o que precisa.
+permissions: {}
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # O Packagist devolve 502 intermitente em objetos isolados do CDN — sempre o
-  # mesmo arquivo, por minutos, enquanto o resto do repositório responde 200. Abrir
-  # 12 conexões simultâneas (o padrão) contra uma borda nesse estado multiplica a
-  # chance de topar com ela; uma de cada vez é mais lento e chega ao fim.
+  # O Packagist devolve 502 intermitente em objetos isolados do CDN; menos
+  # conexões simultâneas diminuem a chance de topar com uma borda nesse estado.
   COMPOSER_MAX_PARALLEL_HTTP: '6'
 
-# Default-deny do GITHUB_TOKEN; cada job declara o que precisa.
-permissions: {}
-
 jobs:
+  # Valida o composer.json como está no repositório (antes de a matriz mexer
+  # na versão do core).
+  composer-validate:
+    name: composer validate (--strict)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920  # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240  # v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Validar composer.json
+        # Sem campo "version": as versões vêm das tags do git.
+        run: composer validate --strict --no-check-publish
+
   php:
-    name: PHP ${{ matrix.php }}
+    name: PHP ${{ matrix.php }} × flarum/core ${{ matrix.flarum-core }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        # Piso do flarum/core 2.x até a versão estável mais recente.
+        # O flarum/core 2.x exige PHP ^8.3. O fórum de desenvolvimento roda 8.5.
         php: ['8.3', '8.4', '8.5']
+        # A versão estável E a ponta do core.
+        flarum-core:
+          - '^2.0.0'
+          - '2.x-dev'
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920  # v2.20.0
@@ -56,58 +84,86 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240  # v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: dom, mbstring, fileinfo, gd, intl, sodium, pdo_mysql, pdo_pgsql, pdo_sqlite
           coverage: none
           tools: composer:v2
 
-      - name: Validar composer.json
-        run: composer validate --strict --no-check-publish
+      - name: Fixar o flarum/core desta célula
+        run: composer require --no-update "flarum/core:${{ matrix.flarum-core }}"
 
-      - name: Lint PHP (php -l)
-        run: |
-          set -euo pipefail
-          mapfile -d '' files < <(find src migrations extend.php -name '*.php' -print0 2>/dev/null)
-          [ "${#files[@]}" -gt 0 ] || { echo "Nenhum arquivo PHP encontrado"; exit 1; }
-          printf '%s\0' "${files[@]}" | xargs -0 -n1 -P4 php -l
-
-      # `composer update`, não `install`: o lock commitado resolve para pacotes que
-      # exigem PHP >= 8.4.1, então a perna 8.3 da matriz não conseguiria instalá-lo.
-      - name: Cache do composer
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/composer
-          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
-
-      # Retry longo porque a falha é do Packagist, não do commit: um 502 de borda
-      # persiste por minutos no mesmo objeto. Três tentativas em 60s não bastaram.
-      - name: Instalar dependências PHP
+      - name: Resolver dependências (composer update)
+        # --ignore-platform-req=php+ ignora só o limite SUPERIOR de PHP (para a
+        # célula 8.5, se alguma dependência ainda não declarar suporte). Repete
+        # porque a falha costuma ser do Packagist, não do commit.
         run: |
           backoff=(15 30 60 120)
           for i in 0 1 2 3 4; do
-            composer update --no-interaction --no-progress --prefer-dist && exit 0
+            composer update --no-interaction --no-progress --prefer-stable --no-scripts --ignore-platform-req=php+ && exit 0
             [ "$i" -eq 4 ] && break
             echo "::warning::composer falhou (tentativa $((i+1))/5), repetindo em ${backoff[$i]}s"
             sleep "${backoff[$i]}"
           done
-          echo "::error::composer não resolveu as dependências em 5 tentativas (~3,75 min). Se o log acusa 502 do repo.packagist.org, é incidente upstream — reexecute o job."
+          echo "::error::composer não resolveu as dependências em 5 tentativas. Se o log acusa 502 do repo.packagist.org, é incidente upstream: reexecute o job."
           exit 1
 
-      - name: Testes unitários (PHPUnit)
-        run: vendor/bin/phpunit --testsuite unit
+      - name: Testes unitários
+        run: vendor/bin/phpunit -c tests/phpunit.unit.xml --testsuite unit
 
-      # A suíte de integração existia sem nunca rodar em lugar nenhum, e por isso
-      # os 10 testes estavam quebrados — fixtures sem `password`, conteúdo gravado
-      # como texto cru em vez de XML do s9e. Sem este passo, ela volta a apodrecer.
-      # SetupScript lê a configuração de variáveis de ambiente e usa SQLite por
-      # padrão, então não há nada a provisionar.
-      - name: Preparar banco de testes
-        run: php tests/integration/setup.php
+      - name: Lint PHP (php -l)
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find src migrations extend.php tests -name '*.php' -print0 2>/dev/null)
+          [ "${#files[@]}" -gt 0 ] || { echo "Nenhum arquivo PHP encontrado"; exit 1; }
+          printf '%s\0' "${files[@]}" | xargs -0 -n1 -P4 php -l
 
-      - name: Testes de integração (PHPUnit)
-        run: vendor/bin/phpunit --testsuite integration
+      - name: composer audit
+        run: composer audit --no-dev --format=plain
 
+      # PHPStan nível 6 com a extensão do Flarum (flarum/phpstan), sem
+      # baseline: o mesmo padrão do core e da FoF.
+      - name: PHPStan
+        if: matrix.php == '8.3' && matrix.flarum-core == '^2.0.0'
+        run: composer analyse:phpstan
+
+  # Formatação, tipos e build ficam no frontend.yml (o workflow do core);
+  # aqui a auditoria das dependências JS e as typings publicadas.
   js:
-    name: JS
+    name: npm audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920  # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: js/package-lock.json
+
+      # Todo o node_modules é de build: o pacote publicado é js/dist/*.js.
+      # Bloqueia só o que chegaria à produção; o resto fica visível no log.
+      - name: npm audit (produção — bloqueia)
+        working-directory: js
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: npm audit (dev — informativo)
+        working-directory: js
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  # js/dist-typings vai junto com o pacote para outras extensões importarem
+  # `ext:ramon/chat/...` com tipos. O token aqui é só leitura, então o job
+  # regenera e falha se o commit divergir do código-fonte.
+  typings:
+    name: Typings publicadas
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -127,23 +183,16 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Cache do composer
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/composer
-          key: composer-${{ runner.os }}-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ runner.os }}-
-
-      - name: Instalar dependências PHP
+      - name: Resolver dependências (composer update)
         run: |
           backoff=(15 30 60 120)
           for i in 0 1 2 3 4; do
-            composer update --no-interaction --no-progress --prefer-dist --no-scripts && exit 0
+            composer update --no-interaction --no-progress --prefer-stable --no-scripts && exit 0
             [ "$i" -eq 4 ] && break
             echo "::warning::composer falhou (tentativa $((i+1))/5), repetindo em ${backoff[$i]}s"
             sleep "${backoff[$i]}"
           done
-          echo "::error::composer não resolveu as dependências em 5 tentativas (~3,75 min). Se o log acusa 502 do repo.packagist.org, é incidente upstream — reexecute o job."
+          echo "::error::composer não resolveu as dependências em 5 tentativas. Se o log acusa 502 do repo.packagist.org, é incidente upstream: reexecute o job."
           exit 1
 
       - name: Setup Node.js
@@ -157,22 +206,6 @@ jobs:
         working-directory: js
         run: npm ci
 
-      - name: Build (webpack production)
-        working-directory: js
-        run: npm run build
-
-      - name: Prettier
-        working-directory: js
-        run: npm run format-check
-
-      - name: Checar tipos (tsc --noEmit)
-        working-directory: js
-        run: npm run check-typings
-
-      # js/dist-typings é publicado junto com o pacote para que outras extensões
-      # importem `ext:ramon/chat/...` com tipos. O workflow reutilizável do Flarum
-      # commita as typings com um bot; aqui o token é read-only, então o job só
-      # regenera e falha se o que está no commit divergir do código-fonte.
       - name: Typings commitadas e atualizadas
         working-directory: js
         run: |
@@ -183,8 +216,9 @@ jobs:
             exit 1
           fi
 
-  phpstan:
-    name: PHPStan (nível 6, baseline)
+  # Paridade das traduções (en ↔ pt-BR): não depende da versão do PHP/core.
+  locale:
+    name: Paridade das traduções
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -201,28 +235,46 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240  # v2
         with:
           php-version: '8.3'
-          extensions: pdo_mysql, pdo_pgsql, pdo_sqlite, intl, gd, bcmath, sodium
+          extensions: dom, mbstring
           coverage: none
           tools: composer:v2
 
-      - name: Cache do composer
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/composer
-          key: composer-${{ runner.os }}-phpstan-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ runner.os }}-phpstan-
-
-      - name: Instalar dependências
+      - name: Resolver dependências (composer update)
         run: |
           backoff=(15 30 60 120)
           for i in 0 1 2 3 4; do
-            composer update --no-interaction --no-progress --prefer-dist --no-scripts && exit 0
+            composer update --no-interaction --no-progress --prefer-stable --no-scripts && exit 0
             [ "$i" -eq 4 ] && break
             echo "::warning::composer falhou (tentativa $((i+1))/5), repetindo em ${backoff[$i]}s"
             sleep "${backoff[$i]}"
           done
-          echo "::error::composer não resolveu as dependências em 5 tentativas (~3,75 min). Se o log acusa 502 do repo.packagist.org, é incidente upstream — reexecute o job."
+          echo "::error::composer não resolveu as dependências em 5 tentativas. Se o log acusa 502 do repo.packagist.org, é incidente upstream: reexecute o job."
           exit 1
 
-      - name: PHPStan analyse
-        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=github
+      - name: Chaves en ↔ pt-BR
+        run: vendor/bin/phpunit -c tests/phpunit.unit.xml --testsuite locale
+
+  # Reprova PRs que tragam dependências com vulnerabilidade conhecida. Só em
+  # repositório público: no privado a ação exige o GitHub Advanced Security
+  # (lá o `composer audit` da matriz já cobre as dependências PHP).
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && !github.event.repository.private
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920  # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

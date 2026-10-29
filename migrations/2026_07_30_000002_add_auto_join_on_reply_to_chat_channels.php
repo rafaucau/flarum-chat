@@ -11,13 +11,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Opt-in: subscribe a user to this channel the first time they reply to a
- * discussion in the category it is bound to.
+ * Opcional: inscreve o usuário no canal na primeira resposta numa discussão
+ * da categoria vinculada.
  *
- * Distinct from `auto_join`, which adds *everyone* on the forum up front. This one
- * grows the channel from demonstrated interest — someone who participates in the
- * category gets the matching chat room — which is far less intrusive on a large
- * forum and only meaningful for a tag-bound channel.
+ * Diferente de `auto_join`, que inclui todo mundo de antemão: cresce por
+ * interesse, menos intrusivo em fórum grande. Só faz sentido com tag.
  */
 return [
     'up' => function (Builder $schema) {

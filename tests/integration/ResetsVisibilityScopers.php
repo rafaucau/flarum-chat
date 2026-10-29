@@ -9,30 +9,31 @@
 
 namespace Ramon\Chat\Tests\integration;
 
+use Flarum\Discussion\Discussion;
+use Flarum\Post\Post;
 use Ramon\Chat\Channel;
 use Ramon\Chat\Message;
 use Ramon\Chat\Thread;
 use Ramon\Chat\Upload;
 
 /**
- * Starts each test with one copy of every chat visibility scoper.
+ * Começa cada teste com uma cópia de cada scoper de visibilidade do chat.
  *
- * `Extend\ModelVisibility` registers its scoper into a static registry on the
- * model, and flarum/testing boots a fresh application per test without ever
- * clearing it — so the hundredth test in the process runs a hundred copies of
- * each scoper, ANDed together. Harmless on its own; the copies agree. But the
- * scopes nest: an upload is visible when its message is, a message when its
- * channel is, and each level multiplies the copies below it. Late in a long run
- * the upload scope alone binds tens of thousands of parameters, and SQLite
- * answers "too many SQL variables" to a query that in production carries twenty.
+ * `Extend\ModelVisibility` registra o scoper num registro estático do model, e
+ * o flarum/testing sobe um app novo por teste sem limpá-lo: o centésimo teste
+ * roda cem cópias de cada scoper. Como os escopos se aninham (upload → mensagem
+ * → canal), as cópias se multiplicam e o SQLite acaba respondendo "too many SQL
+ * variables".
  *
- * Clearing before the boot leaves exactly the set a real forum has.
+ * Limpar antes do boot deixa o mesmo conjunto de um fórum real. Discussion e
+ * Post também: o core registra os deles a cada boot, e com o flarum/mentions a
+ * contagem de notificações aninha os dois e cresce do mesmo jeito.
  */
 trait ResetsVisibilityScopers
 {
     protected function resetVisibilityScopers(): void
     {
-        foreach ([Channel::class, Message::class, Thread::class, Upload::class] as $model) {
+        foreach ([Channel::class, Message::class, Thread::class, Upload::class, Discussion::class, Post::class] as $model) {
             $property = new \ReflectionProperty($model, 'visibilityScopers');
             $property->setValue(null, []);
         }

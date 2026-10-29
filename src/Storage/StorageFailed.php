@@ -10,9 +10,8 @@
 namespace Ramon\Chat\Storage;
 
 /**
- * An upload store could not write, read or remove a file, or is not available
- * at all. The message is for the log, never for the client: it can carry a
- * bucket name or a path.
+ * Falha ao gravar, ler ou remover um arquivo, ou store indisponível. A mensagem é
+ * para o log, nunca para o cliente: pode trazer bucket ou path.
  */
 class StorageFailed extends \RuntimeException
 {

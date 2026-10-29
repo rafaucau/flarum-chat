@@ -15,9 +15,8 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * An ownership transfer in progress: whoever started it hands the channel to
- * a member. Before confirmation it awaits the code emailed to whoever started
- * it; afterwards, it awaits the answer from the recipient.
+ * Transferência de dono em andamento. Antes da confirmação espera o código
+ * enviado por e-mail a quem iniciou; depois, a resposta do destinatário.
  *
  * @property int $id
  * @property int $channel_id
@@ -50,16 +49,19 @@ class ChannelTransfer extends AbstractModel
         'confirmed_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<Channel, $this> */
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class, 'channel_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function fromUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'from_user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function toUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'to_user_id');

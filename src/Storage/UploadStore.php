@@ -12,46 +12,38 @@ namespace Ramon\Chat\Storage;
 use Ramon\Chat\Upload;
 
 /**
- * Where the bytes of a chat attachment are kept.
- *
- * Two implementations: LocalUploadStore, the chat's own pair of disks, and
- * FofUploadStore, whatever storage fof/upload is configured with. UploadStorage
- * decides which one a given upload uses; nothing else should pick one directly.
- *
- * A store only moves bytes. It never decides whether a file is private — that is
- * Service\UploadPrivacy's rule — and it never writes the row: `put` fills in the
- * columns that say where the bytes went and leaves saving to the caller.
+ * Onde ficam os bytes de um anexo. Quem escolhe a implementação é o
+ * UploadStorage. O store só move bytes: não decide privacidade
+ * (Service\UploadPrivacy) nem salva a linha.
  */
 interface UploadStore
 {
     /**
-     * Writes the stream and records on the row where it went: `path`, `storage`,
-     * `storage_adapter` and `remote_url`. The row's `is_private` and `mime_type`
-     * must already be set, since they decide the destination.
+     * Grava e preenche `path`, `storage`, `storage_adapter` e `remote_url`.
+     * `is_private` e `mime_type` já precisam estar definidos: decidem o destino.
      *
      * @param  resource  $stream
      *
-     * @throws StorageFailed when the bytes could not be written.
+     * @throws StorageFailed quando não foi possível gravar.
      */
     public function put(Upload $upload, $stream, string $extension): void;
 
     /**
-     * Removes the bytes. A file that is already gone is not a failure.
+     * Arquivo que já não existe não é falha.
      *
-     * @throws StorageFailed when the store refused.
+     * @throws StorageFailed quando o store recusou.
      */
     public function delete(Upload $upload): void;
 
     /**
-     * The bytes, or null when the file cannot be found or read.
+     * Os bytes, ou null se o arquivo não pode ser achado ou lido.
      *
      * @return resource|null
      */
     public function readStream(Upload $upload);
 
     /**
-     * The stored size in bytes, or null when the store cannot tell without
-     * fetching the file.
+     * Tamanho em bytes, ou null se o store não sabe sem baixar o arquivo.
      */
     public function size(Upload $upload): ?int;
 }

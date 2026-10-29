@@ -13,8 +13,8 @@ use Flarum\User\User;
 use Ramon\Chat\Channel;
 
 /**
- * A channel's ranks changed: one was created, edited, deleted or reordered,
- * or a member gained or lost ranks.
+ * Os cargos do canal mudaram: criação, edição, exclusão, reordenação ou
+ * atribuição a um membro.
  */
 class ChannelRanksChanged
 {

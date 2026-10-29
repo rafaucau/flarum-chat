@@ -11,16 +11,10 @@ use Flarum\Database\Migration;
 use Flarum\Group\Group;
 
 /**
- * Starting a thread off a reply is its own right.
+ * Criar thread é um direito próprio, porque muda como o canal é lido por todos.
  *
- * Until now anyone who could post in a channel with threading enabled could also
- * branch it. Branching is structural, though — a thread changes how the channel
- * reads for everyone — so who may do it should be separable from who may talk.
- *
- * Granted to members, which is exactly who could already do it (`postMessage`
- * requires membership and `ramon-chat.use` defaults to members). The migration
- * therefore takes nothing away from anyone; it only makes the capability
- * revocable. Administrators pass through User::hasPermission() regardless.
+ * Concedido a membros, que já podiam fazê-lo; nada é retirado, só passa a ser
+ * revogável. Admins passam por User::hasPermission().
  */
 return Migration::addPermissions([
     'ramon-chat.createThread' => Group::MEMBER_ID,

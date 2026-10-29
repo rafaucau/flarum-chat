@@ -29,18 +29,19 @@ class MessageReaction extends AbstractModel
 
     public $timestamps = false;
 
-
     protected $casts = [
         'message_id' => 'integer',
         'user_id'    => 'integer',
         'created_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

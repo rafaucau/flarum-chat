@@ -24,34 +24,24 @@ use Ramon\Chat\Storage\UploadStorage;
 use Ramon\Chat\Upload;
 
 /**
- * Streams an attachment that lives outside the webroot.
+ * Entrega anexos fora do webroot, único caminho para arquivos de canal privado.
+ * Aplica o mesmo scope de visibilidade do recurso JSON:API antes de ler um byte;
+ * quem não vê a mensagem recebe 404, não 403, para a URL não confirmar o arquivo.
  *
- * This is the only way to a private channel's files. The web server cannot see
- * them, so every fetch comes through here and is answered with the upload's own
- * visibility scope — the same rule the JSON:API resource applies — before a byte
- * is read. Someone who cannot see the message gets a 404, not a 403: the URL
- * must not confirm that the file exists.
- *
- * Headers are derived from the row, never from the request. The mime type was
- * sniffed from the bytes at upload time against an allow-list, so it is trusted
- * here; the display name is quoted twice, as an ASCII fallback and as an RFC
- * 5987 value, so a name in any script survives the round trip.
- *
- * Range requests are honoured for a single range. Not an optimisation: Safari
- * refuses to play audio or video from a server that ignores them at all.
+ * Headers vêm da linha, nunca da requisição: o mime foi detectado nos bytes no
+ * upload. Aceita um único Range, porque o Safari não toca áudio/vídeo sem isso.
  */
 class ServeUploadController implements RequestHandlerInterface
 {
     /**
-     * Types the browser may render in place. Everything else is offered as a
-     * download, which keeps a text file from being interpreted as a page.
+     * Tipos que o navegador pode exibir inline. O resto vai como download, para
+     * um arquivo de texto não ser interpretado como página.
      */
     protected const INLINE = ['image/', 'audio/', 'video/', 'application/pdf'];
 
     /**
-     * An hour in the browser's private cache. The check runs again after that,
-     * so someone removed from a channel stops being able to refetch its files
-     * within the hour — and never could from another browser.
+     * Uma hora no cache privado do navegador: quem sai do canal perde o acesso
+     * aos arquivos em até uma hora.
      */
     protected const MAX_AGE = 3600;
 
@@ -72,9 +62,8 @@ class ServeUploadController implements RequestHandlerInterface
             throw new RouteNotFoundException();
         }
 
-        // A public file on fof/upload has its own public address and is never
-        // linked here. Proxying it would only spend this server's bandwidth on
-        // what the bucket was configured to carry.
+        // Arquivo público no fof/upload tem endereço próprio; servir por aqui
+        // gastaria a banda que o bucket deveria carregar.
         if ($upload->isRemote() && ! $upload->is_private) {
             throw new RouteNotFoundException();
         }
@@ -85,9 +74,8 @@ class ServeUploadController implements RequestHandlerInterface
             throw new RouteNotFoundException();
         }
 
-        // Null for a file on fof/upload, whose size the bucket would have to be
-        // asked for. Those are only ever served here while being moved to the
-        // private disk (see Upload), and are sent whole, without ranges.
+        // Null para arquivo no fof/upload. Só passa por aqui durante a migração
+        // para o disco privado (ver Upload) e vai inteiro, sem Range.
         $size = $store->size($upload);
 
         if ($size === null && ! $upload->isRemote()) {
@@ -108,8 +96,8 @@ class ServeUploadController implements RequestHandlerInterface
             $headers['Accept-Ranges'] = 'bytes';
         }
 
-        // A PDF can carry scripts; a sandboxed document cannot reach the forum's
-        // origin, cookies or DOM even when it is opened in place.
+        // PDF pode ter script; em sandbox não alcança origem, cookies nem DOM do
+        // fórum, mesmo aberto inline.
         if ($upload->mime_type === 'application/pdf') {
             $headers['Content-Security-Policy'] = 'sandbox';
         }
@@ -153,8 +141,8 @@ class ServeUploadController implements RequestHandlerInterface
     }
 
     /**
-     * The `Range` header as [start, end], null when absent or not something this
-     * serves (only a single byte range is), false when unsatisfiable.
+     * O header `Range` como [início, fim]; null se ausente ou não suportado (só
+     * um intervalo de bytes), false se impossível de atender.
      *
      * @return array{0: int, 1: int}|null|false
      */
@@ -169,8 +157,13 @@ class ServeUploadController implements RequestHandlerInterface
         }
 
         if ($m[1] === '') {
-            // A suffix range: the last N bytes.
+            // Range de sufixo (últimos N bytes). Zero é 416 pela RFC 9110, não
+            // um 206 vazio.
             $length = min((int) $m[2], $size);
+
+            if ($length === 0) {
+                return false;
+            }
 
             return [$size - $length, $size - 1];
         }
@@ -197,10 +190,9 @@ class ServeUploadController implements RequestHandlerInterface
             }
         }
 
-        // The stored name has already been stripped of path components and
-        // control characters; this narrows it further to what a quoted-string
-        // can carry safely, with the full name alongside for browsers that read
-        // the extended form.
+        // O nome já vem sem path e caracteres de controle; aqui fica só o que
+        // cabe numa quoted-string, com o nome completo na forma estendida
+        // (RFC 5987) ao lado.
         $ascii = preg_replace('/[^A-Za-z0-9._-]+/', '_', $upload->file_name) ?: 'file';
 
         return sprintf(

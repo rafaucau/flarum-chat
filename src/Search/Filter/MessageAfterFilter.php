@@ -14,10 +14,8 @@ use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
 
 /**
- * `filter[greaterThan]=1234` — the tail of a channel since a known message.
- *
- * Used by the polling fallback when flarum/realtime is absent, so each poll
- * transfers only what arrived rather than re-fetching the last page.
+ * `filter[greaterThan]=1234`: o que chegou depois de uma mensagem conhecida. Usado
+ * pelo polling quando não há flarum/realtime.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */

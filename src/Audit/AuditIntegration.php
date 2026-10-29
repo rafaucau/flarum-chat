@@ -26,27 +26,17 @@ use Ramon\Chat\Event\UserLeftChannel;
 use Ramon\Chat\Event\UserWasInvited;
 
 /**
- * Audit-log integration, wired through `Flarum\Audit\Extend\Audit::using()` behind
- * a Conditional — the class references flarum/audit's AuditLogger, so it must not
- * be loaded on a forum without it.
+ * Integração com o flarum/audit via `Audit::using()` dentro de um Conditional:
+ * a classe referencia o AuditLogger e não pode carregar sem ele.
  *
- * ## What is logged, and what is not
- *
- * Only acts of moderation and configuration: creating, closing, archiving or
- * deleting a channel; removing or pinning someone else's message; moving messages
- * between channels; and membership changes, because a hidden join in particular is
- * precisely the sort of thing an audit trail exists to record.
- *
- * Ordinary conversation is *not* logged. A chat produces thousands of messages a
- * day, and copying each one into the audit log would drown the record it is meant
- * to be while duplicating data that already lives in `chat_messages` — and doing so
- * for private channels would quietly build a second, permanent copy of private
- * conversations in a table with different retention rules.
+ * Registra só moderação e configuração (canais, remoção/fixação de mensagem
+ * alheia, movimentação, membros, em especial entradas ocultas). Conversa comum
+ * não entra: inundaria o log e criaria uma cópia permanente de canais privados.
  */
 class AuditIntegration
 {
     /**
-     * Declared so flarum/audit can list and filter them in its admin UI.
+     * Declarados para o flarum/audit listar e filtrar no admin.
      *
      * @var string[]
      */
@@ -121,8 +111,7 @@ class AuditIntegration
 
     public function messageDeleted(MessageWasDeleted $event): void
     {
-        // Only when someone removed *another* person's message. Deleting your own
-        // is not moderation, and logging it would bury the entries that are.
+        // Só quando alguém remove mensagem alheia; apagar a própria não é moderação.
         if ($event->actor === null || $event->actor->id === $event->message->user_id) {
             return;
         }
@@ -157,9 +146,7 @@ class AuditIntegration
 
     public function userJoined(UserJoinedChannel $event): void
     {
-        // A hidden join gets its own action: it is the one membership change nobody
-        // in the channel can see, so the audit log is the only place it is visible
-        // at all.
+        // Entrada oculta tem ação própria: ninguém no canal a vê, só o log de auditoria.
         $this->log($event->actor, $event->hidden ? 'chat.user_joined_hidden' : 'chat.user_joined', [
             'channel_id' => $event->channel->id,
             'user_id'    => $event->user->id,
@@ -199,9 +186,8 @@ class AuditIntegration
     }
 
     /**
-     * Some of these fire from queued jobs and console commands, where the
-     * request-scoped actor is not set — the same reason flarum/gdpr's own
-     * integration assigns it explicitly before every call.
+     * Alguns disparam de jobs e comandos, sem ator da requisição; por isso é
+     * atribuído explicitamente, como faz a integração do flarum/gdpr.
      */
     protected function log(?object $actor, string $action, array $meta): void
     {

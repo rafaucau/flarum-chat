@@ -1,51 +1,38 @@
-import app from "flarum/forum/app";
+import app from 'flarum/forum/app';
 
-import type Channel from "../../common/models/Channel";
-import type Message from "../../common/models/Message";
-import type Thread from "../../common/models/Thread";
-import type Upload from "../../common/models/Upload";
-import {
-  purgeSnapshots,
-  readSnapshot,
-  serialize,
-  writeSnapshot,
-  type Document,
-} from "../utils/snapshot";
+import type Channel from '../../common/models/Channel';
+import type Message from '../../common/models/Message';
+import type Thread from '../../common/models/Thread';
+import type Upload from '../../common/models/Upload';
+import { purgeSnapshots, readSnapshot, serialize, writeSnapshot, type Document, signedOutSince } from '../utils/snapshot';
 
-/**
- * One channel's loaded message window plus its paging state.
- */
+/** Janela de mensagens carregada de um canal e o estado de paginação. */
 interface ChannelStream {
   messages: Message[];
-  /** False once a page comes back shorter than the page size. */
+  /** Vira false quando uma página volta menor que o tamanho da página. */
   hasMore: boolean;
   loading: boolean;
   loadedInitial: boolean;
   /**
-   * The read marker as it stood when the channel was opened. Frozen on purpose:
-   * the "new messages" divider must stay put while you read, not jump to the
-   * bottom as each message is marked read.
+   * Marcador de leitura como estava ao abrir o canal. Congelado de propósito: o
+   * divisor "novas mensagens" fica parado enquanto se lê.
    */
   dividerAfterId: number | null;
   /**
-   * Seeded from the local snapshot rather than from the server. Painted at once,
-   * and replaced by the server's answer the first time the channel is shown —
-   * see loadChannel() and revalidateStream().
+   * Semeado do snapshot local, não do servidor. Pintado na hora e trocado pela
+   * resposta do servidor na primeira exibição; ver loadChannel() e revalidateStream().
    */
   stale: boolean;
 }
 
 interface TypingEntry {
   username: string;
-  /** Epoch ms after which the indicator is dropped. */
+  /** Epoch ms após o qual o indicador sai. */
   expiresAt: number;
   /**
-   * Redraw scheduled for the moment it expires.
-   *
-   * `typistsIn()` drops expired entries, but only when something calls it — and
-   * a typist who simply stops produces no further events, so nothing redraws and
-   * the last frame keeps their name on screen indefinitely. The timer is what
-   * makes the expiry visible.
+   * Redesenho agendado para quando expira. `typistsIn()` só descarta entradas
+   * vencidas quando chamado, e quem para de digitar não gera evento; sem o timer o
+   * nome ficaria na tela.
    */
   timer: number;
 }
@@ -53,215 +40,168 @@ interface TypingEntry {
 const PAGE_SIZE = 50;
 
 /**
- * Page size and cap for filling the gap down to a message that is older than
- * the loaded window. 100 is the endpoint's maximum; twenty pages is two
- * thousand messages, past which a jump gives up rather than pin the browser.
+ * Tamanho de página e limite para preencher a lacuna até uma mensagem mais antiga
+ * que a janela. 100 é o máximo do endpoint; vinte páginas são duas mil mensagens,
+ * acima disso o salto desiste em vez de travar o navegador.
  */
 const GAP_PAGE_SIZE = 100;
 const GAP_MAX_PAGES = 20;
 
-/** How many recently viewed channels the local snapshot keeps a tail for. */
+/** Quantos canais vistos recentemente o snapshot local guarda. */
 const SNAPSHOT_CHANNELS = 3;
 
-/** Quiet period before a snapshot write; see scheduleSnapshot(). */
+/** Pausa antes de gravar o snapshot; ver scheduleSnapshot(). */
 const SNAPSHOT_DEBOUNCE_MS = 1500;
 
+/** Quando esta aba abriu: uma saída da conta depois disso a impede de gravar. */
+const BOOTED_AT = Date.now();
+
 /**
- * The collection size a paginated response reports, or null when it does not.
- *
- * `Store#find` hangs the raw document off the array it returns, which is the
- * only way to reach anything outside `data` — and json-api-server puts the count
- * of the whole collection in `meta.page.total`. Reading it turns a `limit: 1`
- * request into "the newest one, and how many there are", for the price of the
- * one it was already making.
+ * Tamanho da coleção informado numa resposta paginada, ou null. `Store#find`
+ * pendura o documento cru no array retornado, e o json-api-server põe o total em
+ * `meta.page.total`; assim um `limit: 1` também diz quantos existem.
  */
 function readTotal(results: unknown): number | null {
-  const total = (
-    results as { payload?: { meta?: { page?: { total?: unknown } } } } | null
-  )?.payload?.meta?.page?.total;
+  const total = (results as { payload?: { meta?: { page?: { total?: unknown } } } } | null)?.payload?.meta?.page?.total;
 
-  return typeof total === "number" ? total : null;
+  return typeof total === 'number' ? total : null;
 }
 
 /**
- * Single source of truth for the chat UI.
- *
- * Components read from here and stay presentational. Keeping paging, read state,
- * optimistic sends and realtime reconciliation in one place is what stops the
- * drawer and the full-screen page from drifting apart — they are two views over
- * this one object.
+ * Fonte única de verdade da UI do chat. Os componentes leem daqui e ficam só de
+ * apresentação; paginação, leitura, envio otimista e reconciliação de realtime num
+ * só lugar mantêm a gaveta e a página em sincronia.
  */
 export default class ChatState {
-  /** Channels in the sidebar, newest activity first. */
+  /** Canais da sidebar, atividade mais recente primeiro. */
   channels: Channel[] = [];
   channelsLoading = false;
   channelsLoaded = false;
 
   /**
-   * The in-flight channel request, so concurrent callers share one round trip.
-   *
-   * The old guard returned `this.channels` the moment a request was already
-   * running, which is not the same thing: on a cold start that array is still
-   * empty, so whichever caller arrived second was handed `[]` and carried on as
-   * though the chat had no channels. Mount and the full-screen page's boot both
-   * fire on a direct visit to /chat, so the two raced on every such visit.
+   * Request de canais em andamento, para chamadas simultâneas dividirem a ida ao
+   * servidor. Devolver `this.channels` não basta: no início ele ainda está vazio.
    */
   private channelsRequest: Promise<Channel[]> | null = null;
 
   /**
-   * Whether drafts have been fetched this session.
-   *
-   * Drafts are written back by the composer as they change, so once fetched the
-   * in-memory copy is the newer of the two — refetching would at best confirm
-   * what is already held and at worst overwrite it with a slower round trip.
+   * Se os rascunhos já foram buscados na sessão. O composer os grava ao mudar, então
+   * a cópia em memória é a mais nova; buscar de novo poderia sobrescrevê-la.
    */
   private draftsLoaded = false;
   private draftsRequest: Promise<void> | null = null;
 
-  /** The sidebar came from the local snapshot; refetch it on first use. */
+  /** A sidebar veio do snapshot local; rebusca no primeiro uso. */
   private channelsStale = false;
 
-  /** Channels whose pinned preview came from the local snapshot. */
+  /** Canais cuja prévia de fixada veio do snapshot local. */
   private pinnedStale = new Set<number>();
 
-  /** Pin previews being fetched, so a prefetch and the view share one request. */
+  /** Prévias de fixada sendo buscadas, para prefetch e view dividirem o request. */
   private pinnedInFlight = new Map<number, Promise<void>>();
 
-  /** Pending debounced snapshot write, if any. */
+  /** Gravação de snapshot pendente (debounce), se houver. */
   private snapshotTimer: number | null = null;
 
   /**
-   * Channels viewed this session, most recent first. What the snapshot keeps
-   * message tails for — the ones the reader is likely to open next visit.
+   * Canais vistos na sessão, mais recente primeiro: aqueles cujo histórico o
+   * snapshot guarda.
    */
   private recentChannelIds: number[] = [];
 
-  /** Loaded message windows, keyed by channel id. */
+  /** Janelas de mensagens carregadas, por id de canal. */
   streams: Record<number, ChannelStream> = {};
 
-  /** Threads loaded per channel, keyed by channel id. */
+  /** Tópicos carregados, por id de canal. */
   threads: Record<number, Thread[]> = {};
 
-  /** Loaded message windows for opened threads, keyed by thread id. */
+  /** Janelas de mensagens dos tópicos abertos, por id de tópico. */
   threadStreams: Record<number, ChannelStream> = {};
 
   /**
-   * The newest pinned message per channel, for the bar above the stream.
-   *
-   * Fetched separately because the pinned message is usually far above the loaded
-   * window — that is the point of pinning it. `null` means "asked, nothing pinned",
-   * which is distinct from `undefined`, "not asked yet".
+   * Fixada mais recente por canal, para a barra acima do stream. Buscada à parte
+   * porque costuma estar bem acima da janela. `null` é "perguntado, nada fixado";
+   * `undefined` é "ainda não perguntado".
    */
   pinnedPreviews: Record<number, Message | null> = {};
 
   /**
-   * How many pinned messages each channel has, as the server last counted them.
-   *
-   * Read from the preview request's own pagination meta rather than asked for
-   * separately. Kept apart from `pinnedPreviews` because it answers a different
-   * question — that one is "what does the bar show", this one is "is there more
-   * than that" — and because a channel can have a total without a preview when
-   * the preview request failed.
+   * Quantas fixadas cada canal tem, segundo a última contagem do servidor (lida do
+   * meta de paginação do request da prévia). Separado de `pinnedPreviews`: um canal
+   * pode ter total sem prévia se o request da prévia falhou.
    */
   private pinnedTotals: Record<number, number> = {};
 
-  /** Composer drafts, keyed by `channelId` or `channelId:threadId`. */
+  /** Rascunhos do composer, por `channelId` ou `channelId:threadId`. */
   drafts: Record<string, string> = {};
 
-  /** Typing indicators, keyed by channel id then user id. */
+  /** Indicadores de digitação, por id de canal e depois de usuário. */
   typing: Record<number, Record<number, TypingEntry>> = {};
 
-  /** Currently viewed channel and thread. */
+  /** Canal e tópico em exibição. */
   activeChannelId: number | null = null;
   activeThreadId: number | null = null;
 
   /**
-   * Whether the pinned-messages panel is open.
-   *
-   * It shares the right-hand slot with the thread panel, so opening one closes the
-   * other — see togglePinned() / setActiveThread().
+   * Se o painel de fixadas está aberto. Divide o slot direito com o painel de
+   * tópico; abrir um fecha o outro (ver togglePinned() / setActiveThread()).
    */
   showPinned = false;
 
   /**
-   * Whether the drawer is showing search instead of the conversation.
-   *
-   * Drawer-only, and it exists because the full-screen page has a route for this
-   * and the drawer has none: `chat.search` is a page, so reaching it from the
-   * drawer navigated away and closed the drawer to do it — searching a
-   * conversation threw you out of the window you were searching from.
-   *
-   * Shares the overlay slot with the thread and pinned panels; the three toggles
-   * clear each other.
+   * Se a gaveta mostra a busca em vez da conversa. Só na gaveta: na página a busca é
+   * a rota `chat.search`, e navegar a partir da gaveta a fecharia. Divide o slot de
+   * sobreposição com os painéis de tópico e de fixadas.
    */
   showSearch = false;
 
   /**
-   * Drawer open/collapsed state.
-   *
-   * Persisted, so the drawer survives a reload and closes only when the user
-   * explicitly dismisses it. Mutate through the setters below rather than
-   * assigning directly, or the change will not be remembered.
+   * Gaveta aberta/recolhida. Persistido, para sobreviver ao reload; altere pelos
+   * setters abaixo, ou a mudança não é lembrada.
    */
   drawerOpen = false;
   drawerCollapsed = false;
 
   /**
-   * The drawer was closed to go full screen, not dismissed.
-   *
-   * Both leave `drawerOpen` false, and the difference matters on the way back: a
-   * drawer the user closed with the X should stay closed, while one that only
-   * stepped aside for the full-screen page should come back when the page is left.
-   * Without this the two were indistinguishable, so returning to the forum always
-   * looked like the chat had been closed.
+   * A gaveta fechou para ir à tela cheia, não foi dispensada. Fechada no X fica
+   * fechada; a que só saiu da frente volta ao deixar a página.
    */
   drawerSuspended = false;
 
-  /** Selection mode, for quote/copy/move. */
+  /** Modo de seleção, para citar/copiar/mover. */
   selecting = false;
   selected: Set<number> = new Set();
 
   /**
-   * Message being replied to or edited, keyed by composer scope — the same
-   * `channelId` / `channelId:threadId` key the drafts use.
-   *
-   * Scoped rather than global because the channel and an open thread render two
-   * composers over this one state object. Sharing a single `editing` field meant
-   * starting an edit in the thread panel put the channel composer into edit mode
-   * too, and sending from there would PATCH that message from the wrong scope.
+   * Mensagem sendo respondida ou editada, por escopo do composer (a mesma chave
+   * `channelId` / `channelId:threadId` dos rascunhos). Por escopo porque o canal e
+   * um tópico aberto desenham dois composers sobre este estado.
    */
   private replyTargets: Record<string, Message> = {};
   private editTargets: Record<string, Message> = {};
 
   /**
-   * Reply scopes whose next send should branch into a new thread.
-   *
-   * Replying and branching stage the same way — both put a target in
-   * `replyTargets` — so without recording which one was asked for, the composer
-   * had nothing to tell them apart and inferred it: any reply in a channel with
-   * threading on became a thread, and a plain reply was unreachable.
+   * Escopos cujo próximo envio deve abrir um tópico novo. Responder e ramificar
+   * preparam igual (ambos põem um alvo em `replyTargets`), então isto os distingue.
    */
   private branchTargets: Record<string, true> = {};
 
-  /** Attachments staged in the composer but not yet sent. */
-  pendingUploads: Upload[] = [];
+  /**
+   * Anexos preparados e ainda não enviados, por conversa (`draftKey`), para um
+   * anexo de uma DM não sair na próxima mensagem de outro canal.
+   */
+  private pendingUploadsByKey: Record<string, Upload[]> = {};
 
   /**
-   * Optimistic rows awaiting their server response, keyed by a client-generated
-   * token. They are rendered greyed out and replaced in place on success.
+   * Linhas otimistas aguardando resposta, por token gerado no cliente. Aparecem
+   * esmaecidas e são trocadas no lugar quando dá certo.
    */
-  private pending: Map<string, { channelId: number; token: string }> =
-    new Map();
+  private pending: Map<string, { channelId: number; token: string }> = new Map();
   private pendingSeq = 0;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Drawer persistence
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Persistência da gaveta ──
 
-  /**
-   * Keyed by user so a shared browser cannot restore one account's open channel
-   * into another's session.
-   */
+  /** Por usuário, para um navegador compartilhado não restaurar o canal de outra conta. */
   private storageKey(): string | null {
     const id = app.session.user?.id();
 
@@ -269,10 +209,8 @@ export default class ChatState {
   }
 
   /**
-   * Reads back the drawer state saved by a previous visit.
-   *
-   * Returns whether the drawer should be open, so the caller can decide whether
-   * to pay for loading the channel list.
+   * Lê o estado da gaveta salvo pela visita anterior. Retorna se ela deve abrir,
+   * para quem chama decidir se carrega a lista de canais.
    */
   restoreDrawer(): boolean {
     const key = this.storageKey();
@@ -293,8 +231,7 @@ export default class ChatState {
 
       this.drawerOpen = Boolean(saved.open);
       this.drawerCollapsed = Boolean(saved.collapsed);
-      // Persisted so a reload while on the full-screen page does not lose the fact
-      // that the drawer is owed a reopening.
+      // Persistido para um reload na página cheia não perder a reabertura devida.
       this.drawerSuspended = Boolean(saved.suspended);
 
       if (saved.channelId) {
@@ -303,8 +240,7 @@ export default class ChatState {
 
       return this.drawerOpen;
     } catch {
-      // Private browsing, a quota error, or hand-edited garbage. Losing the
-      // restored position is not worth breaking startup over.
+      // Navegação privada, erro de cota ou lixo editado à mão; não vale quebrar o boot.
       return false;
     }
   }
@@ -324,28 +260,24 @@ export default class ChatState {
           collapsed: this.drawerCollapsed,
           suspended: this.drawerSuspended,
           channelId: this.activeChannelId,
-        }),
+        })
       );
     } catch {
-      // Non-fatal, as above.
+      // Não fatal, como acima.
     }
   }
 
   /**
-   * Mirrors "drawer open, on this channel" into a cookie the server can read.
+   * Espelha "gaveta aberta neste canal" num cookie que o servidor lê. O
+   * localStorage é invisível ao render, e Content\PreloadChat usa o cookie para pôr
+   * a lista e a conversa da gaveta no payload de boot de toda página.
    *
-   * localStorage is invisible to the page render, so a reload on a forum page
-   * with the drawer open used to boot with nothing preloaded and assemble the
-   * conversation over three round trips. Content\PreloadChat reads this cookie
-   * and puts the drawer's channel list and conversation into the boot payload
-   * of every page, the way it already does for /chat routes.
-   *
-   * Only a channel id, never content; absent whenever the drawer is closed, so
-   * the server does no chat work for a page the reader is not chatting on.
+   * Só o id do canal, nunca conteúdo; ausente com a gaveta fechada, para o servidor
+   * não trabalhar à toa.
    */
   private persistDrawerCookie(): void {
     try {
-      const secure = location.protocol === "https:" ? "; Secure" : "";
+      const secure = location.protocol === 'https:' ? '; Secure' : '';
 
       if (this.drawerOpen && !this.drawerSuspended) {
         document.cookie = `ramon_chat_drawer=${this.activeChannelId ?? 0}; path=/; max-age=31536000; SameSite=Lax${secure}`;
@@ -353,28 +285,24 @@ export default class ChatState {
         document.cookie = `ramon_chat_drawer=; path=/; max-age=0; SameSite=Lax${secure}`;
       }
     } catch {
-      // Non-fatal.
+      // Não fatal.
     }
   }
 
   setDrawerOpen(open: boolean): void {
     this.drawerOpen = open;
 
-    // Opening or closing the drawer directly settles the question either way, so a
-    // pending suspension is stale from here on. In particular this is what makes
-    // the X final: closing by hand while suspended must not be undone later.
+    // Abrir ou fechar diretamente resolve a questão, então uma suspensão pendente
+    // perde a validade. É isto que torna o X definitivo.
     this.drawerSuspended = false;
 
     this.persistDrawer();
   }
 
   /**
-   * Closes the drawer because the full-screen page is taking over the view.
-   *
-   * Distinct from both `setDrawerOpen(false)`, which would clear a pending
-   * suspension, and `suspendDrawer()`, which would create one: arriving at the page
-   * by any route other than the drawer's own full-screen button must not earn a
-   * reopening on the way out.
+   * Fecha a gaveta porque a página cheia assume a tela. Diferente de
+   * `setDrawerOpen(false)`, que limparia a suspensão, e de `suspendDrawer()`, que
+   * criaria uma: chegar à página por outra rota não garante reabertura na saída.
    */
   hideDrawerForPage(): void {
     this.drawerOpen = false;
@@ -382,10 +310,8 @@ export default class ChatState {
   }
 
   /**
-   * Closes the drawer on the understanding that it is owed a reopening.
-   *
-   * Used when handing the conversation over to the full-screen page, which is the
-   * one case where the drawer disappears without the user having dismissed it.
+   * Fecha a gaveta devendo reabri-la. Usado ao passar a conversa para a página
+   * cheia, o único caso em que a gaveta some sem o usuário dispensá-la.
    */
   suspendDrawer(): void {
     this.drawerOpen = false;
@@ -394,10 +320,8 @@ export default class ChatState {
   }
 
   /**
-   * Reopens a suspended drawer, and reports whether there was one.
-   *
-   * Consuming the flag here rather than at the call site keeps "restored at most
-   * once" a property of the state instead of a rule each caller has to remember.
+   * Reabre uma gaveta suspensa e diz se havia uma. Consumir a flag aqui torna
+   * "restaurar no máximo uma vez" uma propriedade do estado.
    */
   resumeDrawer(): boolean {
     if (!this.drawerSuspended) return false;
@@ -414,54 +338,46 @@ export default class ChatState {
     this.persistDrawer();
   }
 
-  /**
-   * Records which channel is being viewed, so a reload reopens the same one.
-   */
+  /** Registra o canal em exibição, para o reload reabrir o mesmo. */
   setActiveChannel(channelId: number | null): void {
+    // A seleção é do canal em que foi feita: levada para outro, "mover" ou
+    // "citar" agiriam também sobre mensagens que já não estão na tela.
+    if (channelId !== this.activeChannelId) {
+      this.selecting = false;
+      this.selected.clear();
+    }
+
     this.activeChannelId = channelId;
 
     if (channelId !== null) {
-      this.recentChannelIds = [
-        channelId,
-        ...this.recentChannelIds.filter((id) => id !== channelId),
-      ].slice(0, SNAPSHOT_CHANNELS);
+      this.recentChannelIds = [channelId, ...this.recentChannelIds.filter((id) => id !== channelId)].slice(0, SNAPSHOT_CHANNELS);
     }
 
     this.persistDrawer();
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Boot payload
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Payload de boot ──
 
-  /** Whether the boot payload has already been read; it is only ever good once. */
+  /** Se o payload de boot já foi lido; só vale uma vez. */
   private bootHydrated = false;
 
   /**
-   * Fills the state from the payload Content\PreloadChat put in the page.
+   * Preenche o estado com o payload que Content\PreloadChat pôs na página, de forma
+   * síncrona, para o primeiro frame já ser o chat pronto.
    *
-   * This is what removes the staggered flash the chat opened with. The list, the
-   * conversation, the pinned strip and the drafts were four requests fired after
-   * the page had already mounted, each swapping a placeholder for content as it
-   * landed; here they are already answered, and reading them is synchronous, so
-   * the first frame the user sees is the finished chat.
+   * Chamado no initializer, antes de montar: `app.data` vem de `Application#load()`,
+   * que roda antes dos initializers, mas `app.forum` e `app.session` ainda não
+   * existem, então nada aqui pode tocá-los.
    *
-   * Called from the initializer, before anything mounts. `app.data` is populated
-   * by `Application#load()`, which runs ahead of the initializers, so the payload
-   * is there — but `app.forum` and `app.session` are not yet, which is why
-   * nothing here may touch them.
-   *
-   * Every step is optional and independently guarded. A section the server could
-   * not produce, or a stream something has already loaded, is left alone and the
-   * ordinary async path serves it.
+   * Cada passo é opcional e protegido; o que o servidor não produziu, ou um stream
+   * já carregado, fica para o caminho assíncrono normal.
    */
   hydrateFromBoot(): void {
     if (this.bootHydrated) return;
 
     this.bootHydrated = true;
 
-    const boot = (app as unknown as { data?: Record<string, any> }).data
-      ?.ramonChat;
+    const boot = (app as unknown as { data?: Record<string, any> }).data?.ramonChat;
 
     if (!boot) return;
 
@@ -482,31 +398,23 @@ export default class ChatState {
         this.hydrateStream(this.threadStream(threadId), boot.threadMessages);
       }
     } catch {
-      // A preload that broke the chat would be worse than the flash it removes.
-      // Whatever was not hydrated is simply fetched the way it always was.
+      // Um preload que quebrasse o chat seria pior que o flash que evita; o que não foi
+      // hidratado é buscado como sempre.
     }
   }
 
   /**
-   * Seeds whatever the boot payload did not carry from the copy the last visit
-   * left in localStorage — the sidebar and the tails of the channels most
-   * recently viewed.
+   * Semeia o que o payload de boot não trouxe a partir da cópia que a última visita
+   * deixou no localStorage: a sidebar e o fim dos canais vistos recentemente.
    *
-   * Runs right after hydrateFromBoot() and before anything mounts, which is why
-   * the snapshot lives in localStorage rather than IndexedDB: the read has to be
-   * synchronous to land before the first view(), and at the size kept here
-   * (see MAX_BYTES in utils/snapshot) it costs a few milliseconds. This is what
-   * lets the chat open finished on a page the server did not preload — the
-   * drawer opened by its button after a reload, or a channel visited last time.
+   * localStorage e não IndexedDB porque a leitura precisa ser síncrona para cair
+   * antes do primeiro view(); no tamanho mantido (ver MAX_BYTES em utils/snapshot)
+   * custa poucos milissegundos.
    *
-   * Nothing read here is trusted past the first paint. Each section is marked
-   * stale, and the first thing that shows it replaces it with the server's
-   * answer in the background — see loadChannels(), loadChannel() and
-   * loadPinnedPreview(). The reader sees the conversation as it was, then the
-   * few rows that changed, rather than a skeleton and then everything.
-   *
-   * Reads the user id from `app.data`, not `app.session`, for the same reason
-   * hydrateFromBoot() does: the session is not built yet.
+   * Nada daqui é confiável além da primeira pintura: cada seção é marcada como velha
+   * e trocada pela resposta do servidor em segundo plano (ver loadChannels(),
+   * loadChannel() e loadPinnedPreview()). O id do usuário vem de `app.data`, não de
+   * `app.session`, pelo mesmo motivo de hydrateFromBoot().
    */
   hydrateFromSnapshot(): void {
     const userId = this.snapshotUserId();
@@ -548,25 +456,20 @@ export default class ChatState {
         if (channelId in this.pinnedPreviews) this.pinnedStale.add(channelId);
       }
     } catch {
-      // Same stance as the boot payload: a snapshot that broke the chat would be
-      // worse than the flash it removes.
+      // Mesma postura do payload de boot.
     }
   }
 
   private snapshotUserId(): string | null {
-    const id = (app as unknown as { data?: { session?: { userId?: unknown } } })
-      .data?.session?.userId;
+    const id = (app as unknown as { data?: { session?: { userId?: unknown } } }).data?.session?.userId;
 
-    return typeof id === "number" && id > 0 ? String(id) : null;
+    return typeof id === 'number' && id > 0 ? String(id) : null;
   }
 
   /**
-   * Writes the snapshot soon, once things settle.
-   *
-   * Called wherever the sidebar or a stream changes — a page landing, a message
-   * arriving, a channel being read. Debounced because those come in bursts, and
-   * serialising fifty messages on every one of them would cost more than the
-   * snapshot saves.
+   * Grava o snapshot em breve, quando as coisas assentarem. Com debounce porque as
+   * mudanças vêm em rajadas, e serializar cinquenta mensagens a cada uma custaria
+   * mais que o snapshot economiza.
    */
   scheduleSnapshot(): void {
     if (this.snapshotTimer !== null) return;
@@ -578,11 +481,9 @@ export default class ChatState {
   }
 
   /**
-   * Writes the snapshot now. Also the `pagehide` and hidden-tab hook, so a
-   * message that arrived a moment before the tab closed is in the next boot.
-   *
-   * Only what the server has confirmed: a stale stream is the previous
-   * snapshot's, and writing it back would only ever age it.
+   * Grava o snapshot agora. Também é o hook de `pagehide` e aba oculta, para uma
+   * mensagem que chegou logo antes de fechar estar no próximo boot. Só o que o
+   * servidor confirmou: um stream velho é do snapshot anterior.
    */
   flushSnapshot(): void {
     if (this.snapshotTimer !== null) {
@@ -593,6 +494,10 @@ export default class ChatState {
     const userId = this.snapshotUserId();
 
     if (!userId || !this.channelsLoaded || this.channelsStale) return;
+
+    // Outra aba saiu da conta depois que esta abriu: esta ainda acha que há
+    // sessão, e gravar agora devolveria ao disco o que a saída apagou.
+    if (signedOutSince(BOOTED_AT)) return;
 
     try {
       const streams: Record<string, Document> = {};
@@ -605,10 +510,7 @@ export default class ChatState {
           streams[channelId] = serialize(stream.messages.slice(-PAGE_SIZE));
         }
 
-        if (
-          channelId in this.pinnedPreviews &&
-          !this.pinnedStale.has(channelId)
-        ) {
+        if (channelId in this.pinnedPreviews && !this.pinnedStale.has(channelId)) {
           const preview = this.pinnedPreviews[channelId];
           const document = preview ? serialize([preview]) : { data: [] };
 
@@ -627,25 +529,22 @@ export default class ChatState {
         pinned,
       });
     } catch {
-      // Non-fatal: the next visit loads the way it always did.
+      // Não fatal: a próxima visita carrega normalmente.
     }
   }
 
-  /** Drops every account's snapshot; see utils/snapshot. */
+  /** Apaga o snapshot de todas as contas; ver utils/snapshot. */
   purgeSnapshots(): void {
     purgeSnapshots();
   }
 
   /**
-   * Pushes a JSON:API document into the store and returns its primary models.
-   *
-   * `null` for a document that is absent or malformed, which the callers treat as
-   * "the server did not answer this one". That is distinct from an empty `data`,
-   * which is a real answer — an account with no channels, a conversation with
-   * nothing pinned — and must be honoured rather than refetched.
+   * Coloca um documento JSON:API no store e devolve os models primários. `null` para
+   * documento ausente ou malformado ("o servidor não respondeu este"), diferente de
+   * `data` vazio, que é resposta real e não deve ser rebuscada.
    */
   private pushDocument<T>(document: unknown): T[] | null {
-    if (!document || typeof document !== "object") return null;
+    if (!document || typeof document !== 'object') return null;
 
     const data = (document as { data?: unknown }).data;
 
@@ -678,9 +577,7 @@ export default class ChatState {
       const { channelId, threadId, content } = row?.attributes ?? {};
 
       if (channelId && content) {
-        this.drafts[
-          this.draftKey(Number(channelId), threadId ? Number(threadId) : null)
-        ] = content;
+        this.drafts[this.draftKey(Number(channelId), threadId ? Number(threadId) : null)] = content;
       }
     }
 
@@ -688,20 +585,13 @@ export default class ChatState {
   }
 
   /**
-   * Seeds one message window from a preloaded page.
+   * Semeia uma janela de mensagens a partir de uma página pré-carregada. A página
+   * vem do mais novo para o mais antigo e é invertida, como em `fetchInto`.
    *
-   * The page arrives newest-first, the way the endpoint sorts it, and is reversed
-   * for the same reason `fetchInto` reverses its own — the stream is held
-   * oldest-first so paging upwards prepends.
-   *
-   * `channelId` is passed only for a channel stream: it is what the unread
-   * divider is read from, and threads carry no read marker of their own.
+   * `channelId` só para stream de canal: é de onde vem o divisor de não lidas, e
+   * tópicos não têm marcador de leitura.
    */
-  private hydrateStream(
-    stream: ChannelStream,
-    document: unknown,
-    channelId?: number,
-  ): void {
+  private hydrateStream(stream: ChannelStream, document: unknown, channelId?: number): void {
     if (stream.loadedInitial || stream.loading) return;
 
     const page = this.pushDocument<Message>(document);
@@ -709,14 +599,12 @@ export default class ChatState {
     if (page === null) return;
 
     if (channelId !== undefined) {
-      // Frozen here for the same reason loadChannel() freezes it: the divider
-      // marks where reading stopped last time, and must not follow the marker
-      // down the stream as markRead() catches it up.
+      // Congelado aqui pelo mesmo motivo de loadChannel(): o divisor não pode seguir o
+      // marcador enquanto markRead() o atualiza.
       const channel = this.channel(channelId);
       const lastRead = channel?.lastReadMessageId() ?? 0;
 
-      stream.dividerAfterId =
-        lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
+      stream.dividerAfterId = lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
     }
 
     if (page.length < PAGE_SIZE) stream.hasMore = false;
@@ -736,50 +624,30 @@ export default class ChatState {
 
     this.pinnedPreviews[channelId] = pinned[0] ?? null;
 
-    // The preloaded document is the same one the request would have returned, so
-    // it carries the same count. Read straight off it rather than through
-    // `readTotal`, which expects what the store hands back.
-    const total = (document as { meta?: { page?: { total?: unknown } } })?.meta
-      ?.page?.total;
+    // O documento pré-carregado é o mesmo que o request devolveria, com a mesma
+    // contagem. Lido direto, não por `readTotal`, que espera o retorno do store.
+    const total = (document as { meta?: { page?: { total?: unknown } } })?.meta?.page?.total;
 
-    this.pinnedTotals[channelId] = typeof total === "number" ? total : 0;
+    this.pinnedTotals[channelId] = typeof total === 'number' ? total : 0;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Channels
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Canais ──
 
   /**
-   * Fetches the sidebar's channel list, at most once per session.
+   * Busca a lista de canais da sidebar, no máximo uma vez por sessão. Nada mais a
+   * deixa velha: mensagens, joins, saídas e edições chegam pelo websocket e são
+   * aplicadas nestes mesmos objetos, e o poller cobre o socket fora do ar.
    *
-   * Entering the chat used to refetch the whole list every time, which is what
-   * made the page flash its skeleton and rebuild itself on each visit: nothing
-   * distinguished "never asked" from "asked a moment ago", so leaving the chat
-   * and coming back paid for a full round trip before anything could render.
-   *
-   * The list does not need refetching, because nothing else lets it go stale.
-   * New messages, joins, leaves and channel edits all arrive over the websocket
-   * and are applied to these same objects; the poller is the backstop when the
-   * socket is down. A refetch on entry would duplicate work realtime has already
-   * done — which is the definition of the reload the user sees.
-   *
-   * `force` exists for the cases where that is not true: signing in or out
-   * changes whose channels these are, and the browse page can join one behind
-   * the list's back.
-   *
-   * `errorHandler` is for the poller, which refetches on nobody's request and
-   * must not raise core's alert when the answer is that the session has ended.
+   * `force` para quando isso não vale: login/logout, ou um join pela página de
+   * navegação. `errorHandler` é para o poller, que não deve mostrar o alerta do
+   * core quando a sessão acabou.
    */
-  async loadChannels(
-    force = false,
-    errorHandler?: (error: { status?: number }) => false | void,
-  ): Promise<Channel[]> {
-    // Join a request already in flight rather than issuing a second one.
+  async loadChannels(force = false, errorHandler?: (error: { status?: number }) => false | void): Promise<Channel[]> {
+    // Aproveita um request já em andamento.
     if (this.channelsRequest) return this.channelsRequest;
 
     if (this.channelsLoaded && !force) {
-      // A list painted from the snapshot is served at once and refetched
-      // behind it, so the sidebar never waits but never stays yesterday's.
+      // Lista pintada do snapshot é servida na hora e rebuscada por trás.
       if (this.channelsStale) {
         this.channelsStale = false;
         this.loadChannels(true).catch(() => {});
@@ -793,14 +661,14 @@ export default class ChatState {
     this.channelsRequest = (async () => {
       try {
         const results = (await app.store.find(
-          "chat-channels",
+          'chat-channels',
           {
             filter: { following: true },
-            sort: "-lastMessageAt",
+            sort: '-lastMessageAt',
             page: { limit: 50 },
           },
           undefined,
-          errorHandler ? { errorHandler } : {},
+          errorHandler ? { errorHandler } : {}
         )) as unknown as Channel[];
 
         this.channels = Array.isArray(results) ? results : [];
@@ -820,23 +688,9 @@ export default class ChatState {
   }
 
   /**
-   * Drops the cached channel list so the next read refetches.
-   *
-   * For the changes that invalidate the whole list rather than one row — an
-   * account change, or joining a channel from somewhere that does not already
-   * hold the model.
-   */
-  /**
-   * Marks a brand-new channel as loaded and empty, without asking the server.
-   *
-   * Only ever correct for a channel that was just created — the caller has to
-   * know that, which is why it is a separate method rather than a branch inside
-   * `loadChannel`. A channel inserted a moment ago in the transaction that
-   * answered the request has no messages and nothing pinned, and asking for
-   * either is a round trip whose answer is already known.
-   *
-   * Two requests saved on the path that most needs them: "Send message" on a
-   * profile, where the whole point is that the conversation opens at once.
+   * Marca um canal recém-criado como carregado e vazio, sem perguntar ao servidor.
+   * Só correto para um canal que acabou de ser criado (por isso é método separado):
+   * não tem mensagens nem fixada. Economiza dois requests em "Enviar mensagem" no perfil.
    */
   seedEmptyChannel(channelId: number): void {
     const stream = this.stream(channelId);
@@ -854,62 +708,40 @@ export default class ChatState {
   }
 
   /**
-   * Puts a channel at the top of the sidebar, if it is not already listed.
-   *
-   * The list is sorted by last activity and a conversation just started is the
-   * most recent thing there is, so the front is where it belongs — and where the
-   * server would put it on the next fetch anyway.
+   * Põe um canal no topo da sidebar, se ainda não estiver. A lista é por última
+   * atividade, e uma conversa recém-iniciada é a mais recente.
    */
   rememberChannel(channel: Channel): void {
-    if (this.channels.some((existing) => existing.id() === channel.id()))
-      return;
+    if (this.channels.some((existing) => existing.id() === channel.id())) return;
 
     this.channels.unshift(channel);
   }
 
   /**
-   * Takes a channel off the sidebar, and off the screen if it was open.
-   *
-   * For a membership that ended: leaving, being removed, or a private channel
-   * the reader can no longer see. The store record is left alone; a public
-   * channel is still readable and the next fetch says what it may still do.
-   */
-  /**
-   * A channel that no longer exists for this reader: deleted, or put out of
-   * their reach. It leaves the list, its cached stream and pin, and the local
-   * snapshot, so a reload cannot bring it back; whoever is looking at it is
-   * stepped out of it with a notice rather than left on a page whose every
-   * request now answers 404.
+   * Canal que não existe mais para este leitor: excluído ou fora de alcance. Sai da
+   * lista, do stream em cache, da fixada e do snapshot, para um reload não trazê-lo
+   * de volta; quem o vê sai dele com um aviso em vez de ficar numa página que só
+   * responde 404.
    */
   channelGone(channelId: number): void {
-    const wasOpen =
-      this.activeChannelId === channelId &&
-      (m.route.get() ?? "").includes(`/chat/c/${channelId}`);
+    const wasOpen = this.activeChannelId === channelId && (m.route.get() ?? '').includes(`/chat/c/${channelId}`);
     this.forgetChannel(channelId);
-    delete this.streams[channelId];
-    delete this.pinnedPreviews[channelId];
-    delete this.pinnedTotals[channelId];
-    this.scheduleSnapshot();
 
-    if (wasOpen) m.route.set(app.route("chat.index"));
+    if (wasOpen) m.route.set(app.route('chat.index'));
 
-    // Only for whoever was looking at it. A row that merely leaves the list
-    // needs no explanation, and announcing every deletion would flood anyone
-    // who belongs to many channels — an administrator above all.
+    // Só para quem estava olhando: avisar cada exclusão inundaria quem está em muitos
+    // canais, um administrador sobretudo.
     if (wasOpen) {
-      app.alerts.show(
-        { type: "warning" },
-        app.translator.trans("ramon-chat.forum.channel.gone"),
-      );
+      app.alerts.show({ type: 'warning' }, app.translator.trans('ramon-chat.forum.channel.gone'));
     }
 
     m.redraw();
   }
 
   /**
-   * Error handler for requests scoped to one channel: a 403 or 404 means the
-   * channel is gone for this reader, which `channelGone` settles quietly in
-   * place of core's generic "not found" alert. Anything else falls through.
+   * Handler de erro para requests de um canal: 403 ou 404 quer dizer que o canal
+   * sumiu para o leitor, e `channelGone` resolve em silêncio no lugar do alerta
+   * genérico do core. O resto segue adiante.
    */
   private goneHandler(channelId: number) {
     return (error: { status?: number }): false | void => {
@@ -923,10 +755,21 @@ export default class ChatState {
     };
   }
 
+  /**
+   * Tira o canal da sidebar, e da tela se estava aberto. Para uma participação que
+   * terminou (saída, remoção, canal privado que deixou de ser visível). O registro
+   * no store fica; a próxima busca diz o que ainda é permitido.
+   */
   forgetChannel(channelId: number): void {
-    this.channels = this.channels.filter(
-      (channel) => Number(channel.id()) !== channelId,
-    );
+    this.channels = this.channels.filter((channel) => Number(channel.id()) !== channelId);
+
+    // Sai também do snapshot local: quem foi removido de um canal privado não deve
+    // achar o histórico dele no disco.
+    delete this.streams[channelId];
+    delete this.pinnedPreviews[channelId];
+    delete this.pinnedTotals[channelId];
+    this.recentChannelIds = this.recentChannelIds.filter((id) => id !== channelId);
+    this.scheduleSnapshot();
 
     if (this.activeChannelId === channelId) {
       this.closeOverlays();
@@ -935,15 +778,13 @@ export default class ChatState {
   }
 
   /**
-   * Who wants to know when a channel's membership changes.
-   *
-   * The members tab is the one surface drawn from a list the realtime payload
-   * cannot carry, so it re-reads the list when told. Listeners rather than a
-   * counter on the state: a modal that is not open should cost nothing.
+   * Quem quer saber quando a lista de membros de um canal muda. A aba de membros é a
+   * única superfície desenhada de uma lista que o payload de realtime não carrega.
+   * Listeners em vez de contador no estado: um modal fechado não custa nada.
    */
   private membershipListeners = new Set<(channelId: number) => void>();
 
-  /** Returns the function that unsubscribes. */
+  /** Retorna a função que cancela a inscrição. */
   onMembershipChange(listener: (channelId: number) => void): () => void {
     this.membershipListeners.add(listener);
 
@@ -957,28 +798,25 @@ export default class ChatState {
       try {
         listener(channelId);
       } catch {
-        // One listener failing must not stop the others from being told.
+        // A falha de um listener não pode impedir os outros de serem avisados.
       }
     });
   }
 
   /**
-   * Warms everything opening a channel would ask for, without waiting for it.
-   *
-   * The boot payload only helps a page that was loaded from the server; arriving
-   * at the chat from a link, or switching channels once inside it, is a client-
-   * side navigation with nothing preloaded. Called from hover and focus, it turns
-   * the round trip into something that happens while the pointer is still moving,
-   * so the click lands on a conversation that is already there.
-   *
-   * Both calls are idempotent and self-guarding — a channel already loaded costs
-   * nothing — so this is safe to fire as often as the pointer moves.
+   * Aquece tudo o que abrir um canal pediria, sem esperar. Chamado no hover e no
+   * foco, para o clique cair numa conversa já carregada em navegações do cliente,
+   * que não têm payload de boot. As duas chamadas são idempotentes.
    */
   prefetchChannel(channelId: number): void {
     this.loadChannel(channelId).catch(() => {});
     this.loadPinnedPreview(channelId).catch(() => {});
   }
 
+  /**
+   * Apaga a lista de canais em cache para a próxima leitura rebuscar. Para mudanças
+   * que invalidam a lista inteira: troca de conta, ou join feito onde o model não existe.
+   */
   invalidateChannels(): void {
     this.channelsLoaded = false;
   }
@@ -986,33 +824,23 @@ export default class ChatState {
   channel(id: number | null): Channel | null {
     if (id === null) return null;
 
-    return (
-      (app.store.getById("chat-channels", String(id)) as Channel | undefined) ??
-      null
-    );
+    return (app.store.getById('chat-channels', String(id)) as Channel | undefined) ?? null;
   }
 
-  /** Category channels, for the sidebar's "Channels" section. */
+  /** Canais de categoria, para a seção "Canais" da sidebar. */
   categoryChannels(): Channel[] {
     return this.channels.filter((c) => c.isCategory());
   }
 
-  /** Direct and group channels, for the "Direct Messages" section. */
+  /** Canais diretos e de grupo, para a seção "Mensagens diretas". */
   directChannels(): Channel[] {
     return this.channels.filter((c) => c.isDirect());
   }
 
   /**
-   * Channels with unread messages, and how many mentions are outstanding.
-   *
-   * Prefers the loaded channel list, because that reflects realtime pushes the
-   * moment they land — `bumpChannel` increments it directly.
-   *
-   * Falls back to the counters serialised onto the session user, which are present
-   * in the page payload from the first paint. Without the fallback the collapsed
-   * drawer showed nothing until `loadChannels()` resolved, and nothing at all if
-   * the drawer was opened without ever loading the list — which read as "the dot
-   * does not work".
+   * Canais com não lidas e quantas menções pendentes. Prefere a lista carregada, que
+   * reflete os pushes na hora (`bumpChannel` a incrementa). Sem ela, usa os
+   * contadores serializados no usuário da sessão, presentes desde a primeira pintura.
    */
   unreadSummary(): { channels: number; messages: number; mentions: number } {
     if (this.channelsLoaded && this.channels.length > 0) {
@@ -1021,9 +849,7 @@ export default class ChatState {
       let mentions = 0;
 
       for (const channel of this.channels) {
-        // Muted channels carry no badge, so they must not feed the header count
-        // either — otherwise the number says there is something to read in a
-        // channel the user deliberately silenced.
+        // Canais silenciados não têm badge e não entram na contagem do header.
         if (channel.isMuted()) continue;
 
         if (channel.hasUnread()) {
@@ -1031,38 +857,28 @@ export default class ChatState {
           messages += channel.unreadCount() ?? 0;
         }
 
-        if (channel.hasUnreadMentions())
-          mentions += channel.unreadMentionsCount() ?? 0;
+        if (channel.hasUnreadMentions()) mentions += channel.unreadMentionsCount() ?? 0;
       }
 
       return { channels, messages, mentions };
     }
 
-    // Before the channel list is loaded — which is the usual state when the chat
-    // has not been opened yet — the serialised counters are all there is. Realtime
-    // keeps them moving; see bumpUnreadCounters().
+    // Antes da lista carregar (o normal com o chat ainda fechado) só existem os
+    // contadores serializados; o realtime os mantém (ver bumpUnreadCounters()).
     const user = app.session.user;
 
     return {
-      channels: Number(user?.attribute<number>("chatUnreadChannelsCount") ?? 0),
-      messages: Number(user?.attribute<number>("chatUnreadMessagesCount") ?? 0),
-      mentions: Number(user?.attribute<number>("chatUnreadMentionsCount") ?? 0),
+      channels: Number(user?.attribute<number>('chatUnreadChannelsCount') ?? 0),
+      messages: Number(user?.attribute<number>('chatUnreadMessagesCount') ?? 0),
+      mentions: Number(user?.attribute<number>('chatUnreadMentionsCount') ?? 0),
     };
   }
 
   /**
-   * Moves the actor's own serialised counters.
-   *
-   * They are a snapshot taken when the page was rendered, and the header badge and
-   * the nav dot fall back to them whenever the channel list has not been loaded —
-   * which is exactly the situation the badge exists for. Without this the dot only
-   * ever appeared after a reload.
+   * Move os contadores serializados do ator. O badge do header e o ponto da
+   * navegação os usam quando a lista de canais não foi carregada.
    */
-  bumpUnreadCounters(
-    messages: number,
-    mentions: number,
-    newChannel: boolean,
-  ): void {
+  bumpUnreadCounters(messages: number, mentions: number, newChannel: boolean): void {
     const user = app.session.user;
 
     if (!user) return;
@@ -1070,24 +886,13 @@ export default class ChatState {
     const at = (key: string) => Number(user.attribute<number>(key) ?? 0);
 
     user.pushAttributes({
-      chatUnreadMessagesCount: Math.max(
-        0,
-        at("chatUnreadMessagesCount") + messages,
-      ),
-      chatUnreadMentionsCount: Math.max(
-        0,
-        at("chatUnreadMentionsCount") + mentions,
-      ),
-      chatUnreadChannelsCount: Math.max(
-        0,
-        at("chatUnreadChannelsCount") + (newChannel ? 1 : 0),
-      ),
+      chatUnreadMessagesCount: Math.max(0, at('chatUnreadMessagesCount') + messages),
+      chatUnreadMentionsCount: Math.max(0, at('chatUnreadMentionsCount') + mentions),
+      chatUnreadChannelsCount: Math.max(0, at('chatUnreadChannelsCount') + (newChannel ? 1 : 0)),
     });
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Message stream
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Stream de mensagens ──
 
   stream(channelId: number): ChannelStream {
     if (!this.streams[channelId]) {
@@ -1105,14 +910,14 @@ export default class ChatState {
   }
 
   /**
-   * Loads the newest page and freezes the unread divider at the read marker as
-   * it stood on entry.
+   * Carrega a página mais nova e congela o divisor de não lidas no marcador de
+   * leitura da entrada.
    */
   async loadChannel(channelId: number): Promise<void> {
     const stream = this.stream(channelId);
 
-    // Painted from the snapshot: it is on screen already, so nothing is awaited.
-    // The server's page replaces it as soon as it lands.
+    // Pintado do snapshot e já na tela, então nada é aguardado; a página do servidor
+    // o substitui ao chegar.
     if (stream.stale && stream.loadedInitial && !stream.loading) {
       stream.stale = false;
       this.revalidateStream(channelId).catch(() => {});
@@ -1125,9 +930,8 @@ export default class ChatState {
     const channel = this.channel(channelId);
     const lastRead = channel?.lastReadMessageId() ?? 0;
 
-    // Only show a divider when there is actually something unread below it.
-    stream.dividerAfterId =
-      lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
+    // Divisor só quando há algo não lido abaixo dele.
+    stream.dividerAfterId = lastRead > 0 && (channel?.unreadCount() ?? 0) > 0 ? lastRead : null;
 
     await this.fetchPage(channelId);
 
@@ -1135,28 +939,22 @@ export default class ChatState {
   }
 
   /**
-   * Fetches one page older than what is loaded. The API sorts newest-first, so a
-   * page is reversed before being prepended.
+   * Busca uma página mais antiga que a carregada. A API ordena do mais novo para o
+   * mais antigo, então a página é invertida antes de ir para o início.
    */
   async fetchPage(channelId: number): Promise<void> {
-    await this.fetchInto(
-      this.stream(channelId),
-      { channel: channelId },
-      this.goneHandler(channelId),
-    );
+    await this.fetchInto(this.stream(channelId), { channel: channelId }, this.goneHandler(channelId));
   }
 
   /**
-   * Pages one stream backwards from a base filter.
-   *
-   * Shared by the channel and thread streams: both are windows over the same
-   * endpoint differing only in which filter selects them, and paging that drifts
-   * between the two would show a thread a different history than the channel.
+   * Pagina um stream para trás a partir de um filtro base. Compartilhado por canal e
+   * tópico, que são janelas sobre o mesmo endpoint, para não mostrarem históricos
+   * diferentes.
    */
   private async fetchInto(
     stream: ChannelStream,
     filter: Record<string, unknown>,
-    errorHandler?: (error: { status?: number }) => false | void,
+    errorHandler?: (error: { status?: number }) => false | void
   ): Promise<void> {
     if (stream.loading || !stream.hasMore) return;
 
@@ -1166,25 +964,25 @@ export default class ChatState {
       const oldest = stream.messages[0];
 
       const results = (await app.store.find(
-        "chat-messages",
+        'chat-messages',
         {
           filter: {
             ...filter,
             ...(oldest ? { lessThan: Number(oldest.id()) } : {}),
           },
-          sort: "-id",
+          sort: '-id',
           page: { limit: PAGE_SIZE },
         },
         undefined,
-        errorHandler ? { errorHandler } : undefined,
+        errorHandler ? { errorHandler } : undefined
       )) as unknown as Message[];
 
       const page = (Array.isArray(results) ? results : []).slice().reverse();
 
       if (page.length < PAGE_SIZE) stream.hasMore = false;
 
-      // Merge rather than concat: a realtime push may already have inserted one
-      // of these, and a duplicate row is worse than a missing one.
+      // Merge em vez de concat: um push pode já ter inserido uma destas, e linha
+      // duplicada é pior que ausente.
       const known = new Set(stream.messages.map((msg) => msg.id()));
       const fresh = page.filter((msg) => !known.has(msg.id()));
 
@@ -1198,20 +996,14 @@ export default class ChatState {
   }
 
   /**
-   * Makes sure a message is in the channel's loaded window, so it can be scrolled
-   * to.
-   *
-   * The window only ever grows upwards from the newest message, so anything
-   * older than it — a pin, a quoted reply — was unreachable: the pinned strip
-   * drew its jump disabled and a quote said "not loaded". This pages the gap
-   * between the oldest loaded row and the target in one run, keeping the window
-   * contiguous. Resolves to whether the message is now there; a thread reply or
-   * a deleted row never is, since the channel stream does not carry them.
+   * Garante que uma mensagem está na janela carregada do canal, para poder rolar
+   * até ela (fixada ou citação antigas). Pagina a lacuna entre a linha mais antiga e
+   * o alvo numa só passada, mantendo a janela contígua. Resolve se a mensagem está
+   * lá; resposta de tópico ou linha excluída nunca está.
    */
   async revealMessage(channelId: number, messageId: number): Promise<boolean> {
     const stream = this.stream(channelId);
-    const has = () =>
-      stream.messages.some((message) => Number(message.id()) === messageId);
+    const has = () => stream.messages.some((message) => Number(message.id()) === messageId);
 
     if (has()) return true;
 
@@ -1232,23 +1024,20 @@ export default class ChatState {
 
         if (oldest && Number(oldest.id()) < messageId) break;
 
-        const results = (await app.store.find("chat-messages", {
+        const results = (await app.store.find('chat-messages', {
           filter: {
             channel: channelId,
             greaterThan: messageId - 1,
             ...(oldest ? { lessThan: Number(oldest.id()) } : {}),
           },
-          sort: "-id",
+          sort: '-id',
           page: { limit: GAP_PAGE_SIZE },
         })) as unknown as Message[];
 
         const page = (Array.isArray(results) ? results : []).slice().reverse();
         const known = new Set(stream.messages.map((msg) => msg.id()));
 
-        stream.messages = [
-          ...page.filter((msg) => !known.has(msg.id())),
-          ...stream.messages,
-        ];
+        stream.messages = [...page.filter((msg) => !known.has(msg.id())), ...stream.messages];
         this.sortStream(stream);
 
         if (page.length < GAP_PAGE_SIZE) break;
@@ -1266,17 +1055,13 @@ export default class ChatState {
   }
 
   /**
-   * Replaces a snapshot-seeded window with the server's newest page.
+   * Troca uma janela semeada pelo snapshot pela página mais nova do servidor, sem
+   * await porque a conversa já está desenhada. Dentro do intervalo da página o
+   * servidor manda: linhas que não voltam foram excluídas e saem. Linhas mais antigas
+   * não foram consultadas e ficam.
    *
-   * One request, the same one a cold open makes — but not awaited, because the
-   * conversation is already drawn. Within the range the page covers the server
-   * is the authority: rows it no longer returns were deleted while this browser
-   * was away and go; rows it returns land edited, reacted and re-pinned as they
-   * now are. Rows older than the page were not asked about and are kept — the
-   * reader scrolled to them last time and can still see them.
-   *
-   * On failure the snapshot stays on screen unrevalidated; the poller's
-   * `greaterThan` and `updatedSince` cursors catch it up on the next tick.
+   * Se falhar, o snapshot fica sem revalidar; os cursores `greaterThan` e
+   * `updatedSince` do poller o alcançam no próximo tick.
    */
   private async revalidateStream(channelId: number): Promise<void> {
     const stream = this.stream(channelId);
@@ -1287,23 +1072,21 @@ export default class ChatState {
 
     try {
       const results = (await app.store.find(
-        "chat-messages",
+        'chat-messages',
         {
           filter: { channel: channelId },
-          sort: "-id",
+          sort: '-id',
           page: { limit: PAGE_SIZE },
         },
         undefined,
-        { errorHandler: this.goneHandler(channelId) },
+        { errorHandler: this.goneHandler(channelId) }
       )) as unknown as Message[];
 
       const fresh = (Array.isArray(results) ? results : []).slice().reverse();
       const complete = fresh.length < PAGE_SIZE;
       const oldest = fresh[0] ? Number(fresh[0].id()) : 0;
 
-      const kept = complete
-        ? []
-        : stream.messages.filter((msg) => Number(msg.id()) < oldest);
+      const kept = complete ? [] : stream.messages.filter((msg) => Number(msg.id()) < oldest);
 
       stream.messages = [...kept, ...fresh];
       this.sortStream(stream);
@@ -1317,16 +1100,12 @@ export default class ChatState {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Threads
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Tópicos ──
 
   /**
-   * A thread's own message window, keyed by thread id.
-   *
-   * Kept apart from `streams` rather than filtered out of the channel window: the
-   * channel shows a thread only as an indicator under its root message, so the
-   * replies are never in that window to begin with.
+   * Janela de mensagens própria de um tópico, por id. Separada de `streams` porque o
+   * canal mostra o tópico só como indicador sob a raiz; as respostas nunca estão
+   * naquela janela.
    */
   threadStream(threadId: number): ChannelStream {
     if (!this.threadStreams[threadId]) {
@@ -1335,7 +1114,7 @@ export default class ChatState {
         hasMore: true,
         loading: false,
         loadedInitial: false,
-        // Threads carry no read marker of their own, so no divider.
+        // Tópicos não têm marcador de leitura próprio, então não há divisor.
         dividerAfterId: null,
         stale: false,
       };
@@ -1358,21 +1137,14 @@ export default class ChatState {
     await this.fetchInto(this.threadStream(threadId), { thread: threadId });
   }
 
-  /**
-   * Loads the thread record itself, for the panel's title and reply count.
-   */
+  /** Carrega o registro do tópico, para o título e a contagem do painel. */
   async findThread(threadId: number): Promise<Thread | null> {
-    const known = app.store.getById<Thread>("chat-threads", String(threadId));
+    const known = app.store.getById<Thread>('chat-threads', String(threadId));
 
     if (known) return known;
 
     try {
-      return (
-        ((await app.store.find(
-          "chat-threads",
-          String(threadId),
-        )) as unknown as Thread) ?? null
-      );
+      return ((await app.store.find('chat-threads', String(threadId))) as unknown as Thread) ?? null;
     } catch {
       return null;
     }
@@ -1383,11 +1155,8 @@ export default class ChatState {
   }
 
   /**
-   * Leaves whatever is covering the conversation in the drawer.
-   *
-   * Called when the drawer changes channel: a search or a pin list belongs to
-   * the channel it was opened from, and carrying it across to the next one shows
-   * one channel's results over another's conversation.
+   * Fecha o que estiver cobrindo a conversa na gaveta. Chamado ao trocar de canal:
+   * uma busca ou lista de fixadas pertence ao canal de onde foi aberta.
    */
   closeOverlays(): void {
     this.showPinned = false;
@@ -1396,31 +1165,20 @@ export default class ChatState {
     this.activeThreadId = null;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Pinned
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Fixadas ──
 
   /**
-   * Fetches the newest pin that sits above the loaded window, once per channel.
+   * Busca a fixada mais nova acima da janela carregada, uma vez por canal.
+   * `latestPinned()` já responde pela janela quando pode; cada busca é uma leitura
+   * completa de mensagem (nove policies e quatro resumos de relação).
    *
-   * `latestPinned()` already answers from the loaded window whenever it can, so
-   * this only exists for a pin far enough back that the stream has not reached
-   * it — which is a fixed fact about the channel's history, not something that
-   * needs re-asking on every visit. It was being refetched on every channel
-   * open, and each one is a full message read: the resource resolves nine
-   * capability policies and four relation-backed summaries to return one row.
-   *
-   * `channelId in this.pinnedPreviews` rather than a truthiness check, because
-   * `null` here means "asked, nothing pinned" and must not be re-asked; only
-   * `undefined` means "never asked".
-   *
-   * Realtime keeps the answer honest: a pin or unpin on a message this client
-   * already holds updates that model in place, and a pin on one it does not
-   * drops this cache — see `onMessageChanged`.
+   * `channelId in this.pinnedPreviews` em vez de truthiness: `null` é "perguntado,
+   * nada fixado" e não deve ser repetido. O realtime mantém a resposta correta (ver
+   * `onMessageChanged`).
    */
   async loadPinnedPreview(channelId: number, force = false): Promise<void> {
     if (!force && channelId in this.pinnedPreviews) {
-      // From the snapshot: shown already, re-asked behind it.
+      // Do snapshot: já exibido, perguntado de novo por trás.
       if (this.pinnedStale.delete(channelId)) {
         this.loadPinnedPreview(channelId, true).catch(() => {});
       }
@@ -1432,9 +1190,7 @@ export default class ChatState {
 
     if (inFlight) return inFlight;
 
-    const request = this.fetchPinnedPreview(channelId).finally(() =>
-      this.pinnedInFlight.delete(channelId),
-    );
+    const request = this.fetchPinnedPreview(channelId).finally(() => this.pinnedInFlight.delete(channelId));
 
     this.pinnedInFlight.set(channelId, request);
 
@@ -1443,27 +1199,24 @@ export default class ChatState {
 
   private async fetchPinnedPreview(channelId: number): Promise<void> {
     try {
-      const results = (await app.store.find("chat-messages", {
+      const results = (await app.store.find('chat-messages', {
         filter: {
           channel: channelId,
           pinned: true,
           includeThreadReplies: true,
         },
-        sort: "-pinnedAt",
+        sort: '-pinnedAt',
         page: { limit: 1 },
       })) as unknown as Message[];
 
-      this.pinnedPreviews[channelId] =
-        (Array.isArray(results) ? results[0] : null) ?? null;
+      this.pinnedPreviews[channelId] = (Array.isArray(results) ? results[0] : null) ?? null;
 
-      // How many there are in total, which is what decides whether the bar
-      // offers a way into the full list. It comes back in this same response —
-      // json-api-server puts a count beside every paginated collection — so
-      // knowing it costs nothing beyond the request already being made.
+      // Total de fixadas, que decide se a barra oferece a lista completa. Vem nesta
+      // mesma resposta: o json-api-server põe a contagem em toda coleção paginada.
       this.pinnedTotals[channelId] = readTotal(results) ?? 0;
       this.scheduleSnapshot();
     } catch {
-      // A missing bar is not worth an error; the pin itself still shows on the row.
+      // Barra ausente não vale um erro; a fixação ainda aparece na linha.
       this.pinnedPreviews[channelId] = null;
       this.pinnedTotals[channelId] = 0;
     } finally {
@@ -1472,11 +1225,8 @@ export default class ChatState {
   }
 
   /**
-   * Drops a channel's cached pin, so the next open asks the server again.
-   *
-   * For the one case realtime cannot reconcile on its own: a message pinned
-   * above the loaded window, which this client is not holding and therefore
-   * cannot update in place.
+   * Apaga a fixada em cache do canal, para o próximo acesso perguntar ao servidor.
+   * Para mensagem fixada acima da janela, que este cliente não tem para atualizar.
    */
   invalidatePinnedPreview(channelId: number): void {
     delete this.pinnedPreviews[channelId];
@@ -1484,17 +1234,11 @@ export default class ChatState {
   }
 
   /**
-   * How many pinned messages the channel has.
+   * Quantas fixadas o canal tem: o maior entre a contagem do servidor e as fixadas na
+   * janela, pois a contagem não vê fixações posteriores e a janela não vê as de cima.
    *
-   * The larger of what the server last counted and what is pinned in the loaded
-   * window, because neither sees everything: the count cannot know about a pin
-   * made since it was taken, and the window cannot know about one above it. Both
-   * being wrong in only one direction is what makes the maximum the honest
-   * answer rather than a guess.
-   *
-   * Used to decide whether the pinned bar is worth a second control. With one
-   * pin the bar already shows it and clicking jumps to it, so a panel listing
-   * that same message would be a click to see what is on screen.
+   * Decide se a barra merece um segundo controle: com uma fixada, a barra já a
+   * mostra e o clique salta até ela.
    */
   pinnedCount(channelId: number): number {
     const known = new Set<string>();
@@ -1513,11 +1257,9 @@ export default class ChatState {
   }
 
   /**
-   * The message the pinned bar should show.
-   *
-   * Computed over the loaded window as well as the fetched preview, and the newest
-   * `pinnedAt` wins. That way pinning something in view updates the bar at once,
-   * with no refetch, and unpinning the message the bar was showing drops it.
+   * Mensagem que a barra de fixadas mostra, calculada sobre a janela carregada e a
+   * prévia buscada; o `pinnedAt` mais novo vence. Fixar algo visível atualiza a
+   * barra sem refetch, e desafixar a mensagem exibida a remove.
    */
   latestPinned(channelId: number): Message | null {
     const candidates: Message[] = [];
@@ -1532,14 +1274,10 @@ export default class ChatState {
 
     if (candidates.length === 0) return null;
 
-    return candidates.reduce((newest, message) =>
-      (message.pinnedAt()?.getTime() ?? 0) > (newest.pinnedAt()?.getTime() ?? 0)
-        ? message
-        : newest,
-    );
+    return candidates.reduce((newest, message) => ((message.pinnedAt()?.getTime() ?? 0) > (newest.pinnedAt()?.getTime() ?? 0) ? message : newest));
   }
 
-  /** The pinned panel, the search pane and the thread panel share one slot. */
+  /** Painel de fixadas, busca e painel de tópico dividem um slot. */
   togglePinned(): void {
     this.showPinned = !this.showPinned;
 
@@ -1550,7 +1288,7 @@ export default class ChatState {
     }
   }
 
-  /** Search, in the drawer's overlay slot. See `showSearch`. */
+  /** Busca, no slot de sobreposição da gaveta. Ver `showSearch`. */
   toggleSearch(): void {
     this.showSearch = !this.showSearch;
 
@@ -1562,10 +1300,8 @@ export default class ChatState {
   }
 
   /**
-   * The channel's thread list, in the drawer's overlay slot.
-   *
-   * Drawer-only for the same reason search is: the page has `chat.threads`
-   * as a route, and routing from the drawer closes it.
+   * Lista de tópicos do canal no slot de sobreposição da gaveta. Só na gaveta, como
+   * a busca: na página é a rota `chat.threads`, e navegar fecharia a gaveta.
    */
   showThreads = false;
 
@@ -1579,14 +1315,14 @@ export default class ChatState {
     }
   }
 
-  /** Chronological, by id. Ids are monotonic per channel. */
+  /** Cronológico, por id; ids são monotônicos por canal. */
   private sortStream(stream: ChannelStream): void {
     stream.messages.sort((a, b) => Number(a.id()) - Number(b.id()));
   }
 
   /**
-   * Inserts or replaces a message in its channel's stream. Used by both the send
-   * path and realtime, so ordering and de-duplication live in one place.
+   * Insere ou substitui uma mensagem no stream do canal. Usado pelo envio e pelo
+   * realtime, para ordenação e deduplicação ficarem num só lugar.
    */
   upsertMessage(message: Message): void {
     const channelId = message.channelId();
@@ -1595,33 +1331,24 @@ export default class ChatState {
 
     const threadId = message.threadId();
 
-    // A thread reply belongs to the open thread panel. Routed here rather than at
-    // each call site so realtime and the send path cannot disagree about it.
+    // Resposta de tópico vai para o painel do tópico aberto. Decidido aqui para
+    // realtime e envio não divergirem.
     if (threadId) {
       this.insertInto(this.threadStreams[threadId], message, true);
     }
 
-    // A thread *reply* must not be appended to the channel window: the API's
-    // channel filter keeps thread roots and drops their replies, so appending one
-    // would inline in realtime what a reload shows only as an indicator. Updating
-    // a row already in the window stays safe — that is the root gaining a thread.
-    //
-    // Nothing is created for a channel that was never opened; its badge is enough
-    // until the user looks at it.
-    this.insertInto(
-      this.streams[channelId],
-      message,
-      !threadId || this.isThreadRoot(message),
-    );
+    // Resposta de tópico não entra na janela do canal: o filtro da API mantém raízes
+    // e descarta respostas. Atualizar uma linha já presente é seguro (é a raiz
+    // ganhando tópico). Canal nunca aberto não ganha stream; o badge basta.
+    this.insertInto(this.streams[channelId], message, !threadId || this.isThreadRoot(message));
 
     this.scheduleSnapshot();
   }
 
   private isThreadRoot(message: Message): boolean {
-    // `false` here means the relationship is not loaded, and a message with no
-    // thread on it cannot be a root. That used to be the answer for every
-    // realtime push; the thread broadcast now links the root as it lands, so
-    // this is only reached for replies and for roots nobody has scrolled to.
+    // `false` quer dizer relação não carregada, e mensagem sem tópico não é raiz. O
+    // broadcast de tópico liga a raiz ao chegar, então isto só ocorre para respostas
+    // e raízes fora da janela.
     const thread = message.thread();
 
     if (!thread) return false;
@@ -1629,11 +1356,7 @@ export default class ChatState {
     return thread.originalMessageId() === Number(message.id());
   }
 
-  private insertInto(
-    stream: ChannelStream | undefined,
-    message: Message,
-    appendIfNew: boolean,
-  ): void {
+  private insertInto(stream: ChannelStream | undefined, message: Message, appendIfNew: boolean): void {
     if (!stream) return;
 
     const index = stream.messages.findIndex((msg) => msg.id() === message.id());
@@ -1655,39 +1378,29 @@ export default class ChatState {
 
     if (!stream) return;
 
-    stream.messages = stream.messages.filter(
-      (msg) => Number(msg.id()) !== messageId,
-    );
+    stream.messages = stream.messages.filter((msg) => Number(msg.id()) !== messageId);
 
     this.scheduleSnapshot();
   }
 
   /**
-   * The same, for the panel a thread renders in.
-   *
-   * Separate because thread streams live in their own map: passing a thread id
-   * to `removeMessage` would look it up among the channels, and on a forum where
-   * a channel happens to carry that id it would sweep the wrong conversation.
+   * O mesmo, para o painel do tópico. Separado porque streams de tópico ficam em
+   * outro mapa: passar um id de tópico a `removeMessage` buscaria entre os canais e
+   * poderia apagar a conversa errada.
    */
   removeThreadMessage(threadId: number, messageId: number): void {
     const stream = this.threadStreams[threadId];
 
     if (!stream) return;
 
-    stream.messages = stream.messages.filter(
-      (msg) => Number(msg.id()) !== messageId,
-    );
+    stream.messages = stream.messages.filter((msg) => Number(msg.id()) !== messageId);
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Sending
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Envio ──
 
   /**
-   * Sends a message. Returns the saved model.
-   *
-   * The composer is cleared before the request resolves so typing can continue
-   * immediately; on failure the content is handed back so nothing is lost.
+   * Envia uma mensagem e retorna o model salvo. O composer é limpo antes da resposta
+   * para a digitação seguir; se falhar, o conteúdo volta.
    */
   async send(
     channelId: number,
@@ -1696,10 +1409,11 @@ export default class ChatState {
       threadId?: number | null;
       replyToId?: number | null;
       createThread?: boolean;
-    } = {},
+    } = {}
   ): Promise<Message | null> {
     const trimmed = content.trim();
-    const uploadIds = this.pendingUploads.map((u) => Number(u.id()));
+    const uploadKey = this.draftKey(channelId, options.threadId ?? null);
+    const uploadIds = this.pendingUploadsFor(channelId, options.threadId ?? null).map((u) => Number(u.id()));
 
     if (!trimmed && uploadIds.length === 0) return null;
 
@@ -1708,11 +1422,11 @@ export default class ChatState {
 
     try {
       const payload = await app.request<{ data: any; included?: any[] }>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-messages`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-messages`,
         body: {
           data: {
-            type: "chat-messages",
+            type: 'chat-messages',
             attributes: {
               channelId,
               content: trimmed,
@@ -1728,10 +1442,10 @@ export default class ChatState {
       const message = app.store.pushPayload<Message>(payload as any);
 
       this.upsertMessage(message);
-      this.pendingUploads = [];
+      delete this.pendingUploadsByKey[uploadKey];
       this.clearContext(channelId, options.threadId ?? null);
 
-      // The sender is implicitly caught up.
+      // Quem envia está em dia por definição.
       const channel = this.channel(channelId);
 
       if (channel) {
@@ -1758,28 +1472,17 @@ export default class ChatState {
     return false;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Read state
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Estado de leitura ──
 
   /**
-   * Marks a channel read up to its newest loaded message.
+   * Marca o canal como lido até a mensagem carregada mais nova. Fire-and-forget: um
+   * recibo de leitura falho não vale alerta, e a próxima chamada leva um marcador
+   * mais novo.
    *
-   * Fire-and-forget: a failed read receipt is not worth surfacing, and the next
-   * call will carry a newer marker anyway.
-   *
-   * Deliberately *not* gated on `hasUnread()`. A message arriving in the channel
-   * you are looking at is marked read without ever being badged — realtime's
-   * `bumpChannel` calls straight through here for the active channel — so the
-   * badge is already zero and that guard turned every one of those calls into a
-   * no-op. The marker then stopped at whatever was newest when the channel was
-   * opened. Nothing showed it while the marker only drove a badge that was
-   * correct anyway; read receipts read the marker directly, which is how it
-   * surfaced as "seen" never reaching the newest message.
-   *
-   * The comparison below is the honest guard: it stops exactly when the marker
-   * is already at or past the newest loaded message, which is also the condition
-   * the server uses to decide whether the move is worth broadcasting.
+   * Não depende de `hasUnread()`: mensagem que chega no canal aberto é marcada lida
+   * sem nunca ganhar badge (`bumpChannel` chama direto), e os recibos de leitura
+   * leem o marcador. A comparação abaixo é a trava certa, a mesma que o servidor usa
+   * para decidir se transmite.
    */
   markRead(channelId: number): void {
     const channel = this.channel(channelId);
@@ -1803,32 +1506,41 @@ export default class ChatState {
 
     app
       .request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-channels/${channelId}/read`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-channels/${channelId}/read`,
         body: { data: { attributes: { lastReadMessageId: upTo } } },
         errorHandler: this.goneHandler(channelId),
       })
       .catch(() => {
-        // Swallowed deliberately — see above.
+        // Engolido de propósito; ver acima.
       });
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Drafts
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Rascunhos ──
 
   draftKey(channelId: number, threadId: number | null = null): string {
     return threadId ? `${channelId}:${threadId}` : String(channelId);
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Composer context (reply / edit), per scope
-  // ───────────────────────────────────────────────────────────────────────────
+  pendingUploadsFor(channelId: number, threadId: number | null = null): Upload[] {
+    return this.pendingUploadsByKey[this.draftKey(channelId, threadId)] ?? [];
+  }
 
-  replyingTo(
-    channelId: number,
-    threadId: number | null = null,
-  ): Message | null {
+  addPendingUpload(channelId: number, threadId: number | null, upload: Upload): void {
+    const key = this.draftKey(channelId, threadId);
+
+    this.pendingUploadsByKey[key] = [...(this.pendingUploadsByKey[key] ?? []), upload];
+  }
+
+  removePendingUpload(channelId: number, threadId: number | null, id: number): void {
+    const key = this.draftKey(channelId, threadId);
+
+    this.pendingUploadsByKey[key] = (this.pendingUploadsByKey[key] ?? []).filter((u) => Number(u.id()) !== id);
+  }
+
+  // ── Contexto do composer (resposta / edição), por escopo ──
+
+  replyingTo(channelId: number, threadId: number | null = null): Message | null {
     return this.replyTargets[this.draftKey(channelId, threadId)] ?? null;
   }
 
@@ -1836,24 +1548,17 @@ export default class ChatState {
     return this.editTargets[this.draftKey(channelId, threadId)] ?? null;
   }
 
-  /** Whether the staged reply was started as a branch rather than a reply. */
+  /** Se a resposta preparada começou como ramificação, não como resposta. */
   branchingFrom(channelId: number, threadId: number | null = null): boolean {
     return this.branchTargets[this.draftKey(channelId, threadId)] === true;
   }
 
   /**
-   * Replying and editing are mutually exclusive within a scope.
-   *
-   * `branch` says the reply was staged by "reply in thread" rather than by
-   * "reply". Only the composer reads it, and only to decide whether the send
-   * should open a thread — see ChatComposer.submit().
+   * Responder e editar se excluem dentro de um escopo. `branch` indica que veio de
+   * "responder em tópico"; só o composer lê, para decidir se o envio abre um tópico
+   * (ver ChatComposer.submit()).
    */
-  setReplyingTo(
-    channelId: number,
-    message: Message | null,
-    threadId: number | null = null,
-    branch = false,
-  ): void {
+  setReplyingTo(channelId: number, message: Message | null, threadId: number | null = null, branch = false): void {
     const key = this.draftKey(channelId, threadId);
 
     delete this.editTargets[key];
@@ -1868,11 +1573,7 @@ export default class ChatState {
     }
   }
 
-  setEditing(
-    channelId: number,
-    message: Message | null,
-    threadId: number | null = null,
-  ): void {
+  setEditing(channelId: number, message: Message | null, threadId: number | null = null): void {
     const key = this.draftKey(channelId, threadId);
 
     delete this.replyTargets[key];
@@ -1894,17 +1595,13 @@ export default class ChatState {
   }
 
   draft(channelId: number, threadId: number | null = null): string {
-    return this.drafts[this.draftKey(channelId, threadId)] ?? "";
+    return this.drafts[this.draftKey(channelId, threadId)] ?? '';
   }
 
-  setDraft(
-    channelId: number,
-    content: string,
-    threadId: number | null = null,
-  ): void {
+  setDraft(channelId: number, content: string, threadId: number | null = null): void {
     const key = this.draftKey(channelId, threadId);
 
-    if (content.trim() === "") {
+    if (content.trim() === '') {
       delete this.drafts[key];
     } else {
       this.drafts[key] = content;
@@ -1915,28 +1612,23 @@ export default class ChatState {
 
   clearDraft(channelId: number, threadId: number | null = null): void {
     delete this.drafts[this.draftKey(channelId, threadId)];
-    this.persistDraft(channelId, threadId, "");
+    this.persistDraft(channelId, threadId, '');
   }
 
   private draftTimer: number | null = null;
 
   /**
-   * Debounced so a keystroke does not become a request. Drafts are server-side so
-   * they follow the user across devices, but they are not worth a write per
-   * character.
+   * Com debounce para uma tecla não virar request. Rascunhos ficam no servidor para
+   * seguir o usuário entre dispositivos, mas não valem uma gravação por caractere.
    */
-  private persistDraft(
-    channelId: number,
-    threadId: number | null,
-    content: string,
-  ): void {
+  private persistDraft(channelId: number, threadId: number | null, content: string): void {
     if (this.draftTimer !== null) window.clearTimeout(this.draftTimer);
 
     this.draftTimer = window.setTimeout(() => {
       app
         .request({
-          method: "POST",
-          url: `${app.forum.attribute("apiUrl")}/chat/drafts`,
+          method: 'POST',
+          url: `${app.forum.attribute('apiUrl')}/chat/drafts`,
           body: { data: { attributes: { channelId, threadId, content } } },
         })
         .catch(() => {});
@@ -1944,18 +1636,12 @@ export default class ChatState {
   }
 
   /**
-   * Restores saved composer drafts, at most once per session.
-   *
-   * Cached for the same reason the channel list is, and one more: this is the
-   * only reader of a value the composer is continuously writing. Refetching on
-   * every visit to the chat raced a save that had not yet landed, so a draft
-   * typed just before navigating away could come back as its previous revision.
+   * Restaura os rascunhos, no máximo uma vez por sessão. Rebuscar a cada visita
+   * competia com uma gravação ainda não concluída e podia trazer a revisão anterior.
    */
   async loadDrafts(): Promise<void> {
-    // Drafts belong to an account, and the endpoint is authenticated. Guarded here
-    // rather than at each of the three call sites: a guest asking for them gets a
-    // 401 whose rejection surfaces as an error alert over a chat that is otherwise
-    // working, and a fourth call site would reintroduce it.
+    // Rascunhos são da conta e o endpoint é autenticado. A trava fica aqui, não nos
+    // três pontos de chamada: um visitante receberia 401 como alerta de erro.
     if (!app.session.user) return;
 
     if (this.draftsRequest) return this.draftsRequest;
@@ -1971,32 +1657,28 @@ export default class ChatState {
   private async fetchDrafts(): Promise<void> {
     try {
       const payload = await app.request<{ data: any[] }>({
-        method: "GET",
-        url: `${app.forum.attribute("apiUrl")}/chat/drafts`,
+        method: 'GET',
+        url: `${app.forum.attribute('apiUrl')}/chat/drafts`,
       });
 
       for (const row of payload.data ?? []) {
         const { channelId, threadId, content } = row.attributes ?? {};
 
         if (channelId && content) {
-          this.drafts[
-            this.draftKey(Number(channelId), threadId ? Number(threadId) : null)
-          ] = content;
+          this.drafts[this.draftKey(Number(channelId), threadId ? Number(threadId) : null)] = content;
         }
       }
 
       this.draftsLoaded = true;
     } catch {
-      // Drafts are a convenience; failing to restore them must not block the UI.
-      // Deliberately not marked loaded, so the next visit retries.
+      // Rascunho é conveniência e não pode travar a UI. Não marca como carregado, para a
+      // próxima visita tentar de novo.
     }
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Typing
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Digitação ──
 
-  /** Live typists in a channel, excluding entries that have expired. */
+  /** Quem está digitando no canal, sem as entradas vencidas. */
   typistsIn(channelId: number): string[] {
     const entries = this.typing[channelId];
 
@@ -2018,18 +1700,11 @@ export default class ChatState {
     return names;
   }
 
-  noteTyping(
-    channelId: number,
-    userId: number,
-    username: string,
-    typing: boolean,
-    expiresIn = 6,
-  ): void {
+  noteTyping(channelId: number, userId: number, username: string, typing: boolean, expiresIn = 6): void {
     if (!this.typing[channelId]) this.typing[channelId] = {};
 
-    // Whatever happens next replaces this entry, so its pending redraw is stale.
-    // Left running, a stopped typist's old timer would fire against a fresh
-    // entry — and a stream of keystrokes would pile up one timer per event.
+    // O que vier a seguir substitui esta entrada, então o redesenho pendente fica
+    // velho; senão cada tecla empilharia um timer.
     const previous = this.typing[channelId][userId];
 
     if (previous) window.clearTimeout(previous.timer);
@@ -2040,8 +1715,7 @@ export default class ChatState {
       return;
     }
 
-    // A shade past the deadline, so the redraw reads an entry that has already
-    // expired rather than one expiring on the same millisecond.
+    // Um pouco depois do prazo, para o redesenho ler uma entrada já vencida.
     const timer = window.setTimeout(() => m.redraw(), expiresIn * 1000 + 100);
 
     this.typing[channelId][userId] = {
@@ -2052,22 +1726,16 @@ export default class ChatState {
   }
 
   /**
-   * Drops a typist outright — they have just said what they were typing.
-   *
-   * Waiting for the entry to expire leaves "X is typing…" sitting under the very
-   * message X sent, for as long as the window that was still open when it
-   * arrived.
+   * Remove quem digitava na hora: acabou de enviar. Esperar expirar deixaria
+   * "X está digitando…" embaixo da mensagem de X.
    */
   clearTyping(channelId: number, userId: number): void {
-    this.noteTyping(channelId, userId, "", false);
+    this.noteTyping(channelId, userId, '', false);
   }
 
   private typingSentAt = 0;
 
-  /**
-   * Announces typing, throttled to at most once every 3s. Without the throttle
-   * this would be one request per keystroke.
-   */
+  /** Avisa que está digitando, no máximo a cada 3s; sem isso seria um request por tecla. */
   announceTyping(channelId: number): void {
     const now = Date.now();
 
@@ -2077,20 +1745,17 @@ export default class ChatState {
 
     app
       .request({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat/typing`,
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat/typing`,
         body: { data: { attributes: { channelId, typing: true } } },
-        // Fire-and-forget: a refused signal (the channel was just closed, or the
-        // reader removed) is not worth an alert on every keystroke. The channel
-        // push or the next read settles what the composer should show.
+        // Fire-and-forget: um sinal recusado (canal fechado, leitor removido) não vale
+        // alerta a cada tecla. O push do canal ou a próxima leitura resolvem.
         errorHandler: () => {},
       })
       .catch(() => {});
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Selection
-  // ───────────────────────────────────────────────────────────────────────────
+  // ── Seleção ──
 
   toggleSelecting(on?: boolean): void {
     this.selecting = on ?? !this.selecting;
@@ -2107,22 +1772,22 @@ export default class ChatState {
   }
 
   /**
-   * Renders the current selection as a transcript. Server-side so quoting rules
-   * match archiving exactly.
+   * Transforma a seleção em transcrição. No servidor para as regras de citação
+   * baterem com as do arquivamento.
    */
-  async transcript(format: "markup" | "plain" = "markup"): Promise<string> {
-    if (this.selected.size === 0) return "";
+  async transcript(format: 'markup' | 'plain' = 'markup'): Promise<string> {
+    if (this.selected.size === 0) return '';
 
     const payload = await app.request<{
       data: { attributes: { content: string } };
     }>({
-      method: "POST",
-      url: `${app.forum.attribute("apiUrl")}/chat/transcript`,
+      method: 'POST',
+      url: `${app.forum.attribute('apiUrl')}/chat/transcript`,
       body: {
         data: { attributes: { messageIds: Array.from(this.selected), format } },
       },
     });
 
-    return payload.data?.attributes?.content ?? "";
+    return payload.data?.attributes?.content ?? '';
   }
 }

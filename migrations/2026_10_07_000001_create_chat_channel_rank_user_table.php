@@ -11,9 +11,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Who holds each owner-created rank. A member can hold several; the one shown
- * is the highest priority. `channel_id` is repeated here so a channel's rank
- * book comes out in a single query, without going through the ranks.
+ * Quem tem cada cargo criado pelo dono; vale o de maior prioridade.
+ * `channel_id` repetido para os cargos do canal saírem numa query só.
  */
 return [
     'up' => function (Builder $schema) {
@@ -27,7 +26,9 @@ return [
             $table->unsignedInteger('channel_id');
             $table->dateTime('created_at')->nullable();
 
-            $table->unique(['channel_id', 'user_id', 'rank_id']);
+            // Nome explícito: o automático passa de 64 caracteres com prefixo de
+            // tabela, e o MySQL/MariaDB recusa a migration.
+            $table->unique(['channel_id', 'user_id', 'rank_id'], 'chat_rank_user_unique');
             $table->index(['rank_id']);
             $table->index(['user_id']);
 

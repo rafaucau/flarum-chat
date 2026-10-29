@@ -1,45 +1,35 @@
-import type Channel from "../../common/models/Channel";
-import type ChatState from "../state/ChatState";
+import type Channel from '../../common/models/Channel';
+import type ChatState from '../state/ChatState';
 /**
- * One thing the actor can do to a channel from its header.
- *
- * A description rather than a rendered control, because the two surfaces that
- * offer these draw them differently: the channel header has room for a row of
- * icon buttons, the drawer's single bar does not and puts them behind a `⋯`
- * menu, where each one needs a label. Returning descriptors is what lets both
- * render the same set without either of them owning it.
+ * Uma ação do ator sobre o canal, a partir do header. Descritor em vez de controle
+ * renderizado: o header do canal desenha botões de ícone e a gaveta os põe num menu
+ * `⋯` com rótulo, e as duas superfícies usam o mesmo conjunto.
  */
 export interface ChannelAction {
     key: string;
     icon: string;
-    /** Already translated: it is a button title in one surface and its text in the other. */
+    /** Já traduzido: é o title do botão numa superfície e o texto na outra. */
     label: string;
-    /** Drawn pressed — the pinned panel is a toggle, not a command. */
+    /** Desenhado pressionado: o painel de fixadas é um toggle. */
     active?: boolean;
     loading?: boolean;
     onclick: () => void;
 }
 export interface ChannelActionOptions {
     /**
-     * The surface has no route of its own — the drawer.
-     *
-     * An action that would navigate opens in place instead. Routing from the
-     * drawer does not merely move the reader: ChatPage closes the drawer on
-     * arrival, so "search in this channel" threw them out of the window they were
-     * searching from and into full screen.
+     * A superfície não tem rota própria (a gaveta). Ações que navegariam abrem no
+     * lugar: o ChatPage fecha a gaveta ao chegar, tirando o leitor da janela.
      */
     embedded?: boolean;
 }
 /**
- * Everything the actor may do to this channel, in the order both surfaces show
- * them.
- *
- * Every entry is gated on a server-computed flag, so a control is absent rather
- * than present-and-rejected — see ChannelPolicy.
+ * Tudo o que o ator pode fazer no canal, na ordem das duas superfícies. Cada item
+ * depende de uma flag calculada no servidor (ver ChannelPolicy), então o controle
+ * some em vez de ser recusado.
  */
 export declare function channelActions(channel: Channel, state: ChatState, options?: ChannelActionOptions): ChannelAction[];
 /**
- * The channel's details — notification level, member list, and the state actions
- * the actor is allowed. Available to every member, unlike the settings form.
+ * Detalhes do canal: nível de notificação, membros e ações de estado permitidas.
+ * Disponível a todo membro, ao contrário do formulário de configurações.
  */
 export declare function openChannelInfo(channel: Channel): void;

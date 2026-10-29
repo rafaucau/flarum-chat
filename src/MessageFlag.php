@@ -15,7 +15,7 @@ use Flarum\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A report filed against a chat message.
+ * Denúncia contra uma mensagem.
  *
  * @property int $id
  * @property int $message_id
@@ -32,12 +32,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MessageFlag extends AbstractModel
 {
     /**
-     * The reasons a report may carry.
-     *
-     * A closed set, validated server-side: a free-text-only report is a worse
-     * signal to triage from, and an open field is one more place for someone to
-     * write something a moderator then has to read. `other` exists for what the
-     * list does not cover, and is the one reason that requires the detail field.
+     * Motivos aceitos, validados no servidor: conjunto fechado facilita a triagem.
+     * Só `other` exige o campo de detalhe.
      */
     public const REASONS = ['spam', 'inappropriate', 'harassment', 'off_topic', 'other'];
 
@@ -53,16 +49,19 @@ class MessageFlag extends AbstractModel
         'resolved_at'    => 'datetime',
     ];
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function resolvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by_id');

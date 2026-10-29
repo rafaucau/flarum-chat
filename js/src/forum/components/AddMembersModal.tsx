@@ -1,50 +1,42 @@
-import app from "flarum/forum/app";
-import FormModal from "flarum/common/components/FormModal";
-import type { IFormModalAttrs } from "flarum/common/components/FormModal";
-import Avatar from "flarum/common/components/Avatar";
-import Button from "flarum/common/components/Button";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import username from "flarum/common/helpers/username";
-import classList from "flarum/common/utils/classList";
-import type User from "flarum/common/models/User";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import FormModal from 'flarum/common/components/FormModal';
+import type { IFormModalAttrs } from 'flarum/common/components/FormModal';
+import Avatar from 'flarum/common/components/Avatar';
+import Button from 'flarum/common/components/Button';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import username from 'flarum/common/helpers/username';
+import classList from 'flarum/common/utils/classList';
+import type User from 'flarum/common/models/User';
+import type Mithril from 'mithril';
 
-import type Channel from "../../common/models/Channel";
-import { isOnline } from "../utils/presence";
+import type Channel from '../../common/models/Channel';
+import { isOnline } from '../utils/presence';
 
-/** What the endpoint accepts in one call; mirrors ChannelResource::addMembers. */
+/** Limite por chamada; espelha ChannelResource::addMembers. */
 const MAX_PER_REQUEST = 50;
 
-/** How many recently active people are offered before anything is typed. */
+/** Quantas pessoas recentes sugerir antes da digitação. */
 const SUGGESTIONS = 8;
 
 export interface AddMembersModalAttrs extends IFormModalAttrs {
   channel: Channel;
-  /** Already in the channel: listed, but not offered. */
+  /** Já no canal: aparecem, mas não são selecionáveis. */
   members: User[];
-  /** Already asked and not answered: listed, but not offered again. */
+  /** Convite pendente: aparecem, mas não são selecionáveis. */
   invited: User[];
-  /** Called with the people the server was asked to invite. */
+  /** Recebe as pessoas enviadas ao servidor para convite. */
   onAdded: (users: User[]) => void;
 }
 
 /**
- * Picks people to invite into a channel.
+ * Escolhe pessoas para convidar a um canal, num campo de tokens.
  *
- * A token field: the chosen people sit inside the search box as chips, so the
- * question "who am I about to invite" is answered where the typing happens.
- * Before anything is typed the box offers the people most recently seen on the
- * forum, so the dialog never opens onto an empty grey square; typing narrows
- * that to a search. People who are already in, or already asked, still appear
- * in the results, marked and unselectable, so their absence from the offer is
- * explained rather than silent.
- *
- * The keyboard works the way a token field is expected to: arrows move along
- * the list, Enter picks, Backspace on an empty box takes the last chip back,
- * Escape clears the query.
+ * Sem digitação, sugere quem foi visto por último. Membros e convidados aparecem
+ * marcados e não selecionáveis. Setas navegam, Enter escolhe, Backspace no campo
+ * vazio remove o último chip e Escape limpa a busca.
  */
 export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
-  private query = "";
+  private query = '';
   private results: User[] = [];
   private suggestions: User[] = [];
   private selected: User[] = [];
@@ -53,12 +45,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   private highlighted = 0;
   private timer: number | null = null;
 
-  /**
-   * Guards against an earlier search resolving after a later one.
-   *
-   * Typing "ram" issues a request for "ra" and one for "ram"; without this the
-   * slower of the two wins and the list contradicts the field.
-   */
+  /** Impede que uma busca antiga resolva depois de uma mais nova. */
   private sequence = 0;
 
   oninit(vnode: Mithril.Vnode<AddMembersModalAttrs, this>): void {
@@ -74,29 +61,24 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   }
 
   className(): string {
-    return "ChatModal ChatAddMembers Modal--medium";
+    return 'ChatModal ChatAddMembers Modal--medium';
   }
 
   title(): Mithril.Children {
-    return app.translator.trans("ramon-chat.forum.add_members.title");
+    return app.translator.trans('ramon-chat.forum.add_members.title');
   }
 
   content(): Mithril.Children {
     return (
       <div className="Modal-body ChatAddMembers-body">
         <p className="ChatAddMembers-intro">
-          {app.translator.trans("ramon-chat.forum.add_members.intro", {
-            channel: (
-              <strong>{this.attrs.channel.displayName()}</strong>
-            ) as unknown as string,
+          {app.translator.trans('ramon-chat.forum.add_members.intro', {
+            channel: (<strong>{this.attrs.channel.displayName()}</strong>) as unknown as string,
           })}
         </p>
 
         <div className="ChatAddMembers-field" onclick={() => this.focusInput()}>
-          <i
-            className="ChatAddMembers-field-icon fas fa-magnifying-glass"
-            aria-hidden="true"
-          />
+          <i className="ChatAddMembers-field-icon fas fa-magnifying-glass" aria-hidden="true" />
 
           {this.selected.map((user) => (
             <button
@@ -104,11 +86,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
               key={user.id()}
               className="ChatAddMembers-chip"
               disabled={this.loading}
-              title={app.translator.trans(
-                "ramon-chat.forum.add_members.deselect",
-                { username: username(user) },
-                true,
-              )}
+              title={app.translator.trans('ramon-chat.forum.add_members.deselect', { username: username(user) }, true)}
               onclick={(e: MouseEvent) => {
                 e.stopPropagation();
                 this.toggle(user);
@@ -124,29 +102,15 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
             className="ChatAddMembers-input"
             type="text"
             autocomplete="off"
-            placeholder={
-              this.selected.length === 0
-                ? app.translator.trans(
-                    "ramon-chat.forum.add_members.search_placeholder",
-                    {},
-                    true,
-                  )
-                : ""
-            }
+            placeholder={this.selected.length === 0 ? app.translator.trans('ramon-chat.forum.add_members.search_placeholder', {}, true) : ''}
             value={this.query}
             disabled={this.loading}
-            oninput={(e: Event) =>
-              this.search((e.target as HTMLInputElement).value)
-            }
+            oninput={(e: Event) => this.search((e.target as HTMLInputElement).value)}
             onkeydown={(e: KeyboardEvent) => this.onKey(e)}
-            oncreate={(vnode: Mithril.VnodeDOM) =>
-              (vnode.dom as HTMLInputElement).focus()
-            }
+            oncreate={(vnode: Mithril.VnodeDOM) => (vnode.dom as HTMLInputElement).focus()}
           />
 
-          {this.searching ? (
-            <LoadingIndicator display="inline" size="small" />
-          ) : null}
+          {this.searching ? <LoadingIndicator display="inline" size="small" /> : null}
         </div>
 
         {this.list()}
@@ -154,9 +118,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     );
   }
 
-  /**
-   * The offer: suggestions until two letters are typed, then the search.
-   */
+  /** Sugestões até duas letras digitadas; depois, a busca. */
   protected list(): Mithril.Children {
     const typed = this.query.trim().length;
 
@@ -169,23 +131,15 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
         );
       }
 
-      const candidates = this.suggestions.filter(
-        (user) => this.statusOf(user) === null,
-      );
+      const candidates = this.suggestions.filter((user) => this.statusOf(user) === null);
 
       if (candidates.length === 0) {
-        return (
-          <p className="ChatAddMembers-hint">
-            {app.translator.trans("ramon-chat.forum.add_members.hint")}
-          </p>
-        );
+        return <p className="ChatAddMembers-hint">{app.translator.trans('ramon-chat.forum.add_members.hint')}</p>;
       }
 
       return (
         <div className="ChatAddMembers-results">
-          <div className="ChatAddMembers-heading">
-            {app.translator.trans("ramon-chat.forum.add_members.suggested")}
-          </div>
+          <div className="ChatAddMembers-heading">{app.translator.trans('ramon-chat.forum.add_members.suggested')}</div>
           {candidates.map((user, index) => this.row(user, index))}
         </div>
       );
@@ -195,8 +149,8 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
       return (
         <p className="ChatAddMembers-hint">
           {this.searching
-            ? app.translator.trans("ramon-chat.forum.add_members.searching")
-            : app.translator.trans("ramon-chat.forum.add_members.no_results", {
+            ? app.translator.trans('ramon-chat.forum.add_members.searching')
+            : app.translator.trans('ramon-chat.forum.add_members.no_results', {
                 query: this.query.trim(),
               })}
         </p>
@@ -211,16 +165,13 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   }
 
   /**
-   * Rows for a list that mixes people who can be picked with people who
-   * cannot. The highlight counts only the former, the way the arrow keys do,
-   * so a marked row in the middle of the results does not shift it.
+   * O destaque conta só as linhas selecionáveis, como as setas, para uma linha
+   * marcada no meio não deslocá-lo.
    */
   protected rows(users: User[]): Mithril.Children {
     let offeredIndex = 0;
 
-    return users.map((user) =>
-      this.row(user, this.statusOf(user) === null ? offeredIndex++ : -1),
-    );
+    return users.map((user) => this.row(user, this.statusOf(user) === null ? offeredIndex++ : -1));
   }
 
   protected row(user: User, index: number): Mithril.Children {
@@ -232,11 +183,10 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
       <button
         type="button"
         key={user.id()}
-        className={classList("ChatAddMembers-result", {
-          "ChatAddMembers-result--selected": picked,
-          "ChatAddMembers-result--highlighted":
-            offered && index === this.highlighted,
-          "ChatAddMembers-result--taken": !offered,
+        className={classList('ChatAddMembers-result', {
+          'ChatAddMembers-result--selected': picked,
+          'ChatAddMembers-result--highlighted': offered && index === this.highlighted,
+          'ChatAddMembers-result--taken': !offered,
         })}
         role="option"
         aria-selected={picked}
@@ -247,33 +197,23 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
         onclick={() => this.toggle(user)}
       >
         <span
-          className={classList("ChatAddMembers-result-avatar", {
-            "ChatAddMembers-result-avatar--online": isOnline(user),
+          className={classList('ChatAddMembers-result-avatar', {
+            'ChatAddMembers-result-avatar--online': isOnline(user),
           })}
         >
           <Avatar user={user} className="Avatar" />
         </span>
 
         <span className="ChatAddMembers-result-text">
-          <span className="ChatAddMembers-result-name">
-            {user.displayName()}
-          </span>
-          {user.displayName() !== user.username() ? (
-            <span className="ChatAddMembers-result-handle">
-              @{user.username()}
-            </span>
-          ) : null}
+          <span className="ChatAddMembers-result-name">{user.displayName()}</span>
+          {user.displayName() !== user.username() ? <span className="ChatAddMembers-result-handle">@{user.username()}</span> : null}
         </span>
 
         {status ? (
-          <span className="ChatAddMembers-result-status">
-            {app.translator.trans(
-              `ramon-chat.forum.add_members.${status}_badge`,
-            )}
-          </span>
+          <span className="ChatAddMembers-result-status">{app.translator.trans(`ramon-chat.forum.add_members.${status}_badge`)}</span>
         ) : (
           <span className="ChatAddMembers-result-mark" aria-hidden="true">
-            <i className={picked ? "fas fa-check" : "fas fa-plus"} />
+            <i className={picked ? 'fas fa-check' : 'fas fa-plus'} />
           </span>
         )}
       </button>
@@ -288,24 +228,16 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
       <div className="Modal-footer ChatAddMembers-footer">
         <span className="ChatAddMembers-footer-count">
           {tooMany
-            ? app.translator.trans("ramon-chat.api.members_too_many", {
+            ? app.translator.trans('ramon-chat.api.members_too_many', {
                 max: MAX_PER_REQUEST,
               })
             : count > 0
-              ? app.translator.trans(
-                  "ramon-chat.forum.add_members.selected_count",
-                  { count },
-                )
+              ? app.translator.trans('ramon-chat.forum.add_members.selected_count', { count })
               : null}
         </span>
 
-        <Button
-          className="Button Button--link"
-          type="button"
-          disabled={this.loading}
-          onclick={() => this.hide()}
-        >
-          {app.translator.trans("ramon-chat.forum.new_channel.cancel")}
+        <Button className="Button Button--link" type="button" disabled={this.loading} onclick={() => this.hide()}>
+          {app.translator.trans('ramon-chat.forum.new_channel.cancel')}
         </Button>
 
         <Button
@@ -316,13 +248,10 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
           disabled={this.loading || count === 0 || tooMany}
         >
           {count === 0
-            ? app.translator.trans("ramon-chat.forum.add_members.submit")
-            : app.translator.trans(
-                "ramon-chat.forum.add_members.submit_count",
-                {
-                  count,
-                },
-              )}
+            ? app.translator.trans('ramon-chat.forum.add_members.submit')
+            : app.translator.trans('ramon-chat.forum.add_members.submit_count', {
+                count,
+              })}
         </Button>
       </div>
     );
@@ -337,19 +266,16 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     );
   }
 
-  // ── Behaviour ──────────────────────────────────────────────────────────────
+  // ── Comportamento ──
 
-  /**
-   * Why a person cannot be picked, or null when they can.
-   */
-  protected statusOf(user: User): "you" | "member" | "invited" | null {
+  /** Por que a pessoa não pode ser escolhida, ou null se pode. */
+  protected statusOf(user: User): 'you' | 'member' | 'invited' | null {
     const id = user.id();
 
-    if (id === app.session.user?.id()) return "you";
-    if (this.attrs.members.some((member) => member.id() === id))
-      return "member";
+    if (id === app.session.user?.id()) return 'you';
+    if (this.attrs.members.some((member) => member.id() === id)) return 'member';
     if (this.attrs.invited.some((pending) => pending.id() === id)) {
-      return "invited";
+      return 'invited';
     }
 
     return null;
@@ -362,14 +288,11 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   protected toggle(user: User): void {
     if (this.statusOf(user) !== null) return;
 
-    this.selected = this.isSelected(user)
-      ? this.selected.filter((picked) => picked.id() !== user.id())
-      : [...this.selected, user];
+    this.selected = this.isSelected(user) ? this.selected.filter((picked) => picked.id() !== user.id()) : [...this.selected, user];
 
-    // Picking someone from a search clears it, the way a token field does:
-    // the chip is the record of the choice, and the next name starts fresh.
-    if (this.query !== "") {
-      this.query = "";
+    // Escolher alguém limpa a busca, como num campo de tokens.
+    if (this.query !== '') {
+      this.query = '';
       this.results = [];
       this.searching = false;
       this.sequence++;
@@ -389,63 +312,51 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
   protected onKey(e: KeyboardEvent): void {
     const offered = this.offered();
 
-    if (e.key === "ArrowDown" && offered.length > 0) {
+    if (e.key === 'ArrowDown' && offered.length > 0) {
       e.preventDefault();
       this.highlighted = (this.highlighted + 1) % offered.length;
-    } else if (e.key === "ArrowUp" && offered.length > 0) {
+    } else if (e.key === 'ArrowUp' && offered.length > 0) {
       e.preventDefault();
-      this.highlighted =
-        (this.highlighted - 1 + offered.length) % offered.length;
-    } else if (e.key === "Enter") {
-      // Enter picks; it must not submit the form behind the field, which is
-      // what a bare input inside a form does.
+      this.highlighted = (this.highlighted - 1 + offered.length) % offered.length;
+    } else if (e.key === 'Enter') {
+      // Enter escolhe; não pode enviar o form.
       e.preventDefault();
 
       const pick = offered[this.highlighted];
 
       if (pick) this.toggle(pick);
-    } else if (e.key === "Backspace" && this.query === "") {
+    } else if (e.key === 'Backspace' && this.query === '') {
       const last = this.selected[this.selected.length - 1];
 
       if (last) this.toggle(last);
-    } else if (e.key === "Escape" && this.query !== "") {
+    } else if (e.key === 'Escape' && this.query !== '') {
       e.stopPropagation();
-      this.search("");
+      this.search('');
     }
   }
 
   protected focusInput(): void {
-    const input = this.element?.querySelector<HTMLInputElement>(
-      ".ChatAddMembers-input",
-    );
+    const input = this.element?.querySelector<HTMLInputElement>('.ChatAddMembers-input');
 
     input?.focus();
   }
 
   /**
-   * A handful of people offered before any typing.
-   *
-   * The most recently seen when the actor may sort by that (core gates the
-   * `lastSeenAt` sort behind `user.viewLastSeenAt`, which ordinary members
-   * usually lack and which the API answers with a 400), the most active
-   * posters otherwise. Fetched once per opening; the list is small and the
-   * point is only to give the dialog something to open onto.
+   * Sugestões antes da digitação, buscadas uma vez por abertura. Ordena por
+   * `lastSeenAt` quando possível (o core exige `user.viewLastSeenAt`, e sem ela a
+   * API responde 400); senão, por quem mais posta.
    */
   protected async loadSuggestions(): Promise<void> {
     const limit = SUGGESTIONS + 1 + this.attrs.members.length;
-    // Administrators hold every permission; anyone else who happens to hold
-    // this one is caught by the fallback rather than by a second request
-    // for everyone.
-    const orders = app.session.user?.isAdmin()
-      ? ["-lastSeenAt", "-commentCount"]
-      : ["-commentCount", "-lastSeenAt"];
+    // Admin tem toda permissão; para os demais, `lastSeenAt` fica como fallback.
+    const orders = app.session.user?.isAdmin() ? ['-lastSeenAt', '-commentCount'] : ['-commentCount', '-lastSeenAt'];
 
     try {
       let results: User[] = [];
 
       for (const sort of orders) {
         try {
-          const found = await app.store.find<User[]>("users", {
+          const found = await app.store.find<User[]>('users', {
             sort,
             page: { limit },
           });
@@ -454,7 +365,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
 
           break;
         } catch {
-          // A sort this actor may not use; the next one is open to everyone.
+          // Ordenação proibida para este usuário; tenta a próxima.
         }
       }
 
@@ -465,7 +376,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
     }
   }
 
-  /** Debounced so typing does not issue a request per keystroke. */
+  /** Com debounce, para não disparar uma requisição por tecla. */
   protected search(value: string): void {
     this.query = value;
     this.highlighted = 0;
@@ -485,7 +396,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
 
     this.timer = window.setTimeout(() => {
       app.store
-        .find<User[]>("users", {
+        .find<User[]>('users', {
           filter: { q: value.trim() },
           page: { limit: 10 },
         })
@@ -503,10 +414,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
           this.results = [];
           this.searching = false;
 
-          app.alerts.show(
-            { type: "error" },
-            app.translator.trans("ramon-chat.forum.add_members.search_failed"),
-          );
+          app.alerts.show({ type: 'error' }, app.translator.trans('ramon-chat.forum.add_members.search_failed'));
 
           m.redraw();
         });
@@ -525,11 +433,9 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
 
     app
       .request<any>({
-        method: "POST",
-        url: `${app.forum.attribute("apiUrl")}/chat-channels/${this.attrs.channel.id()}/members`,
-        // One request for the whole selection: the endpoint takes a list, and
-        // inviting five people used to be five requests, five notifications'
-        // worth of round trips and five chances to half-fail.
+        method: 'POST',
+        url: `${app.forum.attribute('apiUrl')}/chat-channels/${this.attrs.channel.id()}/members`,
+        // Uma requisição para a seleção inteira: o endpoint aceita lista.
         body: {
           data: { attributes: { userIds: chosen.map((u) => Number(u.id())) } },
         },
@@ -540,11 +446,11 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
         this.hide();
 
         app.alerts.show(
-          { type: "success" },
-          app.translator.trans("ramon-chat.forum.add_members.added", {
+          { type: 'success' },
+          app.translator.trans('ramon-chat.forum.add_members.added', {
             count: chosen.length,
-            names: chosen.map((user) => user.displayName()).join(", "),
-          }),
+            names: chosen.map((user) => user.displayName()).join(', '),
+          })
         );
 
         this.attrs.onAdded(chosen);
@@ -555,11 +461,7 @@ export default class AddMembersModal extends FormModal<AddMembersModalAttrs> {
         if (error?.alert) {
           this.onerror(error);
         } else {
-          app.alerts.show(
-            { type: "error" },
-            error?.response?.errors?.[0]?.detail ??
-              app.translator.trans("ramon-chat.forum.add_members.failed"),
-          );
+          app.alerts.show({ type: 'error' }, error?.response?.errors?.[0]?.detail ?? app.translator.trans('ramon-chat.forum.add_members.failed'));
 
           m.redraw();
         }

@@ -16,32 +16,27 @@ use Flarum\Testing\integration\TestCase;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * Every actor against every kind of channel, through every door.
+ * Cada ator contra cada tipo de canal, por cada porta.
  *
- * Four actors × four channels × four operations. The operations are the four
- * ways in — being listed, being fetched, being joined, being posted into — and
- * they are asserted as one grid rather than as separate cases because the bugs
- * this is for are disagreements *between* them: a channel that lists but cannot
- * be opened, one that can be joined but not posted in, one the scope hides and
- * the policy would have let through.
+ * Quatro atores × quatro canais × quatro operações (ser listado, lido, entrado
+ * e receber mensagem), conferidos como uma grade só porque os bugs que
+ * importam são divergências *entre* elas: canal que lista mas não abre, que
+ * deixa entrar mas não falar, que o escopo esconde e a policy deixaria passar.
  *
- * The grid is also where a permission is proved not to be a skeleton key. Three
- * of the rows hold a chat grant of some kind, and none of them may reach a
- * channel restricted by a *tag* — chat permissions and forum permissions are
- * separate systems, and `accessPrivateChannels` opening a restricted category
- * would be a silent hole in the second one.
+ * A grade também prova que nenhuma permissão é chave-mestra: três linhas têm
+ * alguma permissão de chat e nenhuma alcança canal restrito por *tag*.
+ * `accessPrivateChannels` abrindo uma categoria restrita seria um buraco
+ * silencioso nas permissões do fórum.
  *
- * Runs in its own process for the reason TagBoundChannelTest documents:
- * `ScopeVisibilityTrait::$visibilityScopers` is a static registry that survives
- * between boots, and a sibling class that enabled ramon-chat without tags leaves
- * behind a scoper with no tag-bound branch.
+ * Processo próprio pelo motivo descrito em TagBoundChannelTest: o registro
+ * estático `ScopeVisibilityTrait::$visibilityScopers` sobrevive entre boots.
  */
 #[RunTestsInSeparateProcesses]
 class ChannelAccessMatrixTest extends TestCase
 {
     use RetrievesAuthorizedUsers;
 
-    /** BCrypt for "too-obscure", the same hash `normalUser()` carries. */
+    /** BCrypt de "too-obscure", o mesmo hash que o `normalUser()` traz. */
     private const PASSWORD_HASH = '$2y$10$LO59tiT7uggl6Oe23o/O6.utnF6ipngYjvMvaxo1TciKqBttDNKim';
 
     private const ADMIN = 1;
@@ -65,17 +60,16 @@ class ChannelAccessMatrixTest extends TestCase
                 $this->normalUser(),
                 $this->user(self::ACCESS, 'accessor'),
                 $this->user(self::MODERATOR, 'moderator'),
-                // The two ends of the direct channel. Nobody in the matrix is one
-                // of them, which is the point: a DM is not reachable by permission.
+                // As duas pontas do canal direto. Ninguém da matriz é uma delas, e esse é o
+                // ponto: DM não se alcança por permissão.
                 $this->user(5, 'dmalice'),
                 $this->user(6, 'dmbob'),
             ],
             'groups' => [
                 ['id' => 100, 'name_singular' => 'Accessor', 'name_plural' => 'Accessors'],
                 ['id' => 101, 'name_singular' => 'Chatmod', 'name_plural' => 'Chatmods'],
-                // Holds the restricted tag. Deliberately empty: the restricted
-                // column has to be unreachable for every actor in the grid but the
-                // administrator.
+                // Tem a tag restrita. Vazio de propósito: a coluna restrita precisa ficar
+                // inalcançável para todo ator da grade menos o admin.
                 ['id' => 102, 'name_singular' => 'Tagholder', 'name_plural' => 'Tagholders'],
             ],
             'group_user' => [
@@ -87,8 +81,8 @@ class ChannelAccessMatrixTest extends TestCase
                 ['group_id' => Group::MEMBER_ID, 'permission' => 'ramon-chat.use'],
                 ['group_id' => 100, 'permission' => 'ramon-chat.accessPrivateChannels'],
                 ['group_id' => 101, 'permission' => 'ramon-chat.moderate'],
-                // Hidden joins are their own right; the moderator here holds it
-                // too, as the upgrade migration seeds it for moderating groups.
+                // Entrar oculto é um direito próprio; o moderador aqui também o tem, como a
+                // migration de upgrade dá aos grupos de moderação.
                 ['group_id' => 101, 'permission' => 'ramon-chat.inspectChannels'],
                 ['group_id' => 102, 'permission' => 'tag2.viewForum'],
             ],
@@ -106,19 +100,16 @@ class ChannelAccessMatrixTest extends TestCase
                 $this->membership(self::CH_DIRECT, 5),
                 $this->membership(self::CH_DIRECT, 6),
             ],
-            // One message per channel, so the read probes below are asking about
-            // content that exists. An empty channel would answer "[]" for the
-            // right and the wrong reason alike — which is the failure mode a
-            // visibility test is most likely to have.
+            // Uma mensagem por canal, para as leituras abaixo perguntarem por conteúdo
+            // que existe. Canal vazio responderia "[]" pelo motivo certo e pelo errado.
             'chat_messages' => [
                 $this->message(10, self::CH_PUBLIC),
                 $this->message(20, self::CH_PRIVATE),
                 $this->message(30, self::CH_RESTRICTED),
                 $this->message(40, self::CH_DIRECT),
             ],
-            // Same reasoning for every other surface that can carry a channel's
-            // contents out: a thread, a pin and a moderation flag each exist in
-            // all four channels.
+            // Pelo mesmo motivo, tópico, pin e denúncia existem nos quatro canais: cada
+            // um é outra saída para o conteúdo.
             'chat_threads' => [
                 $this->thread(11, self::CH_PUBLIC, 10),
                 $this->thread(21, self::CH_PRIVATE, 20),
@@ -133,16 +124,15 @@ class ChannelAccessMatrixTest extends TestCase
             ],
         ]);
 
-        // Pinning all four keeps the pinned filter asking the same question the
-        // plain listing does. `pinned_at` alone decides it — there is no boolean
-        // column, and `pinned_by_id` is only attribution.
+        // Fixar os quatro faz o filtro de fixadas perguntar o mesmo que a listagem.
+        // Só `pinned_at` decide; `pinned_by_id` é só atribuição.
         $this->database()->table('chat_messages')->update([
             'pinned_at'    => Carbon::now()->toDateTimeString(),
             'pinned_by_id' => 6,
         ]);
     }
 
-    // ── Fixture builders ────────────────────────────────────────────────────
+    // ── Montagem da fixture ──
 
     /** @return array<string, mixed> */
     private function user(int $id, string $username): array
@@ -196,9 +186,9 @@ class ChannelAccessMatrixTest extends TestCase
             'channel_id' => $channelId,
             'user_id'    => 5,
             'type'       => 'text',
-            // Valid TextFormatter XML: `content` is serialised through the same
-            // unparse/render pipeline a real message goes through, and plain text
-            // makes the renderer throw rather than the endpoint answer.
+            // XML válido do TextFormatter: `content` passa pelo mesmo unparse/render de
+            // uma mensagem real, e texto puro faz o renderer lançar exceção em vez de o
+            // endpoint responder.
             'content'    => '<t><p>secret of channel '.$channelId.'</p></t>',
             'number'     => 1,
             'created_at' => Carbon::now()->toDateTimeString(),
@@ -246,7 +236,7 @@ class ChannelAccessMatrixTest extends TestCase
         ];
     }
 
-    // ── The four doors ──────────────────────────────────────────────────────
+    // ── As quatro portas ──
 
     /** @return int[] */
     private function listed(int $as): array
@@ -291,7 +281,7 @@ class ChannelAccessMatrixTest extends TestCase
     }
 
     /**
-     * @return array<int, string> actor id => label, for assertion messages
+     * @return array<int, string> id do ator => rótulo, para as mensagens de asserção
      */
     private static function actors(): array
     {
@@ -303,13 +293,12 @@ class ChannelAccessMatrixTest extends TestCase
         ];
     }
 
-    // ── Direction 1: what the listing shows ─────────────────────────────────
+    // ── 1: o que a listagem mostra ──
 
     public function test_listing_is_scoped_per_actor(): void
     {
-        // A direct channel appears for nobody here: not for the moderator, not
-        // for the administrator. Membership is the only key, which is what makes
-        // a DM a DM.
+        // Canal direto não aparece para ninguém aqui, nem moderador nem admin: a
+        // membership é a única chave.
         $this->assertSame([self::CH_PUBLIC], $this->listed(self::PLAIN), 'plain member');
         $this->assertSame([self::CH_PUBLIC, self::CH_PRIVATE], $this->listed(self::ACCESS), 'accessPrivateChannels');
         $this->assertSame([self::CH_PUBLIC, self::CH_PRIVATE], $this->listed(self::MODERATOR), 'moderator');
@@ -320,7 +309,7 @@ class ChannelAccessMatrixTest extends TestCase
         );
     }
 
-    // ── Direction 2: fetching one directly ──────────────────────────────────
+    // ── 2: buscar um diretamente ──
 
     public function test_show_agrees_with_the_listing(): void
     {
@@ -342,21 +331,17 @@ class ChannelAccessMatrixTest extends TestCase
         }
     }
 
-    // ── Direction 3: letting yourself in ────────────────────────────────────
+    // ── 3: entrar por conta própria ──
 
     public function test_join_matches_what_can_be_seen(): void
     {
-        // 200 grants; 404 is the refusal for a channel the actor cannot see.
+        // 200 deixa; 404 é a recusa para canal que o ator não vê. 404 e não 403 de
+        // propósito: a rota de entrada é model-scoped, então o canal passa pelo mesmo
+        // escopo da listagem e simplesmente não existe. Um 403 confirmaria que há um
+        // canal privado com aquele id.
         //
-        // 404 rather than 403, and deliberately: the join route is model-scoped, so
-        // the channel is resolved through the same visibility scope the listing
-        // uses and is simply not there. A 403 would confirm that a private channel
-        // by that id exists, which is the one thing hiding it was for.
-        //
-        // Note what the grid has none of: a cell that is visible and refused.
-        // Seeing a channel and being able to enter it are now the same answer, so
-        // there is no state where a member watches a room they cannot join. The
-        // structural refusals are asserted separately below.
+        // Não há célula visível e recusada: ver um canal e poder entrar são a mesma
+        // resposta. As recusas estruturais são conferidas à parte abaixo.
         $expected = [
             self::PLAIN     => [self::CH_PUBLIC => 200, self::CH_PRIVATE => 404, self::CH_RESTRICTED => 404, self::CH_DIRECT => 404],
             self::ACCESS    => [self::CH_PUBLIC => 200, self::CH_PRIVATE => 200, self::CH_RESTRICTED => 404, self::CH_DIRECT => 404],
@@ -377,28 +362,24 @@ class ChannelAccessMatrixTest extends TestCase
 
     public function test_a_direct_channel_cannot_be_joined_even_by_a_participant(): void
     {
-        // The one refusal that is not about visibility. User 5 is in the direct
-        // channel and can see it, so the model resolves and the policy is actually
-        // consulted — and answers no, because a two-person conversation is entered
-        // by invitation, never by self-service. This is the cell the grid above
-        // cannot contain: visible, and still refused.
+        // A única recusa que não é de visibilidade: o usuário 5 está no canal direto
+        // e o vê, então a policy é consultada e diz não, porque conversa a dois se
+        // entra por convite, nunca por conta própria. Visível e mesmo assim recusado.
         $this->assertSame(403, $this->joinStatus(5, self::CH_DIRECT));
     }
 
-    // ── Direction 4: speaking, once in ──────────────────────────────────────
+    // ── 4: falar, depois de entrar ──
 
     public function test_posting_requires_the_join_and_follows_it(): void
     {
-        // Each cell is asked twice: before joining and after. Writing needs
-        // membership even where reading does not, so the first answer is never a
-        // success — and wherever the join is refused, the second answer has to
-        // stay refused, or a channel nobody may enter is one anybody may talk in.
+        // Cada célula é perguntada duas vezes, antes e depois de entrar. Escrever exige
+        // membership mesmo onde ler não exige, então a primeira resposta nunca é
+        // sucesso; onde a entrada é recusada, a segunda continua recusada.
         //
-        // Two refusal codes, because the channel id arrives in the body rather
-        // than the path: an invisible channel fails MessageResource::findChannel
-        // as a 422 on `channelId`, and a visible one the actor has not joined
-        // fails the policy as a 403. Neither distinguishes "no such channel" from
-        // "not for you" in its message.
+        // Dois códigos de recusa porque o id do canal vem no corpo, não no path: canal
+        // invisível falha em MessageResource::findChannel com 422 em `channelId`, e um
+        // visível sem membership falha na policy com 403. Nenhum distingue "não existe"
+        // de "não é para você" na mensagem.
         $before = [
             self::PLAIN     => [self::CH_PUBLIC => 403, self::CH_PRIVATE => 422, self::CH_RESTRICTED => 422, self::CH_DIRECT => 422],
             self::ACCESS    => [self::CH_PUBLIC => 403, self::CH_PRIVATE => 403, self::CH_RESTRICTED => 422, self::CH_DIRECT => 422],
@@ -427,18 +408,17 @@ class ChannelAccessMatrixTest extends TestCase
         }
     }
 
-    // ── Direction 5: reading what is inside ─────────────────────────────────
+    // ── 5: ler o que tem dentro ──
 
     /**
-     * The direction that actually carries content, and the one a permission gate
-     * on the channel alone would miss: a client does not have to go through
-     * `/chat-channels` to reach a message. It can filter the message index by
-     * channel id, or ask for a message by its own id, and both have to answer the
-     * same way the channel would.
+     * A direção que leva conteúdo, e a que um gate só no canal perderia: o cliente
+     * não precisa passar por `/chat-channels` para chegar a uma mensagem. Pode
+     * filtrar o índice por id de canal ou pedir a mensagem pelo id, e os dois
+     * precisam responder como o canal responderia.
      */
     public function test_messages_are_unreachable_wherever_the_channel_is(): void
     {
-        // Message ids are the channel id × 10 — see the fixture.
+        // Os ids de mensagem são o id do canal × 10 (ver a fixture).
         $expected = [
             self::PLAIN     => [self::CH_PUBLIC],
             self::ACCESS    => [self::CH_PUBLIC, self::CH_PRIVATE],
@@ -452,15 +432,15 @@ class ChannelAccessMatrixTest extends TestCase
             foreach ([self::CH_PUBLIC, self::CH_PRIVATE, self::CH_RESTRICTED, self::CH_DIRECT] as $channel) {
                 $allowed = in_array($channel, $readable, true);
 
-                // Filtering the index by a channel the actor cannot see must come
-                // back empty rather than with its contents.
+                // Filtrar o índice por um canal que o ator não vê volta vazio, não com o
+                // conteúdo.
                 $this->assertSame(
                     $allowed ? ['secret of channel '.$channel] : [],
                     $this->messageContentsIn($actor, $channel),
                     sprintf('LIST messages of channel %d as %s', $channel, $label)
                 );
 
-                // And the message cannot be fetched around the filter by its id.
+                // E a mensagem não pode ser buscada pelo id contornando o filtro.
                 $this->assertSame(
                     $allowed ? 200 : 404,
                     $this->showMessageStatus($actor, $channel * 10),
@@ -472,8 +452,8 @@ class ChannelAccessMatrixTest extends TestCase
 
     public function test_search_does_not_reach_across_the_scope(): void
     {
-        // Full-text search is its own path into the same rows, and the word being
-        // searched for appears in every channel's message.
+        // A busca full-text é outro caminho para as mesmas linhas, e a palavra
+        // buscada aparece na mensagem de todo canal.
         $this->assertSame(
             ['secret of channel '.self::CH_PUBLIC],
             $this->searchContents(self::PLAIN, 'secret'),
@@ -490,11 +470,10 @@ class ChannelAccessMatrixTest extends TestCase
     /** @return string[] */
     private function messageContentsIn(int $as, int $channel): array
     {
-        // `withQueryParams`, not a query string on the path. The harness builds the
-        // request as `new ServerRequest([], [], $path, $method)` and never parses
-        // the URI's query — Diactoros does not do it implicitly — so a filter
-        // written into the path is silently dropped and the endpoint answers
-        // unfiltered. Which looks exactly like a scope leak in the assertion.
+        // `withQueryParams`, não query string no path: o harness monta a requisição
+        // com `new ServerRequest([], [], $path, $method)` e não lê a query da URI
+        // (o Diactoros não faz isso sozinho). Um filtro no path seria descartado e o
+        // endpoint responderia sem filtro, o que pareceria um vazamento de escopo.
         $response = $this->send(
             $this->request('GET', '/api/chat-messages', ['authenticatedAs' => $as])
                 ->withQueryParams(['filter' => ['channel' => (string) $channel]])
@@ -539,13 +518,12 @@ class ChannelAccessMatrixTest extends TestCase
         )->getStatusCode();
     }
 
-    // ── Direction 6: the other four ways contents leave a channel ───────────
+    // ── 6: as outras saídas de conteúdo de um canal ──
 
     /**
-     * Threads carry a channel's titles and its reply structure, and they have
-     * their own resource, their own filter and their own visibility scope. A
-     * channel gate that only covered messages would let the shape of a private
-     * conversation out through here.
+     * Tópicos levam os títulos e a estrutura de respostas de um canal, com
+     * resource, filtro e escopo próprios. Um gate que cobrisse só mensagens
+     * deixaria a forma de uma conversa privada sair por aqui.
      */
     public function test_threads_are_unreachable_wherever_the_channel_is(): void
     {
@@ -559,8 +537,8 @@ class ChannelAccessMatrixTest extends TestCase
         foreach ($expected as $actor => $readable) {
             $label = self::actors()[$actor];
 
-            // The unfiltered index is the broader question: everything this actor
-            // can reach at all, with no channel named.
+            // O índice sem filtro é a pergunta mais ampla: tudo que o ator alcança, sem
+            // canal nomeado.
             $this->assertSame(
                 array_map(static fn (int $c) => 'thread of channel '.$c, $readable),
                 $this->threadTitles($actor, null),
@@ -576,7 +554,7 @@ class ChannelAccessMatrixTest extends TestCase
                     sprintf('LIST threads of channel %d as %s', $channel, $label)
                 );
 
-                // Thread ids are channel × 10 + 1 — see the fixture.
+                // Os ids de tópico são canal × 10 + 1 (ver a fixture).
                 $this->assertSame(
                     $allowed ? 200 : 404,
                     $this->send(
@@ -589,8 +567,8 @@ class ChannelAccessMatrixTest extends TestCase
     }
 
     /**
-     * The pinned panel is a second listing of the same rows under a different
-     * filter, so it is a second chance to forget the scope.
+     * O painel de fixadas é uma segunda listagem das mesmas linhas com outro
+     * filtro, então é uma segunda chance de esquecer o escopo.
      */
     public function test_the_pinned_filter_does_not_widen_the_scope(): void
     {
@@ -621,18 +599,16 @@ class ChannelAccessMatrixTest extends TestCase
     }
 
     /**
-     * The moderation queue is the one surface gated by a permission of its own,
-     * and the interesting question is whether that permission also widens what it
-     * shows. It must not: a flag exposes the message it is about, so the queue has
-     * to stay inside the channels the moderator could already read.
+     * A fila de moderação tem permissão própria, que não pode ampliar o que mostra:
+     * a denúncia expõe a mensagem, então a fila fica dentro dos canais que o
+     * moderador já lê.
      */
     public function test_the_flag_queue_is_moderator_only_and_still_channel_scoped(): void
     {
-        // Refused at the endpoint rather than scoped to an empty list: the Index
-        // is gated by `can('ramon-chat.moderate')` before the query is built, so a
-        // member without it is told no instead of being handed nothing. Holding
-        // `accessPrivateChannels` changes neither answer — reading a private
-        // channel is not moderating it.
+        // Recusado no endpoint em vez de lista vazia: o Index checa
+        // `can('ramon-chat.moderate')` antes de montar a query. Ter
+        // `accessPrivateChannels` não muda nenhuma resposta: ler um canal privado não
+        // é moderá-lo.
         foreach ([self::PLAIN, self::ACCESS] as $actor) {
             $this->assertSame(
                 403,
@@ -642,9 +618,8 @@ class ChannelAccessMatrixTest extends TestCase
             );
         }
 
-        // A moderator sees the flags of the channels they can read — public and
-        // private — and not the one on the tag-restricted channel, which their
-        // chat permission does not open.
+        // O moderador vê as denúncias dos canais que lê (público e privado), não a do
+        // canal restrito por tag, que a permissão de chat não abre.
         $this->assertSame(
             ['flag detail of message 10', 'flag detail of message 20'],
             $this->flagDetails(self::MODERATOR)
@@ -657,13 +632,13 @@ class ChannelAccessMatrixTest extends TestCase
     }
 
     /**
-     * The member list. Not content, but the answer to "who is in that room", which
-     * for a private channel is exactly what being private withholds.
+     * A lista de membros. Não é conteúdo, mas responde "quem está naquela sala",
+     * justamente o que um canal privado esconde.
      */
     public function test_the_participant_list_follows_the_channel(): void
     {
-        // Asked about the direct channel, whose participants are the only ones
-        // this fixture has. Everyone in the matrix is outside it.
+        // Pergunta sobre o canal direto, cujos participantes são os únicos da
+        // fixture. Todos da matriz estão fora.
         foreach (self::actors() as $actor => $label) {
             $response = $this->send(
                 $this->request('GET', '/api/chat-channels/'.self::CH_DIRECT, ['authenticatedAs' => $actor])
@@ -673,8 +648,8 @@ class ChannelAccessMatrixTest extends TestCase
             $this->assertSame(404, $response->getStatusCode(), sprintf('participants of a DM as %s', $label));
         }
 
-        // And from inside it, the same request works — otherwise the assertion
-        // above would pass on a broken endpoint rather than on a closed door.
+        // E de dentro a mesma requisição funciona, senão a asserção acima passaria
+        // num endpoint quebrado em vez de numa porta fechada.
         $response = $this->send(
             $this->request('GET', '/api/chat-channels/'.self::CH_DIRECT, ['authenticatedAs' => 5])
                 ->withQueryParams(['include' => 'participants'])
@@ -735,7 +710,7 @@ class ChannelAccessMatrixTest extends TestCase
         return $details;
     }
 
-    // ── The side effects the grid produces ──────────────────────────────────
+    // ── Efeitos colaterais da grade ──
 
     public function test_a_join_is_announced_in_the_channel(): void
     {
@@ -766,9 +741,8 @@ class ChannelAccessMatrixTest extends TestCase
 
         $this->assertSame(204, $leave->getStatusCode(), (string) $leave->getBody());
 
-        // The regression this guards: announcing the exit of someone whose arrival
-        // was never announced tells the room, after the fact, that they had been
-        // in it — which is the one thing a hidden join exists to prevent.
+        // Anunciar a saída de quem entrou sem anúncio contaria à sala, depois do fato,
+        // que a pessoa esteve lá, justamente o que a entrada oculta evita.
         $this->assertSame([], $this->systemKeysIn(self::CH_PUBLIC), 'and neither does its ending');
     }
 
@@ -800,9 +774,8 @@ class ChannelAccessMatrixTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode(), (string) $response->getBody());
 
-        // Nothing yet: an invitation is a question, and the room only hears the
-        // answer. Narrating the question would announce an arrival that may
-        // never happen.
+        // Nada ainda: convite é uma pergunta, e a sala só ouve a resposta. Narrar a
+        // pergunta anunciaria uma chegada que pode não acontecer.
         $this->assertSame([], $this->systemKeysIn(self::CH_PUBLIC));
 
         $accept = $this->send(
@@ -813,12 +786,12 @@ class ChannelAccessMatrixTest extends TestCase
 
         $this->assertSame(200, $accept->getStatusCode(), (string) $accept->getBody());
 
-        // Not `user_joined`: the membership arrives as the answer to somebody
-        // else's invitation, and narrating it as a plain arrival leaves the
-        // room unable to tell an invitation from a walk-in.
+        // Não `user_joined`: a membership chega como resposta ao convite de outra
+        // pessoa, e narrá-la como chegada comum não deixaria a sala distinguir convite
+        // de entrada espontânea.
         $this->assertSame(['user_accepted_invite'], $this->systemKeysIn(self::CH_PUBLIC));
 
-        // Both names, because the sentence needs both.
+        // Os dois nomes, porque a frase precisa dos dois.
         $this->assertSame(
             ['actor' => 'moderator', 'username' => 'normal'],
             $this->systemDataIn(self::CH_PUBLIC)
@@ -837,10 +810,10 @@ class ChannelAccessMatrixTest extends TestCase
     }
 
     /**
-     * The interpolation data of the single system row in a channel.
+     * Os dados de interpolação da única linha de sistema de um canal.
      *
-     * Sorted by key so the assertion states what has to be there rather than the
-     * order it happens to be written in.
+     * Ordenados por chave para a asserção dizer o que precisa estar lá, não a ordem
+     * em que foi gravado.
      *
      * @return array<string, string>
      */

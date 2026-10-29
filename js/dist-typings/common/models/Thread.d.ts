@@ -1,10 +1,8 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Channel from "./Channel";
-import type Message from "./Message";
-/**
- * Per-thread tracking level. Mirrors Ramon\Chat\ThreadUser.
- */
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Channel from './Channel';
+import type Message from './Message';
+/** Espelha Ramon\Chat\ThreadUser. */
 export declare const enum ThreadTracking {
     Never = 0,
     Mentions = 1,
@@ -32,10 +30,7 @@ export default class Thread extends Model {
     lastMessage: () => false | Message | null;
     isOpen(): boolean;
     hasUnread(): boolean;
-    /**
-     * Falls back to an excerpt of the root message when the thread has no title,
-     * which is how an untitled thread stays identifiable in "My Threads".
-     */
+    /** Sem título, usa um trecho da mensagem raiz. */
     displayTitle(excerptLength?: number): string;
     apiEndpoint(): string;
 }

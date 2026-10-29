@@ -1,42 +1,31 @@
-import app from "flarum/forum/app";
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import app from 'flarum/forum/app';
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 
-import {
-  channelIdOf,
-  channelNameOf,
-  fromName,
-  openChannelFromNotification,
-} from "./ModeratorPromotedNotification";
+import { channelIdOf, channelNameOf, fromName, openChannelFromNotification } from './ModeratorPromotedNotification';
 
 /**
- * "X left #channel, so you are now its owner."
+ * "X saiu de #canal e agora você é o dono."
  *
- * Sent to the oldest moderator when a channel's owner leaves and it passes to
- * them (Service\OwnershipSuccession). Nobody asked them, so they need telling:
- * the room's settings, members and its fate are theirs now.
+ * Vai para o moderador mais antigo quando o dono sai (Service\OwnershipSuccession).
+ * Ninguém perguntou a ele, então precisa ser avisado.
  */
 export default class OwnershipInheritedNotification extends Notification {
   icon(): string {
-    return "fas fa-crown";
+    return 'fas fa-crown';
   }
 
   href(): string {
     const channelId = channelIdOf(this);
 
-    return channelId
-      ? app.route("chat.channel", { id: channelId })
-      : app.route("chat.index");
+    return channelId ? app.route('chat.channel', { id: channelId }) : app.route('chat.index');
   }
 
   content(): Mithril.Children {
-    return app.translator.trans(
-      "ramon-chat.forum.notifications.ownership_inherited",
-      {
-        username: fromName(this),
-        channel: channelNameOf(this),
-      },
-    );
+    return app.translator.trans('ramon-chat.forum.notifications.ownership_inherited', {
+      username: fromName(this),
+      channel: channelNameOf(this),
+    });
   }
 
   excerpt(): Mithril.Children {

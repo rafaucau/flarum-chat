@@ -1,10 +1,10 @@
-import Model from "flarum/common/Model";
-import type User from "flarum/common/models/User";
-import type Channel from "./Channel";
+import Model from 'flarum/common/Model';
+import type User from 'flarum/common/models/User';
+import type Channel from './Channel';
 export default class Webhook extends Model {
     name: () => string;
     description: () => string | null;
-    /** Overrides for how a delivered message is attributed in the stream. */
+    /** Sobrescrevem como a mensagem entregue é atribuída no stream. */
     username: () => string | null;
     emoji: () => string | null;
     active: () => boolean;
@@ -13,12 +13,12 @@ export default class Webhook extends Model {
     lastDeliveredAt: () => Date | null | undefined;
     createdAt: () => Date | null | undefined;
     /**
-     * Populated only in the response that minted it — on create and on rotate. Every
-     * other response returns null, so a key cannot be read back out of a listing.
+     * Só vem preenchida no create e no rotate; nas demais respostas é null, para
+     * a chave não poder ser lida de uma listagem.
      */
     key: () => string | null;
     url: () => string | null;
-    /** The admin account deliveries post as; null posts as the bot. */
+    /** Conta de admin que assina as entregas; null usa o bot. */
     userId: () => number | null;
     channel: () => false | Channel | null;
     creator: () => false | User | null;

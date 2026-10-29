@@ -28,18 +28,10 @@ use Ramon\Chat\Service\MembershipManager;
 use Throwable;
 
 /**
- * The invitee accepts and joins the channel.
- *
- * A route of its own, not the resource's `join` endpoint, because a private
- * channel is not visible to someone who is not yet a member: the endpoint
- * would never find the model. Here the authorization is the invite itself,
- * plus a check that the channel would be accessible to the invitee were it
- * not private (InvitationManager::mayEnter), so an invite cannot bypass the
- * category permission.
- *
- * Responds with the channel already serialized by ChannelResource, now that
- * the membership exists and it is visible: the client puts it in the sidebar
- * and draws the message box without a second request.
+ * O convidado aceita e entra no canal. Rota própria porque o canal privado não é
+ * visível a quem ainda não é membro, e o endpoint `join` nunca acharia o model.
+ * A autorização é o convite mais InvitationManager::mayEnter, para o convite não
+ * furar a permissão da categoria. Responde com o canal já serializado.
  */
 class AcceptInviteController implements RequestHandlerInterface
 {
@@ -75,7 +67,12 @@ class AcceptInviteController implements RequestHandlerInterface
             throw new PermissionDeniedException();
         }
 
-        $this->invitations->accept($channel, $actor);
+        // Outro aceite em paralelo já usou o convite: a entrada é dele, e
+        // anunciar de novo gravaria a linha "entrou" duas vezes.
+        if ($this->invitations->accept($channel, $actor) === null) {
+            return new JsonResponse($this->serialize($request, $channel));
+        }
+
         $this->memberships->join($channel, $actor);
 
         $this->events->dispatch(new UserJoinedChannel(

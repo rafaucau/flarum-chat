@@ -18,13 +18,12 @@ use Ramon\Chat\MessageReaction;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * The limits on everything a member can do to a message other than send it.
+ * Os limites de tudo o que um membro faz com uma mensagem além de enviá-la.
  *
- * Each of these paths skipped a rule the send path enforces: an edit was not
- * held to the length cap and stayed open to someone who had left the channel;
- * reactions accepted any shortcode-shaped string without bound or throttle; a
- * bookmark name past its column was a 500; a draft had no length at all; and the
- * webhook lookup treated `%` and `_` in the URL as wildcards.
+ * Cada caminho segue as regras do envio: edição respeita o teto de tamanho e
+ * fecha para quem saiu do canal; reações aceitam só shortcodes válidos, com
+ * limite e throttle; nome de favorito e rascunho têm tamanho máximo (sem 500); e
+ * a busca do webhook não trata `%` e `_` da URL como curingas.
  */
 class SideActionLimitsTest extends TestCase
 {
@@ -35,7 +34,7 @@ class SideActionLimitsTest extends TestCase
     private const AUTHOR = 3;
     private const LEAVER = 4;
 
-    /** Built rather than written out, so secret scanners do not read a fixture as a credential. */
+    /** Montado em partes para scanners de segredo não lerem a fixture como credencial. */
     private const WEBHOOK_KEY = 'test'.'webhook'.'key'.'0000000000000000000000000000000000';
 
     protected function setUp(): void
@@ -74,8 +73,8 @@ class SideActionLimitsTest extends TestCase
     }
 
     /**
-     * Throttle counters live in the cache, which outlives a test; every test
-     * starts from an empty one.
+     * Os contadores de throttle moram no cache, que sobrevive ao teste; cada teste
+     * começa com ele vazio.
      */
     private function boot(): void
     {
@@ -129,7 +128,7 @@ class SideActionLimitsTest extends TestCase
         $this->assertSame(422, $this->post('/api/chat-messages/1/react', ['emoji' => 'one_too_many']));
         $this->assertSame(10, MessageReaction::query()->where('message_id', 1)->count());
 
-        // Taking one back is never refused.
+        // Desfazer uma reação nunca é recusado.
         $this->assertSame(200, $this->post('/api/chat-messages/1/react', ['emoji' => 'e0']));
     }
 
@@ -139,8 +138,8 @@ class SideActionLimitsTest extends TestCase
 
         $statuses = [];
 
-        // More than two windows' worth, so a window boundary falling inside the
-        // loop cannot hide the limit.
+        // Mais que duas janelas, para uma virada de janela no meio do loop não
+        // esconder o limite.
         for ($i = 0; $i < 40; $i++) {
             $statuses[] = $this->post('/api/chat-messages/1/react', ['emoji' => 'heart']);
         }
@@ -169,7 +168,7 @@ class SideActionLimitsTest extends TestCase
     {
         $this->boot();
 
-        // Would match the stored key under an unescaped LIKE on its prefix.
+        // Casariam com a chave gravada num LIKE sem escape sobre o prefixo.
         foreach (['abcdefg%xxxxxxxxxxxxx', 'abcdefg_xxxxxxxxxxxxx', '%%%%%%%%%%%%%%%%'] as $key) {
             $this->assertSame(403, $this->post('/api/chat/hooks/'.rawurlencode($key), ['text' => 'hi'], null));
         }

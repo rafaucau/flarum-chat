@@ -23,9 +23,8 @@ use Ramon\Chat\Tests\integration\FlushesCache;
 use Ramon\Chat\Tests\integration\ResetsVisibilityScopers;
 
 /**
- * Channel ranks: who manages them, what is accepted, who can receive them,
- * which one shows next to the name, and how much it costs to serve them on a
- * page.
+ * Ranks de canal: quem gerencia, o que é aceito, quem pode recebê-los, qual
+ * aparece ao lado do nome e quanto custa servi-los numa página.
  */
 class ChannelRanksTest extends TestCase
 {
@@ -44,7 +43,7 @@ class ChannelRanksTest extends TestCase
     private const HIDDEN = 8;
     private const GONE = 9;
 
-    /** Authors 20.. post into the busy channel for the query count. */
+    /** Os autores a partir de 20 postam no canal movimentado para a contagem de queries. */
     private const FIRST_AUTHOR = 20;
 
     private const CHANNEL = 1;
@@ -233,6 +232,12 @@ class ChannelRanksTest extends TestCase
             'icon not fa'         => [['name' => 'A', 'color' => '#123456', 'icon' => 'glyphicon glyphicon-star'], 'icon'],
             'icon two classes'    => [['name' => 'A', 'color' => '#123456', 'icon' => 'fas fa-star fa-spin'], 'icon'],
             'show badge string'   => [['name' => 'A', 'color' => '#123456', 'showBadge' => 'yes'], 'showBadge'],
+            // Cargos não se passam pela equipe do fórum.
+            'staff word'          => [['name' => 'Administrator', 'color' => '#123456'], 'name'],
+            'staff word inside'   => [['name' => 'Admin do Fórum', 'color' => '#123456'], 'name'],
+            'staff word accented' => [['name' => 'MODERADORA', 'color' => '#123456'], 'name'],
+            'forum group name'    => [['name' => 'mods', 'color' => '#123456'], 'name'],
+            'forum group plural'  => [['name' => 'Moderators', 'color' => '#123456'], 'name'],
         ];
     }
 
@@ -249,6 +254,13 @@ class ChannelRanksTest extends TestCase
         $this->assertSame(422, $response->getStatusCode(), (string) $response->getBody());
         $this->assertSame('/data/attributes/'.$field, json_decode((string) $response->getBody(), true)['errors'][0]['source']['pointer']);
         $this->assertSame(0, $this->database()->table('chat_channel_ranks')->count());
+    }
+
+    public function test_an_ordinary_name_that_only_contains_a_staff_word_is_accepted(): void
+    {
+        $this->seed();
+
+        $this->assertSame(200, $this->rank(self::OWNER, '', ['name' => 'Modo turbo', 'color' => '#123456'])->getStatusCode());
     }
 
     public function test_a_name_of_exactly_thirty_two_characters_is_accepted_however_wide(): void
@@ -543,7 +555,7 @@ class ChannelRanksTest extends TestCase
     }
 
     /**
-     * Author id => the rank their messages carry.
+     * Id do autor => o rank que as mensagens dele levam.
      *
      * @return array<int, array<string, mixed>|null>
      */

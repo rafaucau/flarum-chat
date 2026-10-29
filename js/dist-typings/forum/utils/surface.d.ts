@@ -1,20 +1,13 @@
 /**
- * The width below which the chat has no room for two panes side by side.
- *
- * 767 is `@chat-mobile-breakpoint`, which is core's `@phone` bound. Kept here
- * rather than repeated as a literal at each call site: the number appeared in
- * three files and in the stylesheet, and a breakpoint that only *mostly* agrees
- * with itself produces layouts nobody can reproduce.
+ * Largura abaixo da qual não cabem dois painéis lado a lado. 767 é
+ * `@chat-mobile-breakpoint`, o limite `@phone` do core; centralizado aqui para o
+ * JS e o LESS não divergirem.
  */
 export declare const CHAT_MOBILE_BREAKPOINT = 767;
-/** Whether the viewport is narrow enough for the chat's single-pane layout. */
+/** Viewport estreito o bastante para o layout de um painel só. */
 export declare function isNarrowViewport(): boolean;
 /**
- * Where the chat should open: its own drawer, or the full-screen page.
- *
- * Four call sites asked this independently — the header button, the invite
- * notification, "start a chat" on a profile, and the drawer itself — and had
- * drifted into three different answers. One of them is now core's, so the drift
- * had started to matter rather than just being untidy.
+ * Onde o chat abre: na gaveta ou na página cheia. Resposta única para o botão do
+ * header, a notificação de convite, o "iniciar chat" do perfil e a própria gaveta.
  */
 export declare function shouldUseChatDrawer(): boolean;

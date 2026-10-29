@@ -1,19 +1,9 @@
-// ── Browse channels ──────────────────────────────────────────────────────────
-// The "Browse channels" page: a toolbar (filters + search) over a grid of
-// channel cards. Its own file because it is a page of its own, with its own
-// palette below; the rest of the chat never reads these tokens.
+// ── Browse de canais ──
+// Barra de filtros e busca sobre uma grade de cards. Paleta própria, que o resto
+// do chat não lê, em três camadas que nunca se confundem: página, card e controle.
 //
-// Three layers, each one step apart from the next so they never blend:
-//
-//   page    the forum's own body background
-//   card    a raised surface with a real border, lifted further on hover
-//   control a bordered field or button inside a card, with a hover that is a
-//           different colour from both the card and the page
-//
-// The palette is local rather than built from `--avocado-muted-label` and
-// `--control-bg`. The former is #a0a0a8 on white (2.6:1, below AA for text), and
-// the latter is the same light grey as the cards, which is how the buttons on
-// this page ended up with a hover indistinguishable from their background.
+// Local em vez de `--avocado-muted-label` e `--control-bg`: o primeiro dá 2.6:1 no
+// branco (abaixo do AA para texto) e o segundo é o mesmo cinza dos cards.
 .ChatBrowse {
   --browse-text:                 var(--avocado-text-dark);
   --browse-muted:                #5c5c66;
@@ -56,8 +46,8 @@
   --browse-danger:               var(--error-color, #d83e3e);
   --browse-danger-bg:            #fdeceb;
 
-  // Two rings: the inner one in the page colour keeps the outer one legible when
-  // it sits against an accent-coloured button.
+  // Dois anéis: o interno, na cor da página, mantém o externo legível sobre um
+  // botão na cor de destaque.
   --browse-focus-ring:           0 0 0 2px var(--body-bg), 0 0 0 4px var(--browse-accent);
 
   @supports (color: color-mix(in srgb, red, blue)) {
@@ -73,8 +63,7 @@
     padding: @chat-space-md 16px 40px;
   }
 
-  // Back link: navigation, not a peer of the page's primary action, so it sits
-  // above the title as a quiet pill.
+  // Navegação, não par da ação principal: pílula discreta acima do título.
   &-back {
     .chat-flex-row(@chat-space-sm);
     margin: 0 0 @chat-space-md -10px;
@@ -107,8 +96,7 @@
     }
   }
 
-  // Wraps rather than crushing the title against the create button on a narrow
-  // viewport.
+  // Quebra linha em vez de espremer o título contra o botão de criar.
   &-header {
     display: flex;
     flex-wrap: wrap;
@@ -162,8 +150,7 @@
     color: var(--browse-muted);
   }
 
-  // Filters and search share one row on desktop and stack on a phone, so the
-  // two controls that narrow the same list stay visually together.
+  // Filtros e busca dividem a linha no desktop e empilham no celular.
   &-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -174,9 +161,7 @@
     border-bottom: 1px solid var(--browse-card-border);
   }
 
-  // A segmented control: one track holding the five states. The track, the hover
-  // and the active fill are three different colours, so the resting state, the
-  // option under the pointer and the chosen option can each be told apart.
+  // Controle segmentado: trilho, hover e opção ativa têm três cores distintas.
   &-filters {
     display: flex;
     flex-wrap: wrap;
@@ -206,8 +191,8 @@
     color: var(--browse-muted);
     white-space: nowrap;
 
-    // Five options in a 358px phone track: tighter pills, so most fit and the
-    // rest are a short swipe away rather than a long one.
+    // Cinco opções num trilho de 358px no celular: pílulas mais justas, para a
+    // maioria caber.
     @media (max-width: @chat-mobile-breakpoint) {
       padding: 0 11px;
     }
@@ -226,8 +211,8 @@
       box-shadow: inset 0 0 0 2px var(--browse-accent);
     }
 
-    // `--header-color` equals `--primary-color` on a plain header, so the label
-    // takes the primary button's own text colour, never the header's.
+    // `--header-color` é igual a `--primary-color` num header simples, então o label
+    // usa a cor de texto do botão primário.
     &--active,
     &--active:hover,
     &--active:active {
@@ -259,8 +244,7 @@
       border-color: var(--browse-control-hover-border);
     }
 
-    // The whole field reacts, not just the input: the input has no border of its
-    // own, so a ring on it alone would sit inside the pill.
+    // O input não tem borda própria; o anel vai no campo inteiro.
     &:focus-within {
       border-color: var(--browse-accent);
       box-shadow: 0 0 0 3px var(--browse-accent-soft);
@@ -318,16 +302,16 @@
     }
   }
 
-  // `min(100%, …)` so a single column on a phone never asks for more than the
-  // viewport has: 300px plus two 16px gutters is wider than some phones.
+  // `min(100%, …)` para uma coluna no celular não pedir mais que a viewport:
+  // 300px mais dois gutters de 16px passa da largura de alguns aparelhos.
   &-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(~"min(100%, 300px)", 1fr));
     gap: 16px;
   }
 
-  // This page's own empty state. The bare `.ChatBrowse-empty` below is shared by
-  // every empty panel in the chat, so the page look is scoped to its child.
+  // Estado vazio desta página. O `.ChatBrowse-empty` puro abaixo é compartilhado
+  // por todo painel vazio do chat.
   > .ChatBrowse-empty {
     border: 1px dashed var(--browse-control-border);
     border-radius: 16px;
@@ -361,8 +345,8 @@
   }
 }
 
-// The chat's shared empty state: threads, pins, search, bookmarks and flags use
-// it too, so it stays on the global Avocado tokens rather than this page's.
+// Estado vazio compartilhado (threads, fixadas, busca, favoritos, denúncias):
+// fica nos tokens globais do Avocado.
 .ChatBrowse-empty {
   display: flex;
   flex-direction: column;
@@ -384,10 +368,8 @@
   }
 }
 
-// The one secondary button shape on this page: a bordered pill in the page
-// colour whose hover is a darker fill and a darker border, so it reads as a
-// change on a white card and on a dark one alike. Core paints `.Button` from
-// `--button-bg`, which on this forum is the cards' own light grey.
+// Botão secundário desta página. O `.Button` do core usa `--button-bg`, que
+// aqui é o mesmo cinza dos cards.
 .chat-browse-secondary-btn() {
   border: 1px solid var(--browse-control-border);
   border-radius: @chat-radius-pill;
@@ -413,9 +395,8 @@
   }
 }
 
-// A card is a column: head, description, footer. Raised off the page with a
-// border and a soft shadow; both deepen on hover and while anything inside has
-// keyboard focus, so the card in play is always the one that stands out.
+// Card em coluna: topo, descrição e rodapé. Borda e sombra aumentam no hover e
+// com foco dentro.
 .ChatBrowseCard {
   position: relative;
   display: flex;
@@ -434,9 +415,8 @@
     box-shadow: var(--browse-card-shadow-hover);
   }
 
-  // A closed or archived channel is still browsable but nothing is happening in
-  // it, so it sits flatter and on a sunken surface. Not faded with opacity: that
-  // took its text below AA.
+  // Canal fechado ou arquivado: mais plano e em superfície rebaixada. Sem opacity,
+  // que deixava o texto abaixo do AA.
   &--frozen {
     background: var(--browse-frozen-bg);
     box-shadow: none;
@@ -460,8 +440,8 @@
     padding-top: 1px;
   }
 
-  // The mark, a tinted circle in the accent family. The avatar stack of a
-  // direct channel keeps its own transparent form (see components.less).
+  // Círculo tingido na família do destaque. A pilha de avatares de conversa
+  // direta mantém sua forma (components.less).
   &-icon:not(.ChatChannelIcon--avatars) {
     .chat-icon-circle(44px; var(--browse-accent-soft));
     font-size: 20px;
@@ -472,8 +452,8 @@
     width: 44px;
   }
 
-  // An h2, so the cards are a navigable list of headings; the theme's heading
-  // margins and sizes are reset here.
+  // h2, para os cards serem uma lista navegável por títulos; margens e tamanhos
+  // do tema são zerados.
   &-name {
     .chat-truncate();
     margin: 0;
@@ -488,8 +468,7 @@
     flex-wrap: wrap;
     gap: 6px;
 
-    // Only when there is at least one badge: an empty row would still push the
-    // description down by its own margin.
+    // Só com pelo menos um badge: a linha vazia ainda empurraria a descrição.
     &:not(:empty) {
       margin-top: 6px;
     }
@@ -497,7 +476,7 @@
 
   &-description {
     .chat-line-clamp(2);
-    // Two lines' worth, always, so the footers in one grid row line up.
+    // Sempre duas linhas, para os rodapés de uma mesma linha da grade alinharem.
     min-height: 2.9em;
     margin: 0;
     font-size: 14px;
@@ -510,9 +489,8 @@
     }
   }
 
-  // Counts on the left, controls on the right, pushed to the bottom so the
-  // actions line up across a row of cards. When the row wraps, the whole control
-  // group drops to a second line, still right-aligned.
+  // Contadores à esquerda e controles à direita, presos embaixo para alinhar entre
+  // cards. Ao quebrar, o grupo de controles desce inteiro.
   &-footer {
     display: flex;
     align-items: center;
@@ -524,9 +502,8 @@
     border-top: 1px solid var(--browse-card-border);
   }
 
-  // The two counts stacked rather than side by side: a column is as tall as
-  // the buttons beside it, and narrow enough that the counts and up to three
-  // controls share one row in a ~300px card instead of always wrapping.
+  // Contadores empilhados: cabem ao lado de até três controles num card de ~300px
+  // sem quebrar linha.
   &-meta {
     display: flex;
     flex-direction: column;
@@ -540,7 +517,6 @@
     font-weight: 600;
     color: var(--browse-muted);
 
-    // A count never breaks inside itself.
     > span {
       .chat-flex-row(6px);
       white-space: nowrap;
@@ -552,8 +528,8 @@
     }
   }
 
-  // A chip: what the channel is (private, threads, closed) in neutral grey, and
-  // what it is to the reader (member, invited, inspecting) in its own colour.
+  // Chip: o que o canal é (privado, threads, fechado) em cinza neutro, e o que ele
+  // é para o leitor (membro, convidado, inspecionando) em cor própria.
   &-status {
     display: inline-flex;
     align-items: center;
@@ -640,7 +616,6 @@
     }
   }
 
-  // Edit, inspect and decline: round icon buttons in the secondary shape.
   &-iconButton {
     .chat-icon-circle(34px; var(--browse-control-bg));
     border: 1px solid var(--browse-control-border);
@@ -678,8 +653,8 @@
   }
 }
 
-// A card rendered as its own skeleton keeps the card chrome and animates its
-// contents, so the grid does not reflow when the real cards arrive.
+// O skeleton mantém a moldura do card e anima só o conteúdo, para a grade não
+// fazer reflow quando os cards chegam.
 .ChatBrowseCard.ChatSkeleton {
   padding: 18px;
 
@@ -699,8 +674,6 @@
   }
 }
 
-// Every hover, focus and active change on this page eases in, unless the
-// reader asked for less motion.
 .chat-motion-safe({
   .ChatBrowse-back,
   .ChatBrowse-filter,
@@ -727,9 +700,8 @@
   }
 });
 
-// Dark: the page is the darkest layer, cards one step lighter, controls a
-// translucent white that brightens on hover. The accent is lifted towards white
-// wherever it is used as text, because a dark primary on a dark card fails AA.
+// Escuro: página mais escura, cards um passo acima, controles em branco
+// translúcido. O destaque é clareado quando vira texto, por causa do AA.
 [data-theme^="dark"] .ChatBrowse {
   --browse-text:                 #ececee;
   --browse-muted:                #b0b0b8;

@@ -1,12 +1,10 @@
-import Notification from "flarum/forum/components/Notification";
-import type Mithril from "mithril";
+import Notification from 'flarum/forum/components/Notification';
+import type Mithril from 'mithril';
 /**
- * "X wants to transfer #channel to you", with the answer on the row.
+ * "X quer transferir #canal para você", com os botões de resposta na linha.
  *
- * Mirrors ChannelInviteNotification: the offer is a question, so both answers
- * are right here, in the bell and in flarum/realtime's toast alike. The row
- * leaves the bell once the offer is answered or withdrawn anywhere, and the
- * channel's members tab shows the same offer with the same two buttons.
+ * Como em ChannelInviteNotification, responde-se no sino ou no toast do
+ * flarum/realtime. A linha sai do sino quando a oferta é respondida ou retirada.
  */
 export default class OwnershipTransferNotification extends Notification {
     private answered;
@@ -17,8 +15,8 @@ export default class OwnershipTransferNotification extends Notification {
     excerpt(): Mithril.Children;
     onclick(e: MouseEvent): void;
     /**
-     * The buttons sit inside the row's link, so the event is stopped here, or a
-     * click on Decline would also open the channel.
+     * Os botões ficam dentro do link da linha; sem parar o evento, recusar também
+     * abriria o canal.
      */
     protected answer(e: MouseEvent, accept: boolean): Promise<void>;
 }

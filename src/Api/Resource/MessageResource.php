@@ -62,9 +62,8 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * Bounds on reactions, which are rows anyone who can read a message can
-     * add. Twenty kinds on one message is already more than a chip row can
-     * show; ten from one person is someone using the bar as a keyboard.
+     * Limites de reações, que qualquer leitor pode criar. Vinte tipos já passam do
+     * que a fileira de chips mostra; dez de uma pessoa é usar a barra de teclado.
      */
     protected const MAX_DISTINCT_REACTIONS = 20;
 
@@ -86,10 +85,8 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * Counts the collection only when the client reads the total: the pinned
-     * listing, which decides whether the strip offers the full list. On any
-     * other page the COUNT(*) scanned the channel's whole history on every open
-     * and every page, and nobody read it.
+     * Só conta a coleção quando o cliente lê o total (a listagem de fixadas). Nas
+     * outras páginas o COUNT(*) varreria todo o histórico do canal à toa.
      */
     public function count(object $query, OriginalContext $context): ?int
     {
@@ -106,10 +103,8 @@ class MessageResource extends AbstractDatabaseResource
     {
         return [
             Endpoint\Show::make()
-                // Authenticated again. Reading the chat is for accounts: the guest
-                // read permission this briefly supported has been withdrawn, and
-                // without the gate these endpoints would answer 200 with an empty
-                // collection to anyone, which is a slower way of saying no.
+                // Ler o chat exige conta. Sem a trava, estes endpoints responderiam
+                // 200 com coleção vazia a qualquer um.
                 ->authenticated()
                 ->defaultInclude(['user', 'user.groups', 'replyTo', 'replyTo.user', 'uploads', 'thread', 'thread.lastMessage', 'deletedBy'])
                 ->eagerLoad(['user.groups', 'reactions', 'uploads', 'mentions', 'flags', 'channel'])
@@ -117,56 +112,29 @@ class MessageResource extends AbstractDatabaseResource
 
             Endpoint\Index::make()
                 ->authenticated()
-                // Newest-first so a channel opens at the bottom with one page,
-                // then pages backwards as the user scrolls up.
+                // Mais novas primeiro: o canal abre no fim e pagina para trás.
                 ->defaultSort('-id')
-                // `thread` has to be *included*, not merely eager-loaded. eagerLoad
-                // populates the relation server-side for the serialiser's own use but
-                // does not put the record in the JSON:API `included` array, so the
-                // client's `message.thread()` stayed false and the reply indicator
-                // never rendered. It appeared only for whoever had just created the
-                // thread, because the Create response does include it — and vanished
-                // for them too on the next reload.
-                //
-                // `thread.lastMessage` comes along for the indicator's preview text.
-                //
-                // `user.groups` feeds the author's badges, the same way core's
-                // PostResource includes it for a post. Eager-loaded as well as
-                // included: without it the serialiser reads the relation once per
-                // row, which is fifty queries on a full page of messages.
+                // `thread` precisa ser *incluída*: eagerLoad não põe o registro em
+                // `included`, e o cliente lê `message.thread()` para o indicador de
+                // respostas. `thread.lastMessage` dá a prévia; `user.groups`, os
+                // badges do autor, como no PostResource do core.
                 ->defaultInclude(['user', 'user.groups', 'replyTo', 'replyTo.user', 'uploads', 'thread', 'thread.lastMessage', 'deletedBy'])
-                // `channel` because every capability flag resolves a policy that
-                // reads it, and `bookmarks` because `isBookmarked` does — both were
-                // lazy-loading once per row, which is a hundred queries on a full
-                // page before a single one of them answered anything.
-                //
-                // Bookmarks are narrowed to the actor: the field only ever asks
-                // whether *they* bookmarked it, and a popular message can carry a
-                // row per member otherwise.
+                // `channel` porque as policies das flags o leem, e `bookmarks` por
+                // causa de `isBookmarked`; sem isso, uma query por linha. Bookmarks
+                // só do ator: o campo só pergunta por ele.
                 ->eagerLoad(['user.groups', 'reactions', 'uploads', 'mentions', 'flags', 'channel'])
-                // Scoped by hand: an eager-loaded relation is already present when
-                // the include is serialised, so core's relationship buffer, which
-                // is what applies ThreadResource's scope, never runs for it. A
-                // deleted thread was included with its title on every reply.
+                // Scope à mão: relação já carregada pula o buffer do core, que é
+                // quem aplica o scope do ThreadResource; thread apagada vazaria.
                 ->eagerLoadWhere('thread', fn ($query, Context $context) => $query->whereVisibleTo($context->getActor()))
                 ->eagerLoadWhere('bookmarks', fn ($query, Context $context) => $query->where('user_id', $context->getActor()->id))
-                // Max 100 so jumping to an old message (a pin, a quoted reply) can
-                // fill the gap above the loaded window in a few requests.
+                // Máximo 100 para pular a uma mensagem antiga (fixada, citada) em
+                // poucas requisições.
                 ->paginate(50, 100),
 
-            // Creation goes through MessageDispatcher rather than Create's own
-            // field-deserialisation path: mentions, threads, uploads, counters and
-            // unread fan-out must all happen in one transaction.
-            //
-            // It is still an Endpoint\Create, not a bare Endpoint. Create::setUp()
-            // registers the POST / route, a beforeSerialization hook that loads
-            // includes, and a response() that serialises the model with 201.
-            // Chaining ->action() after make() replaces only the action and keeps
-            // those. A bare Endpoint has no response(), and Endpoint::handle() only
-            // auto-serialises a returned model when $context->model is set — which
-            // is never true for a collection-level route, so it returned null and
-            // JsonApi::handle() raised "Return value must be of type
-            // ResponseInterface, null returned".
+            // A criação passa pelo MessageDispatcher: menções, threads, uploads,
+            // contadores e não lidas numa transação só. Ainda é Endpoint\Create,
+            // porque o setUp() dele registra rota, hook de includes e a resposta
+            // 201; ->action() troca só a action.
             Endpoint\Create::make()
                 ->authenticated()
                 ->action(function (Context $context) {
@@ -190,9 +158,8 @@ class MessageResource extends AbstractDatabaseResource
                         ]);
                     }
 
-                    // Enforced here as well as on the button: `canCreateThread` only
-                    // decides whether the affordance is drawn, and a request may
-                    // arrive with `createThread` set regardless of what was drawn.
+                    // Conferido aqui também: `canCreateThread` só decide se o botão
+                    // aparece, e a requisição pode trazer `createThread` de qualquer jeito.
                     if ($createThread && $replyTo !== null && ! $actor->can('createThread', $replyTo)) {
                         throw new ForbiddenException();
                     }
@@ -207,8 +174,8 @@ class MessageResource extends AbstractDatabaseResource
                         createThread: $createThread
                     );
 
-                    // So `authorRank` answers for the sender's own copy, which
-                    // reads it only off a loaded channel (see the field).
+                    // Para `authorRank` responder na cópia de quem enviou: só lê de
+                    // canal carregado (ver o campo).
                     $message->setRelation('channel', $channel);
 
                     return $message;
@@ -235,8 +202,8 @@ class MessageResource extends AbstractDatabaseResource
                         ]);
                     }
 
-                    // The policy has already confirmed a channel that takes posts
-                    // from this actor; these are the content rules a send applies.
+                    // A policy já confirmou que o canal aceita o ator; aqui entram as
+                    // regras de conteúdo do envio.
                     /** @var Channel $channel */
                     $channel = $message->channel;
                     $this->dispatcher->assertMayRevise($channel, $actor, $content);
@@ -244,8 +211,8 @@ class MessageResource extends AbstractDatabaseResource
                     $message->reviseContent($content, $actor);
                     $message->save();
 
-                    // Re-resolve mentions: an edit that removes a mention must
-                    // also remove the notification pressure it created.
+                    // Recalcula menções: tirar uma menção na edição tira também a
+                    // notificação que ela gerou.
                     $this->mentions->sync(
                         $message,
                         $message->channel !== null && $actor->can('mentionChannelWide', $message->channel)
@@ -279,9 +246,8 @@ class MessageResource extends AbstractDatabaseResource
                 })
                 ->response(fn () => new EmptyResponse(204)),
 
-            // Removing the row for good, tombstone and all. A second step after
-            // deletion rather than a stronger first one: this cannot be undone, and
-            // a channel full of tombstones is the problem it exists to solve.
+            // Remove a linha de vez, tombstone inclusa. É um segundo passo após o
+            // delete, porque não tem volta.
             Endpoint\Endpoint::make('purge')
                 ->route('POST', '/{id}/purge')
                 ->authenticated()
@@ -294,32 +260,26 @@ class MessageResource extends AbstractDatabaseResource
                         throw new ForbiddenException();
                     }
 
-                    // Held before the row goes, because afterwards there is nothing
-                    // left to ask which channel and thread to recount.
+                    // Guardado antes de a linha sumir, para saber o que recontar.
                     $channel = $message->channel;
                     $thread = $message->thread;
 
-                    // Held for the same reason, and read before the row goes.
+                    // Idem.
                     $messageId = (int) $message->id;
                     $threadId = $message->thread_id;
 
-                    // Reactions, mentions, revisions, bookmarks, reports and upload
-                    // rows all cascade on the foreign key. The files themselves are
-                    // already gone: they were removed when the message was deleted,
-                    // which this can only follow.
+                    // Reações, menções, revisões, bookmarks, denúncias e uploads caem
+                    // em cascata pela FK. Os arquivos já foram apagados no delete.
                     $message->delete();
 
-                    // `chat_channels.last_message_id` and the thread's counters are
-                    // plain columns with no foreign key, so nothing in the database
-                    // repairs them — a purged last message would leave the sidebar
-                    // pointing at a row that no longer exists.
+                    // `chat_channels.last_message_id` e os contadores da thread não
+                    // têm FK; sem isto a sidebar apontaria para uma linha inexistente.
                     $channel?->refreshMetadata()->save();
                     $thread?->refreshMetadata()->save();
 
-                    // Announced so the row leaves everyone's stream, not just the
-                    // moderator's. A purge is the one deletion with nothing left
-                    // behind to redraw — the others turn into a tombstone, which is
-                    // why they ride on the message-changed event and this cannot.
+                    // Anunciado para a linha sair do stream de todos. Os outros
+                    // deletes viram tombstone e vão no evento de mensagem alterada;
+                    // o purge não deixa nada para redesenhar.
                     if ($channel !== null) {
                         $this->events->dispatch(
                             new MessageWasPurged($messageId, $channel, $threadId, $actor)
@@ -364,8 +324,8 @@ class MessageResource extends AbstractDatabaseResource
                         throw new ForbiddenException();
                     }
 
-                    // Toggling either way counts: removing is a write and a push
-                    // to every member just as adding is.
+                    // Conta nos dois sentidos: remover também é escrita e push para
+                    // todos os membros.
                     if (! $this->throttle->attempt('react.'.$actor->id, 15, 10)) {
                         throw new FloodingException();
                     }
@@ -381,8 +341,6 @@ class MessageResource extends AbstractDatabaseResource
                         ->where('emoji', $emoji)
                         ->first();
 
-                    // Reacting is a toggle, so the same request both adds and
-                    // removes depending on current state.
                     if ($existing !== null) {
                         $existing->delete();
                         $added = false;
@@ -395,9 +353,9 @@ class MessageResource extends AbstractDatabaseResource
                         $reaction->emoji = $emoji;
                         $reaction->created_at = Carbon::now();
 
-                        // Two clicks racing past the lookup above both try to
-                        // insert; the unique index keeps one, and the loser is the
-                        // same reaction already there rather than a 500.
+                        // Dois cliques em corrida passam pela busca acima e tentam
+                        // inserir; o índice único fica com um, e o outro vê a reação
+                        // existente em vez de um 500.
                         try {
                             $reaction->save();
                         } catch (UniqueConstraintViolationException) {
@@ -411,12 +369,9 @@ class MessageResource extends AbstractDatabaseResource
 
                     $message->unsetRelation('reactions');
 
-                    // A reaction lives in its own table, so nothing about the
-                    // message row changes when one is added or removed — and the
-                    // polling fallback reconciles on exactly that column. Without
-                    // the touch, a forum with no websocket showed reactions only
-                    // to whoever left them, and to everyone else only after a
-                    // reload. See Search\Filter\MessageChangedFilter.
+                    // Reação mora em outra tabela, então a linha da mensagem não
+                    // muda, e o polling de fallback reconcilia por essa coluna. O
+                    // touch faz a reação chegar sem websocket (ver MessageChangedFilter).
                     $message->touch();
 
                     $this->events->dispatch(new ReactionToggled($message, $actor, $emoji, $added));
@@ -441,9 +396,8 @@ class MessageResource extends AbstractDatabaseResource
                         throw new FloodingException();
                     }
 
-                    // Validated rather than handed to the column: a name past its
-                    // 200 characters was a database error, so a 500, and a
-                    // non-string one was whatever the driver made of it.
+                    // Validado antes da coluna: passar de 200 caracteres daria erro de
+                    // banco (500), e um não-string ficaria a critério do driver.
                     $name = Arr::get($context->body(), 'data.attributes.name');
 
                     if ($name !== null && (! is_string($name) || mb_strlen($name) > 200)) {
@@ -474,10 +428,8 @@ class MessageResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['user', 'user.groups']),
 
-            // The edit history. Its own endpoint rather than a relationship: it is
-            // read rarely and by few people, and including it in the message schema
-            // would put every prior version of every message on the wire for the
-            // whole stream.
+            // Histórico de edições em endpoint próprio, não relação: é lido raramente,
+            // e no schema mandaria toda versão de toda mensagem do stream.
             Endpoint\Endpoint::make('revisions')
                 ->route('GET', '/{id}/revisions')
                 ->authenticated()
@@ -507,9 +459,8 @@ class MessageResource extends AbstractDatabaseResource
                         ],
                     ])->values()->all();
                 })
-                // A plain array, not a model, so the response has to be built here:
-                // Endpoint::handle() only auto-serialises when $context->model is
-                // the thing being returned.
+                // Array, não model, então a resposta é montada aqui: o
+                // Endpoint::handle() só serializa sozinho o $context->model.
                 ->response(fn ($data) => new JsonResponse([
                     'data' => [
                         'type'       => 'chat-message-revisions',
@@ -529,8 +480,8 @@ class MessageResource extends AbstractDatabaseResource
                         throw new ForbiddenException();
                     }
 
-                    // A toggle, so the client needs no separate unpin route and two
-                    // rapid clicks cannot leave a half-applied state.
+                    // Toggle: sem rota de desafixar, e dois cliques rápidos não deixam
+                    // estado pela metade.
                     if ($message->isPinned()) {
                         $message->pinned_at = null;
                         $message->pinned_by_id = null;
@@ -554,9 +505,8 @@ class MessageResource extends AbstractDatabaseResource
         return [
             Schema\Str::make('content')
                 ->nullable()
-                // Deleted messages are returned as tombstones so the stream keeps
-                // its shape, but their text is withheld from everyone except the
-                // author and moderators.
+                // Apagadas voltam como tombstone para o stream manter a forma; o texto
+                // só vai para o autor e moderadores.
                 ->get(fn (Message $m, Context $context) => $this->visibleContent($m, $context->getActor())),
 
             Schema\Str::make('contentHtml')
@@ -566,10 +516,9 @@ class MessageResource extends AbstractDatabaseResource
                         return null;
                     }
 
-                    // The content passes through every extension's formatter
-                    // callbacks, most of them written with forum posts in mind.
-                    // One that throws must not take the whole channel page
-                    // down: degrade this message to plain text and keep going.
+                    // O conteúdo passa pelos callbacks de formatter de toda extensão,
+                    // feitos para posts. Se um lançar exceção, a mensagem cai para
+                    // texto puro em vez de derrubar a página do canal.
                     try {
                         return $m->formatContent($context->request);
                     } catch (\Throwable $e) {
@@ -594,11 +543,9 @@ class MessageResource extends AbstractDatabaseResource
             Schema\DateTime::make('editedAt')->nullable(),
             Schema\DateTime::make('deletedAt')->nullable(),
 
-            // The cursor the polling fallback reconciles against. Every change a
-            // message can undergo — an edit, a deletion, a pin, a reaction —
-            // advances this column, so the client can ask for "whatever moved
-            // since" in one filter instead of needing a separate poll per kind of
-            // change. See Search\Filter\MessageChangedFilter.
+            // Cursor do polling de fallback. Toda mudança (edição, delete, fixar,
+            // reação) avança a coluna, e o cliente pede "o que mudou desde" num
+            // filtro só (ver Search\Filter\MessageChangedFilter).
             Schema\DateTime::make('updatedAt'),
 
             Schema\Boolean::make('isDeleted')
@@ -607,15 +554,8 @@ class MessageResource extends AbstractDatabaseResource
             Schema\Boolean::make('isEdited')
                 ->get(fn (Message $m) => $m->isEdited()),
 
-            // Whether someone other than the author removed it.
-            //
-            // The client used to infer this from whether the text had been
-            // withheld, which is a different question: a message the author
-            // deleted is withheld from everyone else too, so their own deletion
-            // was announced to the channel as a moderator removal.
-            //
-            // Read from the column, so it does not depend on `deletedBy` having
-            // been included — a realtime push carries no relations.
+            // Se outra pessoa que não o autor apagou. Texto retido não responde
+            // isso. Lido da coluna porque o push realtime não traz `deletedBy`.
             Schema\Boolean::make('isModeratorDeleted')
                 ->get(fn (Message $m) => $m->isDeleted()
                     && $m->deleted_by_id !== null
@@ -626,8 +566,8 @@ class MessageResource extends AbstractDatabaseResource
             Schema\Boolean::make('isPinned')
                 ->get(fn (Message $m) => $m->isPinned()),
 
-            // Reaction summary: emoji => { count, reacted }. Sent pre-aggregated
-            // so the client never has to hold every reaction row in memory.
+            // Resumo de reações: emoji => { count, reacted }, já agregado para o
+            // cliente não guardar cada linha.
             Schema\Arr::make('reactionSummary')
                 ->get(fn (Message $m, Context $context) => $this->reactionSummary($m, $context->getActor())),
 
@@ -642,13 +582,10 @@ class MessageResource extends AbstractDatabaseResource
             Schema\Boolean::make('mentionsChannelWide')
                 ->get(fn (Message $m) => $m->mentions->contains(fn ($mention) => $mention->isChannelWide())),
 
-            // The rank shown before the author's name in this channel: owner,
-            // moderator, or the highest of the ranks the owner gave them. Read
-            // from the channel's cached rank book, which every message of a page
-            // shares through the one eager-loaded channel, so a page costs one
-            // cache read. Only off a loaded channel: a message included elsewhere
-            // (a channel's last message, a thread's) does not draw an author
-            // line, and loading its channel to label it would be a query per row.
+            // Rank antes do nome do autor: dono, moderador ou o maior rank dado.
+            // Vem do rank book em cache do canal carregado, uma leitura por página.
+            // Sem canal carregado (última mensagem, thread) não há linha de autor,
+            // e carregar o canal seria uma query por linha.
             Schema\Arr::make('authorRank')
                 ->nullable()
                 ->get(function (Message $m) {
@@ -672,7 +609,7 @@ class MessageResource extends AbstractDatabaseResource
                     return $m->bookmarks->contains(fn (Bookmark $b) => $b->user_id === $actor->id);
                 }),
 
-            // ── Capability flags ─────────────────────────────────────────────
+            // ── Flags de capacidade ──
             Schema\Boolean::make('canEdit')
                 ->get(fn (Message $m, Context $context) => $context->getActor()->can('edit', $m)),
 
@@ -700,9 +637,7 @@ class MessageResource extends AbstractDatabaseResource
             Schema\Boolean::make('canFlag')
                 ->get(fn (Message $m, Context $context) => $context->getActor()->can('flag', $m)),
 
-            // Whether *this* actor has already reported it, so the button reads
-            // "reported" instead of inviting a second filing that would only
-            // overwrite the first.
+            // Se *este* ator já denunciou, para o botão mostrar "denunciada".
             Schema\Boolean::make('isFlagged')
                 ->get(function (Message $m, Context $context) {
                     $actor = $context->getActor();
@@ -716,13 +651,9 @@ class MessageResource extends AbstractDatabaseResource
                     );
                 }),
 
-            // How many people have reported it and nobody has yet dealt with it.
-            // Moderators only: a visible count would tell everyone which messages
-            // are being reported, which is both an invitation to pile on and a way
-            // to find out you have been reported.
-            //
-            // Read from the eager-loaded relation rather than counted per row —
-            // a query inside a field getter is one query per message in the stream.
+            // Denúncias em aberto, só para moderadores: visível, convidaria a
+            // engrossar o coro e avisaria o denunciado. Lido da relação carregada,
+            // não contado por linha.
             Schema\Integer::make('flagsCount')
                 ->visible(fn (Message $m, Context $context) => $context->getActor()->hasPermission('ramon-chat.moderate'))
                 ->get(fn (Message $m) => $m->flags->whereNull('resolved_at')->count()),
@@ -744,16 +675,15 @@ class MessageResource extends AbstractDatabaseResource
             SortColumn::make('id'),
             SortColumn::make('createdAt'),
             SortColumn::make('number'),
-            // Most recently pinned first, for the pinned panel.
+            // Fixadas mais recentes primeiro, para o painel.
             SortColumn::make('pinnedAt'),
         ];
     }
 
 
     /**
-     * A deleted message's text is withheld from everyone but its author and
-     * moderators; the row itself still serialises so the client can render a
-     * tombstone in place rather than silently reflowing the stream.
+     * Texto de mensagem apagada só para autor e moderadores; a linha ainda é
+     * serializada para o cliente desenhar a tombstone no lugar.
      */
     protected function isRedacted(Message $message, User $actor): bool
     {
@@ -765,15 +695,13 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * The revision's source text, or its plain text when unparsing threw. Same
-     * boundary as `contentHtml`: a revision is one extension callback away from
-     * making the history endpoint 500.
+     * Texto-fonte da revisão, ou texto puro se o unparse lançar. Mesma proteção do
+     * `contentHtml`: um callback de extensão não pode dar 500 no histórico.
      */
     protected function revisionContent(MessageRevision $revision): ?string
     {
-        // Through getAttribute() rather than `->content`: same getter, but the
-        // explicit call keeps the unparse pipeline (and its callbacks) visible
-        // as something that can throw.
+        // getAttribute() em vez de `->content`: mesmo getter, mas deixa claro que
+        // o unparse (e seus callbacks) pode lançar.
         try {
             $content = $revision->getAttribute('content');
 
@@ -878,8 +806,8 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * Refuses a new reaction that would take the message past its bounds.
-     * Removing one is never refused, so someone at the cap can always undo.
+     * Recusa reação nova além dos limites. Remover nunca é recusado, para quem
+     * está no teto sempre poder desfazer.
      *
      * @throws ValidationException
      */
@@ -903,16 +831,15 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * A bare shortcode only, the form every client sends. Not checked against
-     * a catalogue: custom emoji from Flarum's Flamoji react by shortcode too, and
-     * their names are the forum's own. What bounds abuse is the length here and
-     * the per-message caps in assertRoomForReaction().
+     * Só shortcode simples. Sem catálogo, porque emoji custom do Flamoji também
+     * reage por shortcode; o abuso é contido pelo tamanho e pelos limites de
+     * assertRoomForReaction().
      *
      * @throws ValidationException
      */
     protected function normaliseEmoji(string $emoji): string
     {
-        // Accept both `:heart:` and `heart`, store the bare shortcode.
+        // Aceita `:heart:` e `heart`; grava sem os dois-pontos.
         $emoji = trim($emoji, ": \t\n\r");
 
         if ($emoji === '' || ! preg_match('/\A[a-z0-9_+\-]{1,60}\z/i', $emoji)) {
@@ -925,8 +852,8 @@ class MessageResource extends AbstractDatabaseResource
     }
 
     /**
-     * Recomputes channel and thread counters after a delete or restore, where
-     * incrementing would drift.
+     * Recalcula os contadores de canal e thread após delete ou restore, onde
+     * incrementar acumularia desvio.
      */
     protected function refreshContainers(Message $message): void
     {

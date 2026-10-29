@@ -1,20 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// ramon/chat: admin styles
+// ramon/chat: estilos do admin
 //
-// The settings page follows the Avocado theme's arrangement (a sticky bar of
-// tabs with a search box, titled cards per tab) with the chat's own look: the
-// active tab and every card badge are speech bubbles, tail at the lower left.
-// Core still draws each field, the save bar's buttons and the permission grid;
-// the layout lives in admin/Layout.less, the live previews in
-// admin/Preview.less.
-// ─────────────────────────────────────────────────────────────────────────────
+// Segue o arranjo do Avocado (abas com busca e cards). O layout fica em
+// admin/Layout.less e os previews em admin/Preview.less.
 
 @import "admin/Layout.less";
 @import "admin/Preview.less";
 
-// ── Permission grid headings ─────────────────────────────────────────────────
-// Each chat block's heading carries a second line saying when the block is in
-// force, so "global" and "channels run by members" never have to be guessed.
+// ── Títulos da grade de permissões ──
 .ChatPermissionHeading {
   display: flex;
   flex-direction: column;
@@ -38,21 +30,17 @@
   padding: 4px 0;
 }
 
-// ── Incoming webhooks ────────────────────────────────────────────────────────
+// ── Webhooks de entrada ──
 .ChatWebhooks {
   &-create {
     display: flex;
 
-    // Explicit, and not redundant: the element also carries core's `.Form-group`,
-    // which is `display: flex; flex-direction: column`. Setting only `display`
-    // here left that column direction in force, so the row stacked, and
-    // `flex: 1 1 200px` below, written to size widths, sized heights instead and
-    // turned each field into a 200px-tall box.
+    // Necessário: o elemento também tem o `.Form-group` do core, que é coluna; sem
+    // isto o `flex: 1 1 200px` abaixo dimensionaria altura em vez de largura.
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    // Core's .Form-group also sets `align-items: flex-start`, which without this
-    // leaves the row hugging its content instead of filling the panel.
+    // O `.Form-group` do core usa `align-items: flex-start`.
     width: 100%;
     gap: 8px;
     margin-bottom: 16px;
@@ -92,8 +80,7 @@
       opacity: 0.7;
     }
 
-    // Shown once, right after the key is minted. Monospace because it is meant
-    // to be copied verbatim into another system.
+    // Exibida uma única vez, logo após gerar a chave.
     &-url {
       margin-top: 8px;
 
@@ -118,9 +105,8 @@
   }
 }
 
-// ── Announcer settings ───────────────────────────────────────────────────────
-// Who the chat posts as. See BotSettings.tsx: the two halves are exclusive, so
-// only one of them is ever on screen.
+// ── Autor dos anúncios ──
+// As duas metades se excluem (BotSettings.tsx); só uma aparece.
 .ChatBotSettings {
   &-intro {
     margin-bottom: 12px;
@@ -133,8 +119,7 @@
     margin-bottom: 16px;
   }
 
-  // Shown at the size it will actually be drawn at in the stream, so an admin
-  // picking a busy image can see it will not read at that scale.
+  // No tamanho do stream, para ver se a imagem funciona pequena.
   &-preview {
     flex-shrink: 0;
     width: 52px;
@@ -167,8 +152,7 @@
     align-items: center;
     gap: 8px;
 
-    // The upload control is a <label> wrapping a hidden file input, so it needs
-    // the pointer a real button would have.
+    // O controle de upload é um <label> com input escondido.
     label.Button {
       margin: 0;
       cursor: pointer;

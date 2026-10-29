@@ -14,10 +14,10 @@ use Ramon\Chat\Search\Filter\MessageChannelFilter;
 use Ramon\Chat\Tests\unit\QueryTestCase;
 
 /**
- * The channel filter decides what the main stream shows, and the "keep thread roots
- * but drop their replies" clause is the part most likely to be broken by a careless
- * edit — it is also what the client relies on when it refuses to append a realtime
- * thread reply to the channel window.
+ * O filtro de canal decide o que o stream principal mostra. A cláusula "manter
+ * as raízes de tópico mas tirar as respostas" é a mais fácil de quebrar, e o
+ * cliente conta com ela ao recusar anexar uma resposta de tópico em tempo real
+ * à janela do canal.
  */
 class MessageChannelFilterTest extends QueryTestCase
 {
@@ -39,8 +39,8 @@ class MessageChannelFilterTest extends QueryTestCase
     }
 
     /**
-     * Thread replies are excluded by default: the stream shows a thread as one root
-     * message with an indicator, not as every reply inlined.
+     * Respostas de tópico ficam fora por padrão: o stream mostra o tópico como uma
+     * raiz com indicador, não cada resposta.
      */
     public function test_thread_replies_are_excluded_by_default(): void
     {
@@ -51,14 +51,14 @@ class MessageChannelFilterTest extends QueryTestCase
         $sql = $this->sql($query);
 
         $this->assertStringContainsString('"chat_messages"."thread_id" is null', $sql);
-        // The root is kept via a correlated existence check against chat_threads.
+        // A raiz fica por um exists correlacionado em chat_threads.
         $this->assertStringContainsString('exists', $sql);
         $this->assertStringContainsString('chat_threads', $sql);
     }
 
     /**
-     * A non-zero channel id is required; zero or a non-numeric value must not
-     * produce `channel_id = 0`, which would quietly return nothing.
+     * Exige id de canal diferente de zero; zero ou valor não numérico não pode
+     * virar `channel_id = 0`, que não retornaria nada sem aviso.
      */
     public function test_zero_channel_adds_no_predicate(): void
     {
@@ -71,8 +71,8 @@ class MessageChannelFilterTest extends QueryTestCase
     }
 
     /**
-     * Negated, the filter means "not this channel" and the thread-reply clause must
-     * not be applied — excluding replies from *other* channels is not what was asked.
+     * Negado, o filtro quer dizer "fora deste canal" e a cláusula das respostas não
+     * se aplica: tirar respostas de *outros* canais não foi o pedido.
      */
     public function test_negated_filter_skips_the_thread_clause(): void
     {

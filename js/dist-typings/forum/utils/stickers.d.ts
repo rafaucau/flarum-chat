@@ -1,34 +1,24 @@
-import type Mithril from "mithril";
+import type Mithril from 'mithril';
 export declare function stickersAvailable(): boolean;
 /**
- * Opens the picker over the page, inserting the chosen shortcode.
+ * Abre o picker sobre a página e insere o shortcode escolhido. Montado num nó no
+ * body porque o composer corta o overflow.
  *
- * Mounted on a node appended to the body: the composer clips its overflow, and a
- * panel rendered inside it would be cut off at the first row.
- *
- * @param trigger The button that opened it, used to position the panel.
- * @param onInsert Receives the shortcode, e.g. `:wave:`.
+ * @param trigger Botão que o abriu, para posicionar o painel.
+ * @param onInsert Recebe o shortcode, ex.: `:wave:`.
  */
 export declare function openStickerPicker(trigger: HTMLElement | null, onInsert: (text: string) => void): Promise<void>;
 export declare function close(): void;
 /**
- * Hydrates the animated stickers inside a node, paused until hovered.
+ * Hidrata os stickers animados de um nó, pausados até o hover. O observer da
+ * extensão usaria a opção do admin, e com `hover_play` desligado a grade inteira
+ * animaria junta. No stream vale a configuração; no picker é forçado.
  *
- * The extension's own MutationObserver would do this eventually, but with the
- * options its admin setting dictates — and with `hover_play` off that means every
- * sticker in the grid animating at once: a wall of motion, and a lot of work for
- * one panel.
- *
- * A grid is not a message. In the stream the setting governs and this is not
- * called; here it is forced, because a picker exists to be scanned.
- *
- * Their renderers skip nodes already marked as initialised, so running first
- * means the observer leaves these alone rather than re-hydrating them without the
- * option. Unlike their picker component, these two modules are registered at
- * boot, so they are actually resolvable.
+ * Os renderers deles pulam nós já inicializados, então rodar antes faz o observer
+ * ignorá-los. Esses dois módulos, ao contrário do picker, registram no boot.
  */
 export declare function playOnHover(node: HTMLElement): void;
 export declare function isStickerPickerOpen(): boolean;
 export declare function stickerIcon(): Mithril.Children;
-/** Only meaningful while the extension is present. */
+/** Só faz sentido com a extensão presente. */
 export declare function stickerLabel(): string;

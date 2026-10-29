@@ -16,8 +16,7 @@ use Flarum\Search\SearchState;
 /**
  * `filter[status]=open|closed|archived`
  *
- * No default is applied: the browse page asks for closed and archived channels
- * explicitly, while the sidebar asks for open ones.
+ * Sem padrão: a navegação pede fechados e arquivados, a sidebar pede abertos.
  *
  * @implements FilterInterface<DatabaseSearchState>
  */

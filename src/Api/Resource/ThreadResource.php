@@ -55,23 +55,13 @@ class ThreadResource extends AbstractDatabaseResource
     }
 
     /**
-     * What a page of threads has to have in hand before it is serialised.
+     * O que uma página de threads precisa carregado antes de serializar. Include
+     * só decide o que vai na resposta; o serializer ainda busca a relação por
+     * linha, e a mensagem raiz (via MessageResource) custaria ~7 queries cada.
      *
-     * `creator` and `originalMessage` were included but never loaded, and an
-     * include only decides what ends up in the response — the serialiser still
-     * reaches for the relation per row. At thirty threads a page that was a
-     * query per thread for each of them.
-     *
-     * The root message is the costly one: it is serialised by MessageResource,
-     * which resolves nine capability flags and four relation-backed summaries,
-     * so an unloaded root cost another seven or so queries per thread on its own.
-     *
-     * The two message relations themselves are loaded by `scopedMessages()`
-     * rather than here. A relation `eagerLoad` brings in is already loaded when
-     * the include is serialised, so core's relationship buffer skips it, and the
-     * buffer is the only place MessageResource's scope is applied. A thread's
-     * root or last reply moved into a private channel was therefore handed in
-     * `included` to anyone who could see the thread.
+     * As duas relações de mensagem ficam com `scopedMessages()`: o que o
+     * `eagerLoad` traz o buffer do core pula, e só o buffer aplica o scope do
+     * MessageResource. Uma raiz movida para canal privado vazaria em `included`.
      */
     protected const EAGER_LOAD = [
         'channel',
@@ -89,14 +79,12 @@ class ThreadResource extends AbstractDatabaseResource
     {
         return [
             Endpoint\Show::make()
-                // Authenticated again. Reading the chat is for accounts: the guest
-                // read permission this briefly supported has been withdrawn, and
-                // without the gate these endpoints would answer 200 with an empty
-                // collection to anyone, which is a slower way of saying no.
+                // Ler o chat exige conta. Sem a trava, estes endpoints responderiam
+                // 200 com coleção vazia a qualquer um.
                 ->authenticated()
                 ->defaultInclude(['creator', 'originalMessage', 'originalMessage.user'])
-                // `channel` because every policy on a thread reads it, visibility
-                // included — the Index already loads it for the same reason.
+                // `channel` porque toda policy de thread o lê, inclusive a de
+                // visibilidade.
                 ->eagerLoad(self::EAGER_LOAD)
                 ->eagerLoadWhere('originalMessage', $this->scopedMessages(...))
                 ->eagerLoadWhere('lastMessage', $this->scopedMessages(...))
@@ -116,11 +104,8 @@ class ThreadResource extends AbstractDatabaseResource
                 ->eagerLoad(self::EAGER_LOAD)
                 ->eagerLoadWhere('originalMessage', $this->scopedMessages(...))
                 ->eagerLoadWhere('lastMessage', $this->scopedMessages(...))
-                // Four fields on every row read the actor's membership, and the
-                // renaming, posting and closing policies read it again. Loaded
-                // once for the page instead of once per thread —
-                // `membershipFor()` checks the row belongs to the actor before
-                // trusting it.
+                // Campos e policies leem a membership do ator; carregada uma vez
+                // por página. `membershipFor()` confere que a linha é do ator.
                 ->eagerLoadWhere(
                     'actorMembership',
                     fn ($query, Context $context) => $query->where('user_id', $context->getActor()->id)
@@ -129,22 +114,20 @@ class ThreadResource extends AbstractDatabaseResource
                     'originalMessage.bookmarks',
                     fn ($query, Context $context) => $query->where('user_id', $context->getActor()->id)
                 )
-                // After core has loaded the relations above, which it does in a
-                // hook of its own registered first.
+                // Depois de o core carregar as relações acima, num hook registrado
+                // antes.
                 ->beforeSerialization(fn (Context $context, array $results) => $this->shareChannels($results['models']))
                 ->paginate(30),
 
-            // ->can() rather than visible(): it resolves the ability against
-            // $context->model, which is what core does for model-scoped endpoints.
+            // ->can(), não visible(): resolve a ability contra $context->model, como
+            // o core faz.
             Endpoint\Update::make()
                 ->authenticated()
-                // A closure, not the bare string. Flarum treats a callable
-                // ability as a resolver and calls it — and 'rename' is PHP's
-                // rename(), so every rename answered with a 500.
+                // Closure, não string: o Flarum chama ability callable, e 'rename'
+                // é a rename() do PHP.
                 ->can(fn () => 'rename')
-                // An `after` hook, not `action()`. Update's action is the one
-                // that fills and saves the model, and replacing it left a
-                // rename that answered 200, announced itself, and wrote nothing.
+                // Hook `after`, não `action()`: a action do Update é quem preenche
+                // e salva o model.
                 ->after(function (Context $context, Thread $thread) {
                     if ($thread->wasChanged()) {
                         $this->events->dispatch(new ThreadWasEdited($thread, $context->getActor()));
@@ -175,8 +158,7 @@ class ThreadResource extends AbstractDatabaseResource
                 })
                 ->response(fn () => new EmptyResponse(204)),
 
-            // Per-thread tracking level, the bell menu in Discourse's thread
-            // header.
+            // Nível de acompanhamento por thread (o sino no cabeçalho da thread).
             Endpoint\Endpoint::make('tracking')
                 ->route('POST', '/{id}/tracking')
                 ->authenticated()
@@ -209,10 +191,9 @@ class ThreadResource extends AbstractDatabaseResource
                     $membership->notification_level = $level;
                     $membership->save();
 
-                    // The response serialises this same thread, and four of its
-                    // fields read the membership back. Handing over the row just
-                    // saved keeps the memoised lookup from answering with what it
-                    // knew before the write.
+                    // A resposta serializa esta thread e lê a membership de novo;
+                    // entregar a linha recém-salva evita o memo responder com o
+                    // valor anterior.
                     $thread->forgetMembership($actor);
                     $thread->setRelation('actorMembership', $membership);
 
@@ -238,16 +219,16 @@ class ThreadResource extends AbstractDatabaseResource
             Schema\DateTime::make('lastMessageAt')->nullable(),
             Schema\DateTime::make('createdAt'),
 
-            // ── Per-actor tracking state ─────────────────────────────────────
+            // ── Acompanhamento do ator ──
             Schema\Integer::make('notificationLevel')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->notification_level
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->notification_level
                     ?? ThreadUser::LEVEL_NEVER),
 
             Schema\Integer::make('unreadCount')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->unread_count ?? 0),
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->unread_count ?? 0),
 
             Schema\Integer::make('lastReadMessageId')
-                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())?->last_read_message_id ?? 0),
+                ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor())->last_read_message_id ?? 0),
 
             Schema\Boolean::make('isParticipating')
                 ->get(fn (Thread $t, Context $context) => $this->membership($t, $context->getActor()) !== null),
@@ -279,11 +260,9 @@ class ThreadResource extends AbstractDatabaseResource
 
 
     /**
-     * Narrows an eager-loaded message relation to what the actor may read.
-     *
-     * Registered before the nested `originalMessage.*` paths on purpose: those
-     * are loaded with `loadMissing()`, which loads a missing first segment
-     * unconstrained, and the where-loads run before the plain ones.
+     * Restringe uma relação de mensagem ao que o ator pode ler. Registrada antes
+     * dos paths `originalMessage.*` de propósito: `loadMissing()` carregaria o
+     * primeiro segmento sem restrição.
      */
     protected function scopedMessages(mixed $query, Context $context): void
     {
@@ -291,12 +270,9 @@ class ThreadResource extends AbstractDatabaseResource
     }
 
     /**
-     * Hands each root message its thread's channel, where they are the same.
-     *
-     * The two are loaded as separate relations, so each channel arrives twice,
-     * and a channel answers the actor's membership once per instance: the
-     * thread's policies asked one copy and the root's another. A root moved to
-     * another channel keeps the one it was loaded with.
+     * Dá a cada mensagem raiz a mesma instância de canal da thread. Carregados à
+     * parte, viriam duas cópias, e cada uma buscaria a membership de novo. Raiz
+     * movida para outro canal fica com o seu.
      *
      * @param  iterable<Thread>  $threads
      */
@@ -312,19 +288,13 @@ class ThreadResource extends AbstractDatabaseResource
         }
     }
 
-    /** @var array<int, ThreadUser|null|false> */
-    protected array $membershipCache = [];
-
+    /**
+     * O memo fica no model, por usuário. O resource vive entre requests no mesmo
+     * processo, então um memo aqui, só pelo id da thread, passava a membership de
+     * um leitor para o próximo.
+     */
     protected function membership(Thread $thread, User $actor): ?ThreadUser
     {
-        if (! $actor->exists) {
-            return null;
-        }
-
-        if (! array_key_exists($thread->id, $this->membershipCache)) {
-            $this->membershipCache[$thread->id] = $thread->membershipFor($actor);
-        }
-
-        return $this->membershipCache[$thread->id] ?: null;
+        return $thread->membershipFor($actor);
     }
 }

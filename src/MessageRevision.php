@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Ramon\Chat\Formatter\ResolvesMentionedPosts;
 
 /**
- * One prior state of a message's content, written immediately before an edit.
+ * Estado anterior do conteúdo, gravado logo antes de uma edição.
  *
  * @property int $id
  * @property int $message_id
@@ -41,18 +41,19 @@ class MessageRevision extends AbstractModel implements Formattable
 
     public $timestamps = false;
 
-
     protected $casts = [
         'message_id'   => 'integer',
         'edited_by_id' => 'integer',
         'created_at'   => 'datetime',
     ];
 
+    /** @return BelongsTo<Message, $this> */
     public function message(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'message_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function editedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'edited_by_id');

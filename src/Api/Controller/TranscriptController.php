@@ -21,12 +21,9 @@ use Ramon\Chat\Message;
 use Ramon\Chat\Service\TranscriptRenderer;
 
 /**
- * Renders selected messages as a transcript, in markup or plain text.
- *
- * Backs both "Quote in discussion" (markup, pasted into the composer) and "Copy"
- * (plain text, to the clipboard). Rendering server-side keeps the two forms
- * identical to what archiving produces, and means the client never has to
- * reimplement quoting rules.
+ * Transcrição das mensagens selecionadas, em markup ("Citar na discussão") ou
+ * texto puro ("Copiar"). Renderizada no servidor para sair igual ao arquivamento
+ * e o cliente não reimplementar as regras de citação.
  */
 class TranscriptController implements RequestHandlerInterface
 {
@@ -64,8 +61,8 @@ class TranscriptController implements RequestHandlerInterface
             ]);
         }
 
-        // whereVisibleTo is the whole security boundary here: a selection may
-        // name any id, and only the ones the actor can read come back.
+        // whereVisibleTo é toda a fronteira de segurança: a seleção pode citar
+        // qualquer id, e só volta o que o ator pode ler.
         $messages = Message::query()
             ->whereVisibleTo($actor)
             ->whereIn('id', $ids)
@@ -91,9 +88,8 @@ class TranscriptController implements RequestHandlerInterface
                 'attributes' => [
                     'format'  => $format,
                     'content' => $rendered,
-                    // Report what was actually included: a selection may have
-                    // contained ids the actor cannot read, and the client should
-                    // be able to tell the user rather than silently truncate.
+                    // O que entrou de fato, para o cliente avisar quando ids
+                    // ilegíveis ficaram de fora.
                     'count'   => $messages->count(),
                     'omitted' => count($ids) - $messages->count(),
                 ],

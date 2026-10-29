@@ -20,8 +20,7 @@ return [
             // user | group | here | all
             $table->string('type', 20);
 
-            // Populated for type=user and type=group respectively. Both null for
-            // the channel-wide @here / @all forms.
+            // Preenchidos para user e group; ambos null em @here / @all.
             $table->unsignedInteger('user_id')->nullable();
             $table->unsignedInteger('group_id')->nullable();
 

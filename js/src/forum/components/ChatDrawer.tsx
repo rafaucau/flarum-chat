@@ -1,23 +1,22 @@
-import Component from "flarum/common/Component";
-import type { ComponentAttrs } from "flarum/common/Component";
-import LoadingIndicator from "flarum/common/components/LoadingIndicator";
-import classList from "flarum/common/utils/classList";
-import type Mithril from "mithril";
+import Component from 'flarum/common/Component';
+import type { ComponentAttrs } from 'flarum/common/Component';
+import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import classList from 'flarum/common/utils/classList';
+import type Mithril from 'mithril';
 
-import chatState from "../state/chat";
-import { loadChatUi } from "../utils/lazy";
-import { isNarrowViewport } from "../utils/surface";
-import { morphIn } from "../utils/morph";
+import chatState from '../state/chat';
+import { loadChatUi } from '../utils/lazy';
+import { isNarrowViewport } from '../utils/surface';
+import { morphIn } from '../utils/morph';
 
-type Panel = Awaited<ReturnType<typeof loadChatUi>>["ChatDrawerPanel"];
+type Panel = Awaited<ReturnType<typeof loadChatUi>>['ChatDrawerPanel'];
 
 let panel: Panel | null = null;
 let pending: Promise<void> | null = null;
 
 /**
- * Fetches the drawer panel, which lives in the lazy interface chunk. Called on
- * hover of the header button, on open, and when restoring a drawer left open;
- * concurrent requests collapse into one.
+ * Baixa o painel do drawer, que fica no chunk lazy da interface. Chamadas
+ * simultâneas viram uma só.
  */
 export function loadDrawerPanel(): Promise<void> {
   pending ??= loadChatUi().then(
@@ -28,23 +27,18 @@ export function loadDrawerPanel(): Promise<void> {
     (error) => {
       pending = null;
       throw error;
-    },
+    }
   );
 
   return pending;
 }
 
 /**
- * The drawer shell that stays in the initial bundle.
- *
- * Mounted once at the app root, as before, but without loading the conversation:
- * closed it draws nothing, and opened before the chunk arrives it shows the
- * drawer box with a spinner. The real panel (ChatDrawerPanel) takes over as soon
- * as the chunk resolves; the morph from the button goes to whichever appears
- * first.
+ * Casca do drawer que fica no bundle inicial. Fechado não desenha nada; aberto
+ * antes do chunk chegar, mostra a caixa com spinner até o ChatDrawerPanel assumir.
  */
 export default class ChatDrawer extends Component<ComponentAttrs> {
-  /** Whether the placeholder box was on screen at the last render. */
+  /** Se a caixa provisória estava na tela no último render. */
   private placeholderShown = false;
 
   oncreate(vnode: Mithril.VnodeDOM<ComponentAttrs, this>): void {
@@ -60,18 +54,13 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
   }
 
   /**
-   * While the chunk has not arrived, the placeholder box is what grows from the
-   * button; it consumes the origin, and the panel that replaces it enters without
-   * repeating the animation.
+   * Sem o chunk, é a caixa provisória que cresce a partir do botão; o painel que a
+   * substitui entra sem repetir a animação.
    */
   protected morphPlaceholder(dom: Element | null): void {
-    const box =
-      dom instanceof HTMLElement &&
-      dom.classList.contains("ChatDrawer--loading")
-        ? dom
-        : null;
+    const box = dom instanceof HTMLElement && dom.classList.contains('ChatDrawer--loading') ? dom : null;
 
-    if (box && !this.placeholderShown) morphIn(box, "drawer");
+    if (box && !this.placeholderShown) morphIn(box, 'drawer');
 
     this.placeholderShown = box !== null;
   }
@@ -91,8 +80,8 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
 
     return (
       <div
-        className={classList("ChatDrawer ChatDrawer--loading", {
-          "ChatDrawer--collapsed": chatState.drawerCollapsed,
+        className={classList('ChatDrawer ChatDrawer--loading', {
+          'ChatDrawer--collapsed': chatState.drawerCollapsed,
         })}
         role="complementary"
         aria-busy="true"
@@ -103,11 +92,9 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
   }
 
   /**
-   * Opens the drawer, loading the channel list on first open.
-   *
-   * The redraw comes before the load: waiting for the list left the drawer
-   * invisible for a full round trip, which feels like a slow button. The sidebar
-   * draws the skeleton in the meantime.
+   * Abre o drawer e carrega a lista de canais na primeira vez. O redraw vem antes
+   * do carregamento para o drawer não esperar a ida e volta; a sidebar mostra o
+   * skeleton enquanto isso.
    */
   static async open(): Promise<void> {
     chatState.setDrawerOpen(true);
@@ -119,8 +106,6 @@ export default class ChatDrawer extends Component<ComponentAttrs> {
 
     if (chatState.channelsLoaded) return;
 
-    await Promise.all([chatState.loadChannels(), chatState.loadDrafts()]).catch(
-      () => {},
-    );
+    await Promise.all([chatState.loadChannels(), chatState.loadDrafts()]).catch(() => {});
   }
 }

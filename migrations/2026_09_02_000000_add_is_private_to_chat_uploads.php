@@ -11,17 +11,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /**
- * Which disk an attachment lives on.
+ * Em qual disco o anexo fica.
  *
- * False is the public `chat` disk under the webroot; true is `chat-private`
- * under storage, reachable only through ServeUploadController. The flag is what
- * Upload::url() and every delete path read, so a row and its file can never
- * disagree about where the file is.
+ * False: disco público `chat`. True: `chat-private`, fora do webroot, só via
+ * ServeUploadController. Upload::url() e toda exclusão leem a flag, então linha e
+ * arquivo nunca divergem.
  */
 return [
-    // Flarum's migrator passes a schema Builder, never a ConnectionInterface;
-    // typing it as the latter is a TypeError that aborts the whole extension's
-    // migration run.
+    // O migrator do Flarum passa um schema Builder; tipar como ConnectionInterface
+    // dá TypeError e aborta todas as migrations da extensão.
     'up' => function (Builder $schema) {
         if ($schema->hasColumn('chat_uploads', 'is_private')) {
             return;
