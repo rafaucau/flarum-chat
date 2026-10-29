@@ -209,6 +209,33 @@ class ChannelInviteTest extends TestCase
         $this->assertContains('chatChannelInvite', $types);
     }
 
+    public function test_an_invitee_does_not_see_who_is_inside(): void
+    {
+        $this->invite(self::CH_PRIVATE, self::INVITER, self::INVITEE);
+
+        $show = $this->send(
+            $this->request('GET', '/api/chat-channels/'.self::CH_PRIVATE, [
+                'authenticatedAs' => self::INVITEE,
+            ])->withQueryParams(['include' => 'participants'])
+        );
+
+        $this->assertSame(200, $show->getStatusCode());
+
+        $document = json_decode((string) $show->getBody(), true);
+
+        $this->assertSame([], array_values(array_filter($document['included'] ?? [], fn ($row) => $row['type'] === 'users')));
+        $this->assertSame([], $document['data']['attributes']['moderatorIds'] ?? []);
+        $this->assertArrayNotHasKey('rankBook', $document['data']['attributes']);
+
+        $users = $this->send(
+            $this->request('GET', '/api/users', [
+                'authenticatedAs' => self::INVITEE,
+            ])->withQueryParams(['filter' => ['chatChannel' => (string) self::CH_PRIVATE]])
+        );
+
+        $this->assertSame([], json_decode((string) $users->getBody(), true)['data'] ?? []);
+    }
+
     public function test_joining_a_private_channel_with_an_invitation_accepts_it(): void
     {
         $this->invite(self::CH_PRIVATE, self::INVITER, self::INVITEE);

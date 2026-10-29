@@ -1187,7 +1187,8 @@ class ChannelResource extends AbstractDatabaseResource
             // their author's rank on their own.
             Schema\Arr::make('rankBook')
                 ->nullable()
-                ->visible(fn (Channel $c, Context $context) => ! $context->listing())
+                ->visible(fn (Channel $c, Context $context) => ! $context->listing()
+                    && ScopeChannelVisibility::readsContents($context->getActor(), $c))
                 ->get(fn (Channel $c) => $this->ranks->book($c)),
 
             Schema\Boolean::make('canTransferOwnership')
@@ -1220,6 +1221,10 @@ class ChannelResource extends AbstractDatabaseResource
             // (see withMembers()); a read that asks for it is answered here.
             Schema\Arr::make('moderatorIds')
                 ->get(function (Channel $c, Context $context) {
+                    if (! ScopeChannelVisibility::readsContents($context->getActor(), $c)) {
+                        return [];
+                    }
+
                     if (! $c->relationLoaded('participants')) {
                         $include = explode(',', (string) ($context->request->getQueryParams()['include'] ?? ''));
 

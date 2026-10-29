@@ -366,6 +366,12 @@ class ChannelPolicy extends AbstractPolicy
 
     public function viewMembers(User $actor, Channel $channel): ?bool
     {
+        // Quem só tem o convite de um canal privado vê a linha (para responder),
+        // não quem está lá dentro.
+        if (! ScopeChannelVisibility::readsContents($actor, $channel)) {
+            return null;
+        }
+
         return $this->view($actor, $channel);
     }
 

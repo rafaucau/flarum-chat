@@ -12,6 +12,7 @@ namespace Ramon\Chat\Search\Filter;
 use Flarum\Search\Database\DatabaseSearchState;
 use Flarum\Search\Filter\FilterInterface;
 use Flarum\Search\SearchState;
+use Ramon\Chat\Access\ScopeChannelVisibility;
 use Ramon\Chat\Channel;
 
 /**
@@ -56,7 +57,7 @@ class UserChatChannelFilter implements FilterInterface
             ->whereVisibleTo($actor)
             ->find($channelId);
 
-        if ($channel === null) {
+        if ($channel === null || ! ScopeChannelVisibility::readsContents($actor, $channel)) {
             // Fail closed: an unreadable channel narrows the search to nothing
             // rather than falling back to every user on the forum.
             $state->getQuery()->whereRaw('1 = 0');
