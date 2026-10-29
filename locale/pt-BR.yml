@@ -33,6 +33,9 @@ ramon-chat:
 
     uploads_disabled: Anexos estão desativados no chat.
     upload_missing: Nenhum arquivo enviado.
+    action_rate_limited: Muitas tentativas em pouco tempo. Espere um pouco e tente de novo.
+    uploads_pending_limit: "{max, plural, one {Você já tem # anexo esperando envio. Envie ou remova antes.} other {Você já tem # anexos esperando envio. Envie ou remova alguns antes.}}"
+    uploads_too_many: "{max, plural, one {Uma mensagem leva no máximo # anexo.} other {Uma mensagem leva no máximo # anexos.}}"
     upload_too_large: Arquivo grande demais.
     upload_unsupported: "Tipo de arquivo inválido: {type}"
     upload_storage_failed: Falha ao salvar o arquivo. Tente de novo em instantes ou avise um administrador se persistir.

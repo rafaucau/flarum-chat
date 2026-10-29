@@ -65,6 +65,9 @@ class ChannelResource extends AbstractDatabaseResource
      */
     public const MEMBERSHIP_CHANGES_PER_MINUTE = 6;
 
+    /** Canais que alguém que não é admin cria por hora. */
+    public const CHANNELS_PER_HOUR = 10;
+
     /**
      * Rank writes one non-administrator may make per minute. Each reaches every
      * member's screen, so a script clicking through the editor would be a flood
@@ -149,6 +152,13 @@ class ChannelResource extends AbstractDatabaseResource
     {
         /** @var Channel $model */
         $isNew = ! $model->exists;
+        $actor = $context->getActor();
+
+        if ($isNew && ! $actor->isAdmin() && ! $this->throttle->attempt('channel.'.$actor->id, self::CHANNELS_PER_HOUR, 3600)) {
+            throw new ValidationException([
+                'name' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
+            ]);
+        }
 
         // Slugs identify category channels in URLs; direct channels are addressed
         // by id because their name is derived from the participant list.

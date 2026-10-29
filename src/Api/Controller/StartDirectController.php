@@ -24,6 +24,7 @@ use Psr\Log\LoggerInterface;
 use Ramon\Chat\Channel;
 use Ramon\Chat\ChannelUser;
 use Ramon\Chat\Event\ChannelWasCreated;
+use Ramon\Chat\Service\ActionThrottle;
 use Ramon\Chat\Service\MembershipManager;
 use Throwable;
 
@@ -38,12 +39,16 @@ class StartDirectController implements RequestHandlerInterface
 {
     protected const MAX_PARTICIPANTS = Channel::MAX_DIRECT_PARTICIPANTS;
 
+    /** Conversas novas que alguém que não é admin abre por hora. */
+    protected const NEW_PER_HOUR = 20;
+
     public function __construct(
         protected Events $events,
         protected Translator $translator,
         protected MembershipManager $memberships,
         protected ApiClient $api,
-        protected LoggerInterface $logger
+        protected LoggerInterface $logger,
+        protected ActionThrottle $throttle
     ) {
     }
 
@@ -95,6 +100,15 @@ class StartDirectController implements RequestHandlerInterface
         $created = false;
 
         if ($channel === null) {
+            // Só conta conversa nova: reabrir uma existente não cria nada na lista
+            // de ninguém. Sem o limite, variar os participantes enchia a barra
+            // lateral de qualquer pessoa.
+            if (! $actor->isAdmin() && ! $this->throttle->attempt('direct.'.$actor->id, self::NEW_PER_HOUR, 3600)) {
+                throw new ValidationException([
+                    'userIds' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
+                ]);
+            }
+
             $channel = Channel::query()->getConnection()->transaction(function () use ($actor, $users) {
                 $channel = Channel::build(Channel::TYPE_DIRECT, creator: $actor);
                 $channel->save();

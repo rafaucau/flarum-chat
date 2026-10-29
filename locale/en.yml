@@ -37,6 +37,9 @@ ramon-chat:
     # Uploads
     uploads_disabled: File uploads are disabled in chat.
     upload_missing: No file was uploaded.
+    action_rate_limited: Too many attempts in a short time. Wait a little and try again.
+    uploads_pending_limit: "{max, plural, one {You already have # attachment waiting to be sent. Send or remove it first.} other {You already have # attachments waiting to be sent. Send or remove some first.}}"
+    uploads_too_many: "{max, plural, one {A message can carry at most # attachment.} other {A message can carry at most # attachments.}}"
     upload_too_large: That file is too large.
     upload_unsupported: "Unsupported file type: {type}"
     upload_storage_failed: The file could not be stored. Try again in a moment, or tell an administrator if it keeps happening.

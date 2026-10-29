@@ -22,6 +22,7 @@ use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Ramon\Chat\Channel;
+use Ramon\Chat\Service\ActionThrottle;
 use Ramon\Chat\Service\UploadPrivacy;
 use Ramon\Chat\Storage\StorageFailed;
 use Ramon\Chat\Storage\UploadStorage;
@@ -42,6 +43,12 @@ class UploadController implements RequestHandlerInterface
      * not named here is rejected, so a new dangerous type cannot slip through by
      * omission.
      */
+    /** Envios por pessoa a cada 10 minutos. */
+    protected const UPLOADS_PER_TEN_MINUTES = 30;
+
+    /** Anexos enviados e ainda não presos a uma mensagem, por pessoa. */
+    protected const MAX_PENDING = 20;
+
     protected const ALLOWED = [
         'image/jpeg'      => 'jpg',
         'image/png'       => 'png',
@@ -64,7 +71,8 @@ class UploadController implements RequestHandlerInterface
         protected SettingsRepositoryInterface $settings,
         protected UploadStorage $storage,
         protected Translator $translator,
-        protected LoggerInterface $log
+        protected LoggerInterface $log,
+        protected ActionThrottle $throttle
     ) {
     }
 
@@ -79,6 +87,24 @@ class UploadController implements RequestHandlerInterface
             throw new ValidationException([
                 'file' => $this->translator->trans('ramon-chat.api.uploads_disabled'),
             ]);
+        }
+
+        // Sem teto, um membro em loop enchia o disco (e hospedava arquivos no
+        // domínio do fórum por 24 h até a limpeza dos órfãos).
+        if (! $actor->isAdmin()) {
+            if (! $this->throttle->attempt('upload.'.$actor->id, self::UPLOADS_PER_TEN_MINUTES, 600)) {
+                throw new ValidationException([
+                    'file' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
+                ]);
+            }
+
+            $pending = Upload::query()->where('user_id', $actor->id)->whereNull('message_id')->count();
+
+            if ($pending >= self::MAX_PENDING) {
+                throw new ValidationException([
+                    'file' => $this->translator->trans('ramon-chat.api.uploads_pending_limit', ['max' => self::MAX_PENDING]),
+                ]);
+            }
         }
 
         /** @var UploadedFileInterface|null $file */

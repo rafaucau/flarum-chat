@@ -34,6 +34,9 @@ use Ramon\Chat\Upload;
  */
 class MessageDispatcher
 {
+    /** Anexos por mensagem: o resto ficaria preso a ela para sempre. */
+    public const MAX_UPLOADS_PER_MESSAGE = 10;
+
     public function __construct(
         protected ExtensionManager $extensions,
         protected Events $events,
@@ -62,6 +65,13 @@ class MessageDispatcher
         bool $createThread = false
     ): Message {
         $content = trim($content);
+        $uploadIds = array_values(array_unique(array_filter(array_map('intval', $uploadIds))));
+
+        if (count($uploadIds) > self::MAX_UPLOADS_PER_MESSAGE) {
+            throw new ValidationException([
+                'uploadIds' => $this->translator->trans('ramon-chat.api.uploads_too_many', ['max' => self::MAX_UPLOADS_PER_MESSAGE]),
+            ]);
+        }
 
         $this->assertValidContent($channel, $content, $uploadIds);
         $this->assertMaySendStickers($actor, $content);
