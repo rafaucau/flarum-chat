@@ -158,7 +158,24 @@ export function purgeSnapshots(): void {
 
       if (key?.startsWith(KEY_PREFIX)) localStorage.removeItem(key);
     }
+
+    localStorage.setItem(SIGNED_OUT_KEY, String(Date.now()));
   } catch {
     // Non-fatal.
+  }
+}
+
+/** Quando uma aba sem sessão apagou os snapshots pela última vez. */
+const SIGNED_OUT_KEY = "ramon-chat.signedOutAt";
+
+/**
+ * Se alguma aba saiu da conta depois de `since` (ms). Uma aba aberta antes da
+ * saída não sabe que a sessão acabou e não deve gravar o snapshot de volta.
+ */
+export function signedOutSince(since: number): boolean {
+  try {
+    return Number(localStorage.getItem(SIGNED_OUT_KEY) ?? 0) > since;
+  } catch {
+    return false;
   }
 }

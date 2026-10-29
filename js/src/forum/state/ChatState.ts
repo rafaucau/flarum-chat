@@ -10,6 +10,7 @@ import {
   serialize,
   writeSnapshot,
   type Document,
+  signedOutSince,
 } from "../utils/snapshot";
 
 /**
@@ -65,6 +66,9 @@ const SNAPSHOT_CHANNELS = 3;
 
 /** Quiet period before a snapshot write; see scheduleSnapshot(). */
 const SNAPSHOT_DEBOUNCE_MS = 1500;
+
+/** Quando esta aba abriu: uma saída da conta depois disso a impede de gravar. */
+const BOOTED_AT = Date.now();
 
 /**
  * The collection size a paginated response reports, or null when it does not.
@@ -605,6 +609,10 @@ export default class ChatState {
 
     if (!userId || !this.channelsLoaded || this.channelsStale) return;
 
+    // Outra aba saiu da conta depois que esta abriu: esta ainda acha que há
+    // sessão, e gravar agora devolveria ao disco o que a saída apagou.
+    if (signedOutSince(BOOTED_AT)) return;
+
     try {
       const streams: Record<string, Document> = {};
       const pinned: Record<string, Document> = {};
@@ -897,10 +905,6 @@ export default class ChatState {
       this.activeChannelId === channelId &&
       (m.route.get() ?? "").includes(`/chat/c/${channelId}`);
     this.forgetChannel(channelId);
-    delete this.streams[channelId];
-    delete this.pinnedPreviews[channelId];
-    delete this.pinnedTotals[channelId];
-    this.scheduleSnapshot();
 
     if (wasOpen) m.route.set(app.route("chat.index"));
 
@@ -938,6 +942,16 @@ export default class ChatState {
     this.channels = this.channels.filter(
       (channel) => Number(channel.id()) !== channelId,
     );
+
+    // A conversa sai também do snapshot local: quem foi removido de um canal
+    // privado não deve achar o fim dele no disco.
+    delete this.streams[channelId];
+    delete this.pinnedPreviews[channelId];
+    delete this.pinnedTotals[channelId];
+    this.recentChannelIds = this.recentChannelIds.filter(
+      (id) => id !== channelId,
+    );
+    this.scheduleSnapshot();
 
     if (this.activeChannelId === channelId) {
       this.closeOverlays();
