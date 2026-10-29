@@ -2,8 +2,10 @@
 
 /**
  * Router para o servidor embutido do PHP (`php -S ... -t public router.php`) no
- * benchmark de performance. Serve arquivos reais de public/ (assets) e roteia
- * todo o resto para o front controller public/index.php. Sem isso o servidor
+ * benchmark de performance. Deixa o servidor embutido servir /assets/ (o único
+ * diretório de arquivos do public/ do Flarum) e roteia todo o resto para o front
+ * controller public/index.php. A decisão olha só o prefixo da URL, sem montar
+ * caminho de arquivo a partir dela. Sem isso o servidor
  * embutido devolve 404 em rotas SPA (/, /all, /u/admin), porque não tem
  * fallback para o index.
  */
@@ -15,8 +17,8 @@ if (str_contains($uri, '..') || str_contains($uri, "\0")) {
     return;
 }
 
-if ($uri !== '/' && is_file(__DIR__ . '/public' . $uri)) {
-    return false; // deixa o servidor embutido servir o asset estático de public/
+if (str_starts_with($uri, '/assets/')) {
+    return false; // o servidor embutido serve o arquivo de public/assets, ou 404
 }
 
 // O index.php do Flarum faz `require '../site.php'` relativo ao diretório de
