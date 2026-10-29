@@ -22,9 +22,8 @@ use Ramon\Chat\Event\InviteWasDeclined;
 use Ramon\Chat\Service\InvitationManager;
 
 /**
- * The invitee declines. The invite goes away, the inviter and the channel
- * owner are notified (Listener\NotifyInvitations), and nothing else changes:
- * the person still cannot see the channel, exactly as before the invite.
+ * O convidado recusa: o convite some e quem convidou e o dono do canal são
+ * notificados (Listener\NotifyInvitations). A pessoa continua sem ver o canal.
  */
 class DeclineInviteController implements RequestHandlerInterface
 {

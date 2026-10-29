@@ -19,9 +19,8 @@ use Ramon\Chat\Upload;
 use Tobyz\JsonApiServer\Context as OriginalContext;
 
 /**
- * Read-only resource so attachments can be included alongside messages.
- * Creation happens through Api\Controller\UploadController, which handles the
- * multipart body that JSON:API cannot express.
+ * Recurso de leitura para incluir anexos junto das mensagens. A criação é no
+ * Api\Controller\UploadController, porque JSON:API não expressa multipart.
  *
  * @extends AbstractDatabaseResource<Upload>
  */
@@ -43,9 +42,9 @@ class UploadResource extends AbstractDatabaseResource
     }
 
     /**
-     * The rule lives in Access\ScopeUploadVisibility, shared with the controller
-     * that streams private files: an upload is visible when its message is, and
-     * a pending one only to its uploader.
+     * A regra mora no Access\ScopeUploadVisibility, compartilhada com o
+     * controller que serve arquivos privados: visível se a mensagem for; pendente,
+     * só para quem enviou.
      */
     public function scope(Builder $query, OriginalContext $context): void
     {
@@ -58,12 +57,9 @@ class UploadResource extends AbstractDatabaseResource
         return [
             Endpoint\Show::make()->authenticated(),
 
-            // Only a pending, own upload may be discarded; removing one already
-            // attached to a message would silently mutate history.
-            //
-            // The two-argument closure is correct here: Delete is model-scoped, so
-            // isVisible() passes (model, context). Create has no model yet and gets
-            // the context alone — see ChannelResource.
+            // Só o próprio anexo pendente pode ser descartado; remover um já preso
+            // à mensagem alteraria o histórico. Dois argumentos está certo: o
+            // Delete tem model (ver ChannelResource).
             Endpoint\Delete::make()
                 ->authenticated()
                 ->visible(fn (Upload $upload, Context $context) => $upload->message_id === null
@@ -72,12 +68,8 @@ class UploadResource extends AbstractDatabaseResource
     }
 
     /**
-     * Discarding a pending attachment removes its file as well as its row.
-     *
-     * The default delete took the row alone and left the bytes behind, on a disk
-     * nothing would sweep again — the prune command finds orphans by their row.
-     * On the public disk or in a bucket that is a file still readable by URL
-     * after the member removed it.
+     * Descartar o anexo pendente apaga o arquivo junto da linha: o prune acha
+     * órfãos pela linha, e o arquivo continuaria acessível pela URL.
      *
      * @param  Upload  $model
      */
@@ -104,9 +96,8 @@ class UploadResource extends AbstractDatabaseResource
             Schema\Boolean::make('isImage')
                 ->get(fn (Upload $u) => $u->isImage()),
 
-            // Whether the file is served through the permission check rather
-            // than straight off the web server. Informational: the URL already
-            // points at the right place either way.
+            // Se o arquivo passa pela checagem de permissão em vez de sair direto
+            // do servidor web. Só informativo: a URL já aponta para o lugar certo.
             Schema\Boolean::make('isPrivate'),
 
             Schema\DateTime::make('createdAt'),

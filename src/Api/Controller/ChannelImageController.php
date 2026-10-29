@@ -27,23 +27,16 @@ use Ramon\Chat\Event\ChannelWasEdited;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
 /**
- * Sets or clears a channel's picture.
- *
- * Not built on core's UploadImageController, which asserts *admin*: editing a
- * channel is governed by the `edit` policy, so a moderator who may rename a channel
- * may also give it a picture. The parts worth borrowing are borrowed instead — the
- * validator, and the decode-and-re-encode that means the stored file is one this
- * server produced rather than one an uploader handed us.
- *
- * POST sets, DELETE clears; one controller because the two share the channel
- * lookup, the permission check and the delete-the-old-file step, and splitting them
- * would mean keeping three of those in sync twice.
+ * Define (POST) ou remove (DELETE) a imagem do canal. Não estende o
+ * UploadImageController do core, que exige admin: aqui vale a policy `edit`.
+ * Reaproveita o validador e o decode/re-encode, para o arquivo gravado ser gerado
+ * pelo servidor e não o que o usuário enviou.
  */
 class ChannelImageController implements RequestHandlerInterface
 {
     protected Filesystem $uploadDir;
 
-    /** The multipart field name, and the prefix of the stored file. */
+    /** Nome do campo multipart e prefixo do arquivo gravado. */
     protected const FIELD = 'image';
 
     public function __construct(
@@ -62,8 +55,8 @@ class ChannelImageController implements RequestHandlerInterface
 
         $id = (int) Arr::get((array) $request->getAttribute('routeParameters'), 'id', 0);
 
-        // whereVisibleTo before the policy: a channel the actor cannot see must
-        // answer the same way whether or not it exists.
+        // whereVisibleTo antes da policy: canal invisível responde igual a canal
+        // inexistente.
         $channel = Channel::whereVisibleTo($actor)->find($id);
 
         if (! $channel instanceof Channel) {
@@ -82,8 +75,8 @@ class ChannelImageController implements RequestHandlerInterface
 
             $this->discard($previous);
 
-            // An edit like any other, so members' sidebars and headers drop the
-            // picture without a reload.
+            // Edição como outra qualquer, para a sidebar dos membros atualizar
+            // sem reload.
             $this->events->dispatch(new ChannelWasEdited($channel, $actor));
 
             return new JsonResponse(['data' => ['imageUrl' => null]]);
@@ -95,8 +88,7 @@ class ChannelImageController implements RequestHandlerInterface
             throw new ValidationException([self::FIELD => 'No file was uploaded.']);
         }
 
-        // Size and real mime type, read from the file's own bytes rather than the
-        // Content-Type the browser claimed.
+        // Tamanho e mime lidos dos bytes, não do Content-Type do navegador.
         $this->container->make(BotAvatarValidator::class)->assertImageValid(self::FIELD, $file);
 
         $image = $this->imageManager->read($file->getStream()->getMetadata('uri'))
@@ -113,8 +105,8 @@ class ChannelImageController implements RequestHandlerInterface
         $channel->image_path = $name;
         $channel->save();
 
-        // Only after the new one is safely stored — a failed write must not leave
-        // the channel with neither.
+        // Só depois de gravar a nova: uma falha não pode deixar o canal sem
+        // nenhuma.
         $this->discard($previous);
 
         $this->events->dispatch(new ChannelWasEdited($channel, $actor));

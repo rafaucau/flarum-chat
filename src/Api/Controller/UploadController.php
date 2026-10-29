@@ -29,19 +29,15 @@ use Ramon\Chat\Storage\UploadStorage;
 use Ramon\Chat\Upload;
 
 /**
- * Accepts a composer attachment and returns the created upload.
- *
- * The upload is created *unattached* (`message_id` null) and bound to a message
- * later by MessageDispatcher. That is what lets the composer show a pending
- * attachment before the message is sent; the retention command sweeps uploads
- * whose composer session never completed.
+ * Recebe um anexo do composer. Nasce solto (`message_id` null) e o
+ * MessageDispatcher o prende à mensagem depois, para o composer mostrar o anexo
+ * antes do envio; o comando de retenção limpa os que nunca foram enviados.
  */
 class UploadController implements RequestHandlerInterface
 {
     /**
-     * Allowed mime → extension. An allow-list rather than a deny-list: anything
-     * not named here is rejected, so a new dangerous type cannot slip through by
-     * omission.
+     * Mime permitido → extensão. Allow-list: o que não está aqui é recusado, para
+     * um tipo perigoso novo não passar por omissão.
      */
     /** Envios por pessoa a cada 10 minutos. */
     protected const UPLOADS_PER_TEN_MINUTES = 30;
@@ -89,7 +85,7 @@ class UploadController implements RequestHandlerInterface
             ]);
         }
 
-        // Sem teto, um membro em loop enchia o disco (e hospedava arquivos no
+        // Sem teto, um membro em loop encheria o disco (e hospedaria arquivos no
         // domínio do fórum por 24 h até a limpeza dos órfãos).
         if (! $actor->isAdmin()) {
             if (! $this->throttle->attempt('upload.'.$actor->id, self::UPLOADS_PER_TEN_MINUTES, 600)) {
@@ -116,11 +112,9 @@ class UploadController implements RequestHandlerInterface
             ]);
         }
 
-        // The composer says where the file is headed, so one meant for a private
-        // channel never touches the public disk. A hint and not the gate: the
-        // dispatcher checks again when the message is sent, against the channel
-        // it is actually sent to. The channel must be visible to the uploader —
-        // a private one they cannot see answers "not found" like everywhere else.
+        // O composer diz o destino, para arquivo de canal privado nunca tocar o
+        // disco público. É dica, não trava: o dispatcher confere de novo no envio.
+        // Canal invisível ao ator responde "não encontrado".
         $channelId = (int) Arr::get($request->getParsedBody(), 'channelId', 0);
         $private = false;
 
@@ -145,8 +139,8 @@ class UploadController implements RequestHandlerInterface
             ]);
         }
 
-        // Sniff the real mime from the temp file. The client-supplied
-        // Content-Type is attacker-controlled and must never decide storage.
+        // Mime real lido do arquivo temporário: o Content-Type vem do cliente e
+        // nunca decide o armazenamento.
         $tmp = $file->getStream()->getMetadata('uri');
         $mime = is_string($tmp) ? (mime_content_type($tmp) ?: '') : '';
 
@@ -161,7 +155,7 @@ class UploadController implements RequestHandlerInterface
         $width = null;
         $height = null;
 
-        // Read from the temp file before the store consumes the stream.
+        // Lido antes de o store consumir o stream.
         if (str_starts_with($mime, 'image/') && is_string($tmp)) {
             $size = @getimagesize($tmp);
 
@@ -179,17 +173,15 @@ class UploadController implements RequestHandlerInterface
         $upload->width = $width;
         $upload->height = $height;
 
-        // The store names the path. A private file always lands on the chat's
-        // private disk; a public one goes through fof/upload when the admin chose
-        // it. Either way the basename is random and the client filename is kept
-        // only as a display label, never as a path component.
+        // O store define o path: privado vai para o disco privado do chat,
+        // público para o fof/upload se o admin escolheu. O basename é aleatório;
+        // o nome do cliente é só rótulo, nunca parte do path.
         $this->put($upload, $file, $extension);
 
         try {
             $upload->save();
         } catch (\Throwable $e) {
-            // Without a row nothing would ever find these bytes again: no prune,
-            // no delete, and on a bucket no way to tell them from anything else.
+            // Sem linha, nada acharia esses bytes de novo: nem prune nem delete.
             $this->storage->delete($upload);
 
             throw $e;
@@ -214,13 +206,10 @@ class UploadController implements RequestHandlerInterface
     }
 
     /**
-     * Writes the bytes through the chosen store, or refuses the upload.
-     *
-     * No fallback to the local disk when fof/upload fails: an admin who sent
-     * public files to a bucket did so for a reason (bandwidth, disk, a CDN), and
-     * quietly filling the webroot instead would hide the outage until the disk
-     * was full. The member sees a plain "could not be stored"; the reason, which
-     * may name a bucket, goes to the log.
+     * Grava pelo store escolhido ou recusa. Sem fallback para o disco local se o
+     * fof/upload falhar: encher o webroot esconderia a pane até lotar o disco. O
+     * membro vê "não foi possível guardar"; o motivo (pode citar o bucket) vai
+     * para o log.
      */
     protected function put(Upload $upload, UploadedFileInterface $file, string $extension): void
     {
@@ -247,8 +236,8 @@ class UploadController implements RequestHandlerInterface
     }
 
     /**
-     * Strips directory components and control characters from the display name.
-     * This value is echoed back to clients, so it must not carry markup either.
+     * Tira diretórios e caracteres de controle do nome exibido. Volta para os
+     * clientes, então também não pode levar markup.
      */
     protected function safeFileName(string $name): string
     {

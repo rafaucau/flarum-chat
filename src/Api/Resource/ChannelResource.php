@@ -56,12 +56,12 @@ use Tobyz\JsonApiServer\Exception\ForbiddenException;
 class ChannelResource extends AbstractDatabaseResource
 {
     /**
-     * People one non-administrator may invite per hour, across every channel.
+     * Pessoas que alguém que não é admin convida por hora, somando todos os canais.
      */
     public const INVITES_PER_HOUR = 100;
 
     /**
-     * Joins plus leaves one non-administrator may make in one channel per minute.
+     * Entradas mais saídas por minuto num canal, para quem não é admin.
      */
     public const MEMBERSHIP_CHANGES_PER_MINUTE = 6;
 
@@ -69,9 +69,8 @@ class ChannelResource extends AbstractDatabaseResource
     public const CHANNELS_PER_HOUR = 10;
 
     /**
-     * Rank writes one non-administrator may make per minute. Each reaches every
-     * member's screen, so a script clicking through the editor would be a flood
-     * of pushes rather than of rows.
+     * Escritas de rank por minuto para quem não é admin. Cada uma chega à tela de
+     * todos os membros, então um script no editor viraria um flood de pushes.
      */
     public const RANK_CHANGES_PER_MINUTE = 30;
 
@@ -108,9 +107,8 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * The generic Create endpoint builds its model here rather than through
-     * Channel::build(), so the defaults that factory would have applied have to be
-     * set explicitly.
+     * O endpoint Create monta o model aqui, não pelo Channel::build(), então os
+     * defaults daquela factory precisam ser postos à mão.
      */
     public function newModel(OriginalContext $context): object
     {
@@ -121,9 +119,8 @@ class ChannelResource extends AbstractDatabaseResource
             $channel->status = Channel::STATUS_OPEN;
             $channel->creator_id = $context->getActor()->id;
 
-            // Set explicitly rather than left to the column defaults: the response
-            // is serialised from this in-memory model, so anything unset comes back
-            // as null and the client reads a tri-state where it expects a boolean.
+            // Explícitos, não defaults da coluna: a resposta sai deste model em
+            // memória, e o que não for setado volta null onde o cliente espera bool.
             $channel->threading_enabled = (bool) $this->settings->get('ramon-chat.threading_default', false);
             $channel->is_private = false;
             $channel->post_permission = Channel::POST_ALL;
@@ -141,12 +138,8 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Finishes what Channel::build() would have done, and what a bare insert
-     * cannot: derive the slug, subscribe the creator, and announce the channel.
-     *
-     * Without the join the creator would not be following their own new channel,
-     * so it would not appear in their sidebar — the symptom being "I created a
-     * channel and nothing happened".
+     * Completa o que o Channel::build() faria: slug, criador como membro (senão o
+     * canal não aparece na sidebar dele) e o anúncio do canal.
      */
     protected function saveModel(\Illuminate\Database\Eloquent\Model $model, OriginalContext $context): void
     {
@@ -160,8 +153,8 @@ class ChannelResource extends AbstractDatabaseResource
             ]);
         }
 
-        // Slugs identify category channels in URLs; direct channels are addressed
-        // by id because their name is derived from the participant list.
+        // Slug identifica canal de categoria na URL; conversa direta vai por id,
+        // porque o nome vem dos participantes.
         if ($model->type === Channel::TYPE_CATEGORY && $model->name !== null && $model->name !== '') {
             if ($isNew || $model->isDirty('name') || $model->slug === null) {
                 $model->slug = $model->generateSlug($model->name);
@@ -171,9 +164,8 @@ class ChannelResource extends AbstractDatabaseResource
         parent::saveModel($model, $context);
 
         if (! $isNew) {
-            // An edit that changed nothing is not worth broadcasting. `wasChanged`
-            // reflects what the save actually wrote, so re-saving identical values
-            // stays silent.
+            // Edição sem mudança não vai para broadcast; `wasChanged` reflete o que
+            // o save gravou de fato.
             if ($model->wasChanged()) {
                 $this->events->dispatch(new ChannelWasEdited($model, $context->getActor()));
             }
@@ -196,10 +188,8 @@ class ChannelResource extends AbstractDatabaseResource
     {
         return [
             Endpoint\Show::make()
-                // Authenticated again. Reading the chat is for accounts: the guest
-                // read permission this briefly supported has been withdrawn, and
-                // without the gate these endpoints would answer 200 with an empty
-                // collection to anyone, which is a slower way of saying no.
+                // Ler o chat exige conta. Sem a trava, estes endpoints responderiam
+                // 200 com coleção vazia a qualquer um.
                 ->authenticated()
                 ->eagerLoad(['creator', 'lastMessage.user'])
                 ->eagerLoadWhere(
@@ -213,9 +203,8 @@ class ChannelResource extends AbstractDatabaseResource
                     fn ($query, Context $context) => $query
                         ->where('user_id', $context->getActor()->id)
                 )
-                // Restricted to direct channels: a category channel's label comes
-                // from its own name, and loading its whole membership to find that
-                // out is exactly the query this is meant to save.
+                // Só conversas diretas: canal de categoria tira o rótulo do próprio
+                // nome, e carregar todos os membros seria a query que isto evita.
                 ->eagerLoadWhere(
                     'directParticipants',
                     fn ($query, Context $context) => $query
@@ -225,31 +214,25 @@ class ChannelResource extends AbstractDatabaseResource
                                 ->where('type', Channel::TYPE_DIRECT)
                                 ->select('chat_channels.id')
                         )
-                        // The reader is never part of their own label, and never one
-                        // of the avatars either — `displayName()` rejects them and so
-                        // does `Channel#others()` on the client. Dropped in SQL so the
-                        // row is not loaded, and so the actor's own user record is not
-                        // dragged into `included` on every channel list, where its
-                        // three unread counters each cost a query.
+                        // O leitor nunca entra no próprio rótulo nem nos avatares
+                        // (`displayName()` e `Channel#others()` o descartam). Fora no
+                        // SQL para o usuário do ator não ir para `included` em toda
+                        // listagem, onde os três contadores de não lidas custam query.
                         ->where('users.id', '!=', (int) $context->getActor()->id)
                 )
-                // Serialised as well as loaded. The relation was already being
-                // fetched for the label; sending it costs nothing further and is
-                // what lets the sidebar draw a conversation's avatars on the
-                // first paint instead of after the members tab is opened.
+                // Serializada além de carregada: já vem para o rótulo, e assim a
+                // sidebar desenha os avatares da conversa na primeira pintura.
                 ->defaultInclude(['directParticipants'])
-                // The members tab's read. Groups for the same reason as in
-                // withMembers(): an administrator's view of each member reads them.
+                // Leitura da aba Membros. Grupos pelo mesmo motivo de withMembers().
                 ->eagerLoadWhenIncluded(['participants' => ['participants.groups']]),
 
             Endpoint\Index::make()
                 ->authenticated()
                 ->defaultSort('-lastMessageAt')
                 ->eagerLoad(['creator', 'lastMessage.user'])
-                // Seven fields on every row read the actor's membership, and the
-                // posting and joining policies read it again. Loaded once for the
-                // page instead of once per channel — `membershipFor()` checks the
-                // row belongs to the actor before trusting it.
+                // Vários campos e as policies leem a membership do ator; carregada
+                // uma vez por página, não por canal. `membershipFor()` confere que a
+                // linha é do ator antes de confiar nela.
                 ->eagerLoadWhere(
                     'actorMembership',
                     fn ($query, Context $context) => $query
@@ -261,9 +244,8 @@ class ChannelResource extends AbstractDatabaseResource
                     fn ($query, Context $context) => $query
                         ->where('user_id', $context->getActor()->id)
                 )
-                // Restricted to direct channels: a category channel's label comes
-                // from its own name, and loading its whole membership to find that
-                // out is exactly the query this is meant to save.
+                // Só conversas diretas: canal de categoria tira o rótulo do próprio
+                // nome, e carregar todos os membros seria a query que isto evita.
                 ->eagerLoadWhere(
                     'directParticipants',
                     fn ($query, Context $context) => $query
@@ -273,24 +255,18 @@ class ChannelResource extends AbstractDatabaseResource
                                 ->where('type', Channel::TYPE_DIRECT)
                                 ->select('chat_channels.id')
                         )
-                        // The reader is never part of their own label, and never one
-                        // of the avatars either — `displayName()` rejects them and so
-                        // does `Channel#others()` on the client. Dropped in SQL so the
-                        // row is not loaded, and so the actor's own user record is not
-                        // dragged into `included` on every channel list, where its
-                        // three unread counters each cost a query.
+                        // O leitor nunca entra no próprio rótulo nem nos avatares
+                        // (`displayName()` e `Channel#others()` o descartam). Fora no
+                        // SQL para o usuário do ator não ir para `included` em toda
+                        // listagem, onde os três contadores de não lidas custam query.
                         ->where('users.id', '!=', (int) $context->getActor()->id)
                 )
                 ->defaultInclude(['directParticipants'])
                 ->paginate(50),
 
-            // visible() is invoked as (model, context) when the context carries a
-            // model, and as (context) alone when it does not. Create has no model
-            // yet, so a two-argument closure here is a TypeError at request time —
-            // which is exactly what made channel creation return 500.
-            //
-            // Model-scoped endpoints below use ->can() instead: it resolves the
-            // ability against $context->model, and is what core does.
+            // visible() recebe (model, context) quando há model e só (context)
+            // quando não há. No Create ainda não há model, então closure de dois
+            // argumentos é TypeError. Os endpoints com model usam ->can(), como o core.
             Endpoint\Create::make()
                 ->authenticated()
                 ->visible(fn (Context $context) => $context->getActor()->can('createChannel'))
@@ -308,9 +284,8 @@ class ChannelResource extends AbstractDatabaseResource
                     $channel = $context->model;
                     $actor = $context->getActor();
 
-                    // Soft delete: the transcript may still be referenced by an
-                    // archive discussion, so rows are retained until the
-                    // retention command sweeps them.
+                    // Soft delete: uma discussão de arquivo pode citar a transcrição,
+                    // então as linhas ficam até o comando de retenção limpar.
                     $channel->deleted_at = Carbon::now();
                     $channel->deleted_by_id = $actor->id;
                     $channel->save();
@@ -332,9 +307,8 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $upTo = Arr::get($context->body(), 'data.attributes.lastReadMessageId');
 
-                    // The read marker lives on a membership. In a channel for
-                    // everyone the reader may not have one yet, and reading it is
-                    // what gives them one.
+                    // O marcador de leitura mora na membership; num canal para todos
+                    // o leitor pode ainda não ter uma, e ler é o que a cria.
                     $this->memberships->ensure($channel, $actor);
 
                     $this->unread->markChannelRead(
@@ -355,25 +329,22 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $hidden = (bool) Arr::get($context->body(), 'data.attributes.hidden', false);
 
-                    // Two different rights: joining, and joining unseen. Checked
-                    // separately so a member who forges `hidden: true` gets a 403
-                    // rather than an invisible membership.
+                    // Entrar e entrar oculto são direitos separados: forjar
+                    // `hidden: true` dá 403, não uma membership invisível.
                     if (! $actor->can($hidden ? 'joinHidden' : 'join', $channel)) {
                         throw new ForbiddenException();
                     }
 
                     $this->assertNotTogglingMembership($channel, $actor);
 
-                    // Accepting an invitation is joining. Consumed first, so the
-                    // membership is created knowing it answers one, and the
-                    // announcement can say who asked them in.
+                    // Aceitar convite é entrar. Consumido antes, para o anúncio dizer
+                    // quem convidou.
                     $invite = $this->invitations->accept($channel, $actor);
 
                     $membership = $this->memberships->join($channel, $actor, hidden: $hidden);
 
-                    // Announced only when something changed. Joining a channel you
-                    // are already in is a no-op, and dispatching anyway wrote a
-                    // "joined" line into the room on every repeat of the request.
+                    // Só anuncia se algo mudou: entrar onde já está é no-op e não
+                    // pode gravar outra linha "entrou".
                     if ($membership->wasRecentlyCreated || $membership->wasChanged(['left_at', 'hidden'])) {
                         $this->events->dispatch(new UserJoinedChannel(
                             $channel,
@@ -385,18 +356,14 @@ class ChannelResource extends AbstractDatabaseResource
                         ));
                     }
 
-                    // The record as it now stands, capability flags included. The
-                    // client draws the composer from `canPostMessage`, and a bare
-                    // 204 left it reading the pre-join answer until a reload: the
-                    // channel looked closed to someone who had just joined it.
+                    // O registro atualizado, com as flags: o cliente desenha o
+                    // composer a partir de `canPostMessage`.
                     return $channel;
                 }),
 
-            // Inviting other people. Separate from `join`, which is the actor
-            // letting themselves in: this asks someone else into a room, and for a
-            // private channel it is the only way in. Nobody is put in a channel
-            // without a say: the invitee gets a notification with the choice, and
-            // accepting it is what creates the membership.
+            // Convidar outras pessoas; em canal privado é a única entrada. Ninguém
+            // é posto no canal sem escolher: o convidado recebe a notificação, e
+            // aceitar é o que cria a membership.
             Endpoint\Endpoint::make('addMembers')
                 ->route('POST', '/{id}/members')
                 ->authenticated()
@@ -426,8 +393,8 @@ class ChannelResource extends AbstractDatabaseResource
                         ]);
                     }
 
-                    // Only real users, and only ones the actor can see — a bare id
-                    // list must not be a way to discover which accounts exist.
+                    // Só usuários visíveis ao ator: uma lista de ids não pode revelar
+                    // quais contas existem.
                     $users = User::query()
                         ->whereVisibleTo($actor)
                         ->whereIn('id', $ids)
@@ -449,10 +416,9 @@ class ChannelResource extends AbstractDatabaseResource
                         }
                     }
 
-                    // Every invite is a notification in someone else's bell, so the
-                    // inviter is held to a budget per hour. Charged for everyone asked
-                    // rather than for the invites that end up created: deciding which
-                    // would be skipped is the work the budget is protecting.
+                    // Cada convite é uma notificação alheia, então há cota por hora.
+                    // Cobra por pessoa pedida, não por convite criado: descobrir quais
+                    // seriam pulados é o trabalho que a cota protege.
                     if (! $actor->isAdmin()) {
                         foreach ($users as $ignored) {
                             if (! $this->throttle->attempt('invite.'.$actor->id, self::INVITES_PER_HOUR, 3600)) {
@@ -463,8 +429,8 @@ class ChannelResource extends AbstractDatabaseResource
                         }
                     }
 
-                    // Members and people already invited are skipped inside, so a
-                    // repeated request cannot pile up invites or re-notify anyone.
+                    // Membros e já convidados são pulados lá dentro: repetir não
+                    // acumula convites nem renotifica.
                     $invited = $this->invitations->invite($channel, $users, $actor);
 
                     foreach ($invited as $invite) {
@@ -479,11 +445,9 @@ class ChannelResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['participants', 'invitedUsers']),
 
-            // Taking an invitation back before it is answered. The counterpart of
-            // `removeMember` for people who are not members yet. The invitee's own
-            // answers live on their own routes (Controller\AcceptInviteController,
-            // Controller\DeclineInviteController): a private channel is not
-            // visible to them yet, so a model-scoped endpoint could not find it.
+            // Retira um convite ainda sem resposta. As respostas do convidado têm
+            // rotas próprias (AcceptInviteController, DeclineInviteController):
+            // canal privado ainda é invisível para ele.
             Endpoint\Endpoint::make('cancelInvite')
                 ->route('POST', '/{id}/invites/cancel')
                 ->authenticated()
@@ -523,10 +487,8 @@ class ChannelResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['participants', 'invitedUsers']),
 
-            // Removing someone else. `leave` is the self-service counterpart; this is
-            // the moderation one, and it is a separate endpoint precisely so the
-            // permission check is not a branch inside `leave` that has to distinguish
-            // "me" from "them" on every ordinary departure.
+            // Remover outra pessoa. Separado de `leave` para a checagem de permissão
+            // não virar um branch dentro de toda saída comum.
             Endpoint\Endpoint::make('removeMember')
                 ->route('POST', '/{id}/members/remove')
                 ->authenticated()
@@ -541,9 +503,8 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $userId = (int) Arr::get($context->body(), 'data.attributes.userId', 0);
 
-                    // Visibility-scoped for the same reason `addMembers` is: an id
-                    // that resolves differently depending on who asks must not become
-                    // a way to probe for accounts.
+                    // Com scope de visibilidade, como em `addMembers`, para não servir
+                    // de sonda de contas.
                     $user = $userId > 0
                         ? User::query()->whereVisibleTo($actor)->whereKey($userId)->first()
                         : null;
@@ -554,32 +515,26 @@ class ChannelResource extends AbstractDatabaseResource
                         ]);
                     }
 
-                    // Removing yourself is what `leave` is for. Routing it here would
-                    // work, but it would let someone without manageMembers be refused
-                    // permission to leave a channel they are standing in.
+                    // Remover a si mesmo é `leave`, que não exige manageMembers.
                     if ((int) $user->id === (int) $actor->id) {
                         throw new ValidationException([
                             'userId' => $this->translator->trans('ramon-chat.api.cannot_remove_self'),
                         ]);
                     }
 
-                    // A moderator must not be able to eject someone who outranks them;
-                    // otherwise the weaker permission removes the stronger one, and two
-                    // moderators can take turns throwing each other out. Administrators
-                    // are exempt — the whole point of the role is that it is final.
+                    // Ninguém expulsa quem tem permissão maior, senão dois moderadores
+                    // se expulsariam em turnos. Admin é exceção: a palavra dele é final.
                     if (! $actor->isAdmin() && $user->can('ramon-chat.moderate')) {
                         throw new ForbiddenException();
                     }
 
-                    // The same rule inside the room: a channel moderator must not
-                    // eject the owner or a fellow moderator. Only whoever controls
-                    // the channel — its owner, or a chat moderator — may.
+                    // Mesma regra dentro da sala: moderador do canal não expulsa o dono
+                    // nem outro moderador; só quem controla o canal pode.
                     $target = $channel->membershipFor($user);
 
-                    // A hidden member is, to anyone who cannot see hidden members,
-                    // not a member: every answer below is the one a stranger's id
-                    // gets, and nothing is removed. Otherwise an owner could find an
-                    // inspector by the difference in the reply, and evict them.
+                    // Para quem não vê ocultos, membro oculto não é membro: a resposta
+                    // é a de um estranho, senão o dono acharia quem inspeciona pela
+                    // diferença e o expulsaria.
                     if ($target !== null && $target->isHidden() && ! $this->ownership->seesHiddenMembers($actor)) {
                         $target = null;
                     }
@@ -592,8 +547,7 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $membership = $target !== null ? $this->memberships->leave($channel, $user, $actor) : null;
 
-                    // Not a member — nothing to do, and reporting success on a no-op
-                    // would tell the caller a removal happened that did not.
+                    // Não é membro: sucesso aqui afirmaria uma remoção que não houve.
                     if ($membership === null) {
                         throw new ValidationException([
                             'userId' => $this->translator->trans('ramon-chat.api.not_a_member'),
@@ -606,9 +560,8 @@ class ChannelResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['participants']),
 
-            // Making a member a moderator of this channel, and undoing it. What
-            // the role grants is decided by ChannelOwnership; who may hand it out
-            // by ChannelPolicy::manageModerators.
+            // Moderador do canal: o que o papel dá é do ChannelOwnership; quem pode
+            // conceder, do ChannelPolicy::manageModerators.
             Endpoint\Endpoint::make('promoteModerator')
                 ->route('POST', '/{id}/moderators')
                 ->authenticated()
@@ -621,11 +574,9 @@ class ChannelResource extends AbstractDatabaseResource
                 ->action(fn (Context $context) => $this->setModerator($context, false))
                 ->defaultInclude(['participants']),
 
-            // Handing the channel to another member, in three steps: the owner
-            // picks someone and gets a code by e-mail, enters it, and the member
-            // accepts or declines. Every step answers with the channel and its
-            // members, so the members tab redraws from the server's word. See
-            // Service\OwnershipTransfers for the rules of each step.
+            // Transferência em três passos: o dono escolhe e recebe um código por
+            // e-mail, digita o código, e o membro aceita ou recusa. Cada passo
+            // responde com canal e membros. Regras em Service\OwnershipTransfers.
             Endpoint\Endpoint::make('startTransfer')
                 ->route('POST', '/{id}/transfer')
                 ->authenticated()
@@ -713,10 +664,9 @@ class ChannelResource extends AbstractDatabaseResource
                 })
                 ->defaultInclude(['participants']),
 
-            // The channel's ranks: the labels shown before members' names. Each
-            // answers with the channel, whose `rankBook` is the new state, so the
-            // editor redraws from the server's word. Who may call them is
-            // ChannelPolicy::manageRanks; what is accepted, Service\ChannelRanks.
+            // Ranks do canal (rótulos antes do nome dos membros). Cada endpoint
+            // responde com o canal, cujo `rankBook` é o estado novo. Quem pode:
+            // ChannelPolicy::manageRanks; o que é aceito: Service\ChannelRanks.
             Endpoint\Endpoint::make('createRank')
                 ->route('POST', '/{id}/ranks')
                 ->authenticated()
@@ -725,8 +675,8 @@ class ChannelResource extends AbstractDatabaseResource
                     fn (Channel $channel, User $actor, array $attributes) => $this->ranks->create($channel, $actor, $attributes)
                 )),
 
-            // `rankId` is a rank's id, or `owner` / `moderator` for the two every
-            // channel has, which this customises.
+            // `rankId` é o id do rank, ou `owner` / `moderator` para os dois que
+            // todo canal tem.
             Endpoint\Endpoint::make('updateRank')
                 ->route('POST', '/{id}/ranks/update')
                 ->authenticated()
@@ -735,8 +685,7 @@ class ChannelResource extends AbstractDatabaseResource
                     fn (Channel $channel, User $actor, array $attributes) => $this->ranks->update($channel, $actor, $this->rankTarget($attributes), $attributes)
                 )),
 
-            // Deletes a rank and everyone's hold on it; on a built-in rank,
-            // restores its defaults.
+            // Apaga o rank e quem o tinha; num rank embutido, volta aos defaults.
             Endpoint\Endpoint::make('deleteRank')
                 ->route('POST', '/{id}/ranks/delete')
                 ->authenticated()
@@ -753,7 +702,7 @@ class ChannelResource extends AbstractDatabaseResource
                     fn (Channel $channel, User $actor, array $attributes) => $this->ranks->reorder($channel, $actor, (array) ($attributes['rankIds'] ?? []))
                 )),
 
-            // A member's ranks, all at once: the ones left out are taken away.
+            // Todos os ranks de um membro de uma vez: os omitidos são retirados.
             Endpoint\Endpoint::make('assignRanks')
                 ->route('POST', '/{id}/ranks/assign')
                 ->authenticated()
@@ -793,8 +742,7 @@ class ChannelResource extends AbstractDatabaseResource
 
                     $membership = $this->memberships->leave($channel, $actor, $actor);
 
-                    // Leaving a channel you are not in changes nothing, and must
-                    // not tell the room that it did.
+                    // Sair de onde não está não muda nada e não pode ser anunciado.
                     if ($membership !== null) {
                         $this->events->dispatch(
                             new UserLeftChannel($channel, $actor, $actor, $membership->isHidden())
@@ -803,7 +751,7 @@ class ChannelResource extends AbstractDatabaseResource
                 })
                 ->response(fn () => new EmptyResponse(204)),
 
-            // Per-channel notification preferences: level, mute.
+            // Preferências de notificação do canal: nível e mute.
             Endpoint\Endpoint::make('notifications')
                 ->route('POST', '/{id}/notifications')
                 ->authenticated()
@@ -812,11 +760,9 @@ class ChannelResource extends AbstractDatabaseResource
                     $channel = $context->model;
                     $actor = $context->getActor();
 
-                    // Preferences live on a membership, and setting one is not a way
-                    // in: it used to create the membership it needed, which let
-                    // anyone who could see a channel join it past the join policy.
-                    // `ensure()` writes one only for someone a channel for everyone
-                    // already includes, so the door stays shut everywhere else.
+                    // Preferências moram na membership, mas não são porta de entrada:
+                    // `ensure()` só cria uma para quem um canal para todos já inclui,
+                    // senão daria para entrar passando por cima da policy de join.
                     if (! $actor->can('view', $channel) || $this->memberships->ensure($channel, $actor) === null) {
                         throw new ForbiddenException();
                     }
@@ -852,9 +798,8 @@ class ChannelResource extends AbstractDatabaseResource
                         ]);
                     }
 
-                    // Asked before the ability, which an archived channel fails
-                    // too: a 403 would tell an owner they may not do what they
-                    // may, only not this way.
+                    // Antes da ability, que um canal arquivado também reprova: um 403
+                    // diria ao dono que ele não pode, quando só não pode por aqui.
                     if ($channel->isArchived()) {
                         throw new ValidationException([
                             'status' => $this->translator->trans('ramon-chat.api.channel_archived_status'),
@@ -900,8 +845,8 @@ class ChannelResource extends AbstractDatabaseResource
                     return $channel;
                 }),
 
-            // Back out of the archive, closed. The realtime path is the status
-            // change's, which already takes members' composers through it.
+            // Sai do arquivo como fechado. O realtime é o da mudança de status, que
+            // já atualiza o composer dos membros.
             Endpoint\Endpoint::make('unarchive')
                 ->route('POST', '/{id}/unarchive')
                 ->authenticated()
@@ -922,10 +867,9 @@ class ChannelResource extends AbstractDatabaseResource
     public function fields(): array
     {
         return [
-            // Only `category` is created through here. A direct channel is
-            // StartDirectController's to make: it is what checks the participants
-            // and links a restarted conversation to its history, and a `direct`
-            // row written here skipped all of that. Anything else is not a type.
+            // Aqui só se cria `category`. Conversa direta é com o
+            // StartDirectController, que valida os participantes e reaproveita a
+            // conversa existente.
             Schema\Str::make('type')
                 ->writableOnCreate()
                 ->requiredOnCreate()
@@ -944,15 +888,12 @@ class ChannelResource extends AbstractDatabaseResource
                 ->maxLength(1000)
                 ->writable(fn (Channel $c, Context $context) => $this->mayWrite($c, $context)),
 
-            // Either a Unicode pictograph (what the picker stores) or a bare
-            // shortcode (what an API client or an older row may carry). Anything
-            // else was previously accepted and rendered as literal text, e.g.
-            // ":speech_balloon:" spilling out of a 38px avatar circle.
-            // Read-only: the picture is set through its own multipart endpoint,
-            // not by writing a URL, so there is nothing for a client to assign here.
+            // Só leitura: a imagem é definida pelo endpoint multipart próprio.
             Schema\Str::make('imageUrl')
                 ->get(fn (Channel $c) => $c->imageUrl()),
 
+            // Pictograma Unicode (o que o picker grava) ou shortcode simples (API
+            // ou linhas antigas). Qualquer outra coisa apareceria como texto cru.
             Schema\Str::make('emoji')
                 ->nullable()
                 ->maxLength(60)
@@ -961,21 +902,15 @@ class ChannelResource extends AbstractDatabaseResource
 
             Schema\Str::make('status'),
 
-            // Public or invitation-only. Guarded by mayWriteCategoryField for the
-            // same reason tagId is: both decide who can see the channel, and neither
-            // is something a direct channel's creator may set.
-            //
-            // Public and private are one right, not two: whoever may create a
-            // channel chooses which kind. A separate permission was tried and
-            // withdrawn — it split a single decision across two checkboxes for no
-            // gain an operator asked for.
+            // Público ou só por convite. Passa por mayWriteCategoryField, como
+            // tagId: os dois decidem quem vê o canal. Quem pode criar canal escolhe
+            // o tipo; não há permissão separada para privado.
             Schema\Boolean::make('isPrivate')
                 ->get(fn (Channel $c) => $c->isPrivate())
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context)),
 
-            // Who may post: everyone who can be here, or moderators only.
-            // Validated against the two known values rather than trusted, so a
-            // typo cannot silently produce a channel nobody can post in.
+            // Quem posta: todos ou só moderadores. Validado contra os dois valores,
+            // para um erro de digitação não gerar canal onde ninguém posta.
             Schema\Str::make('postPermission')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(function (Channel $channel, $value) {
@@ -987,32 +922,18 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\Boolean::make('threadingEnabled')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context)),
 
-            // Slow mode, in seconds. 0 is off.
-            //
-            // Editable by whoever may edit the channel rather than by
-            // administrators only: it is a dial for a conversation moving too
-            // fast to follow, and the person who notices that is the one already
-            // looking after the room.
-            //
-            // Clamped rather than rejected. The interface offers a fixed set of
-            // steps, so an out-of-range value means a client got it wrong, and
-            // failing the whole save over it would be theatre. Six hours is the
-            // ceiling, matching Discord's.
+            // Slow mode em segundos (0 desliga). Editável por quem edita o canal,
+            // não só admin. Valor fora da faixa é ajustado, não recusado: a
+            // interface só oferece passos fixos. Teto de seis horas.
             Schema\Integer::make('slowModeSeconds')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(function (Channel $channel, $value) {
                     $channel->slow_mode_seconds = max(0, min(21600, (int) $value));
                 }),
 
-            // How long a message may be here. Null means the channel follows
-            // the forum-wide setting rather than "no limit" — see
-            // Channel::maxMessageLength().
-            //
-            // Clamped like slow mode, and for the same reason: the form offers a
-            // fixed set of steps, so a value outside the range means a client got
-            // it wrong. The floor is 100 because a cap below that is a channel
-            // nobody can write a sentence in; the ceiling matches the widest the
-            // forum setting itself accepts.
+            // Tamanho máximo da mensagem. Null segue a setting do fórum, não "sem
+            // limite" (ver Channel::maxMessageLength()). Ajustado como o slow mode;
+            // piso de 100 e teto igual ao maior que a setting do fórum aceita.
             Schema\Integer::make('maxMessageLength')
                 ->nullable()
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
@@ -1022,59 +943,39 @@ class ChannelResource extends AbstractDatabaseResource
                         : max(100, min(50000, (int) $value));
                 }),
 
-            // What the composer counts down from. Per-actor and answered by the
-            // server: a reload would otherwise forget the cooldown and offer a
-            // send that is then refused.
+            // De onde o composer conta. Por ator e vindo do servidor, para um
+            // reload não esquecer a espera.
             Schema\Integer::make('slowModeRemaining')
                 ->get(fn (Channel $c, Context $context) => $c->exists
                     ? $this->slowMode->remainingFor($c, $context->getActor())
                     : 0),
 
-            // Whether slow mode applies to the actor here at all: the bypass
-            // permission, or running the room (its owner and the moderators they
-            // appointed). The composer restarts its own countdown after a send,
-            // and without this it locked an owner out for the whole window while
-            // the server would have taken the next message.
+            // Se o slow mode vale para o ator: não vale com a permissão de bypass
+            // nem para quem cuida da sala (dono e moderadores). O composer reinicia
+            // a contagem sozinho e precisa disto.
             Schema\Boolean::make('bypassesSlowMode')
                 ->get(fn (Channel $c, Context $context) => $c->exists
                     && $this->slowMode->isExempt($c, $context->getActor())),
 
-            // Same gate as every other field on the form, deliberately: whoever may
-            // create a channel fills in the whole form, and auto-join is part of it.
+            // Mesma trava dos outros campos de propósito: o json-api-server responde
+            // 403 a um campo só *presente* no body e não gravável, e o
+            // ChannelFormModal manda `autoJoin` em todo save, mesmo `false`.
             //
-            // It used to be administrator-only, and that was the cause of "I have
-            // the permission and still cannot create a channel". json-api-server
-            // answers 403 "Field [autoJoin] is not writable" for a field merely
-            // *present* in the body while not writable for the actor, and
-            // ChannelFormModal sends `autoJoin` on every save — `false` included.
-            // So one admin-only attribute refused every channel creation by a
-            // non-administrator, whatever the forum had granted. Administrators
-            // never saw it, because they pass the gate.
-            //
-            // Turning it on writes nothing per account: everyone who can see the
-            // channel is in it from that moment (Channel::isForEveryone()), and
-            // gets a membership row only once there is something of theirs to
-            // store.
-            //
-            // Changing it is still not the creator's call. The field stays
-            // writable for the reason above, but a value different from the one
-            // stored is refused unless the actor curates channels forum-wide — see
-            // setAudienceFlag(). Otherwise any member allowed to open a room could
-            // put it in every account's sidebar.
+            // Ligar não grava nada por conta: quem vê o canal já está nele
+            // (Channel::isForEveryone()), e a membership nasce quando houver o que
+            // guardar. Mudar o valor exige curadoria global (ver setAudienceFlag()).
             Schema\Boolean::make('autoJoin')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'auto_join', 'autoJoin', $value, $context)),
 
-            // Carries the bound category's new discussions into the channel. Held
-            // to the same gate: it decides what forum content is copied into the
-            // room, and AnnounceDiscussions is only the second line.
+            // Traz as discussões novas da categoria para o canal. Mesma trava: decide
+            // que conteúdo do fórum é copiado; o AnnounceDiscussions é a segunda linha.
             Schema\Boolean::make('postDiscussions')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'post_discussions', 'postDiscussions', $value, $context)),
 
-            // Grows the channel from participation in its bound category, rather
-            // than including every account like autoJoin does — but it still adds
-            // people who never asked, so it is gated the same way.
+            // Adiciona quem participa da categoria, não todo mundo como o autoJoin,
+            // mas ainda inclui quem não pediu: mesma trava.
             Schema\Boolean::make('autoJoinOnReply')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
                 ->set(fn (Channel $c, $value, Context $context) => $this->setAudienceFlag($c, 'auto_join_on_reply', 'autoJoinOnReply', $value, $context)),
@@ -1082,10 +983,8 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\Boolean::make('allowChannelWideMentions')
                 ->writable(fn (Channel $c, Context $context) => $this->mayWrite($c, $context)),
 
-            // Binding a category narrows who can see the channel, so it stays the
-            // creator's choice — but only among the categories they can see
-            // themselves. A tag id from outside that set is either one that does
-            // not exist or one they have no business knowing about.
+            // Vincular categoria restringe quem vê o canal. Escolha do criador, mas
+            // só entre as categorias que ele mesmo vê.
             Schema\Integer::make('tagId')
                 ->nullable()
                 ->writable(fn (Channel $c, Context $context) => $this->mayWriteCategoryField($c, $context))
@@ -1099,11 +998,11 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\DateTime::make('archivedAt')->nullable(),
             Schema\Integer::make('archivedDiscussionId')->nullable(),
 
-            // ── Display helpers ──────────────────────────────────────────────
+            // ── Exibição ──
             Schema\Str::make('displayName')
                 ->get(fn (Channel $c, Context $context) => $this->displayName($c, $context->getActor())),
 
-            // ── Per-actor membership state ───────────────────────────────────
+            // ── Membership do ator ──
             Schema\Boolean::make('isFollowing')
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->following
                     ?? $c->includes($context->getActor())),
@@ -1124,28 +1023,26 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\Integer::make('unreadMentionsCount')
                 ->get(fn (Channel $c, Context $context) => $this->membership($c, $context->getActor())->unread_mentions_count ?? 0),
 
-            // ── Capability flags, so the client never renders a dead control ──
+            // ── Flags de capacidade (o cliente não desenha controle morto) ──
             Schema\Boolean::make('canPostMessage')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('postMessage', $c)),
 
             Schema\Boolean::make('canEdit')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('edit', $c)),
 
-            // Two distinct affordances: rejoin, and rejoin unseen.
+            // Duas ações distintas: voltar e voltar oculto.
             Schema\Boolean::make('canJoinHidden')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('joinHidden', $c)),
 
-            // So a lurking moderator can tell they are lurking; without it the UI
-            // looks identical to an ordinary membership and the distinction is lost.
+            // Para o moderador oculto saber que está oculto.
             Schema\Boolean::make('isHiddenMember')
                 ->get(fn (Channel $c, Context $context) => (bool) $this->membership($c, $context->getActor())?->isHidden()),
 
             Schema\Boolean::make('canJoin')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('join', $c)),
 
-            // A pending invitation for the reader, and who sent it. Read from the
-            // `actorInvite` relation the list endpoints eager-load, so the
-            // sidebar pays nothing per row for the common answer of "none".
+            // Convite pendente do leitor e quem enviou. Lido da relação
+            // `actorInvite`, que as listagens já fazem eager-load.
             Schema\Boolean::make('isInvited')
                 ->get(fn (Channel $c, Context $context) => $c->pendingInviteFor($context->getActor()) !== null),
 
@@ -1178,13 +1075,9 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\Boolean::make('canManageRanks')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('manageRanks', $c)),
 
-            // Every rank and who holds which, for the members tab, the ranks
-            // editor and resolving author lines live. The same for every reader,
-            // so it is served from a per-channel cache. Left out of the channel
-            // list entirely, where nobody reads it and fifty channels would cost
-            // fifty cache reads — omitted rather than null, so a list refresh
-            // does not wipe a book the client already holds. Messages carry
-            // their author's rank on their own.
+            // Ranks e quem tem cada um. Igual para todo leitor, então vem de cache
+            // por canal. Fica fora da listagem (omitido, não null, para um refresh
+            // não apagar o que o cliente já tem); mensagens trazem o rank do autor.
             Schema\Arr::make('rankBook')
                 ->nullable()
                 ->visible(fn (Channel $c, Context $context) => ! $context->listing()
@@ -1194,31 +1087,22 @@ class ChannelResource extends AbstractDatabaseResource
             Schema\Boolean::make('canTransferOwnership')
                 ->get(fn (Channel $c, Context $context) => $context->getActor()->can('transferOwnership', $c)),
 
-            // The pending handover, as the reader is allowed to see it: whoever
-            // started it, or may start one, sees it from the code onwards; the
-            // member it is offered to sees it once the code has been entered,
-            // and nobody else sees it at all. Read only where the member list
-            // is, like `moderatorIds`, so the channel list pays no query per row.
+            // Transferência pendente, como o leitor pode vê-la: quem iniciou (ou
+            // pode iniciar) desde o código; o destinatário depois do código; mais
+            // ninguém. Só junto da lista de membros, como `moderatorIds`.
             Schema\Arr::make('ownershipTransfer')
                 ->nullable()
                 ->get(fn (Channel $c, Context $context) => $this->transferState($c, $context)),
 
-            // So the members tab can label the owner without loading the creator.
+            // A aba Membros marca o dono sem carregar o criador.
             Schema\Integer::make('creatorId')
                 ->property('creator_id')
                 ->nullable(),
 
-            // Which members hold the channel's own moderator role, whenever the
-            // member list is part of the response — the members tab asks for it,
-            // and the promote and demote endpoints include it — and empty
-            // otherwise, so the channel list pays no query per row.
-            //
-            // Not only off a loaded relation. The serializer computes attributes
-            // before it resolves an included relationship, so the relation was
-            // not loaded yet when this ran: it answered empty on every read, and
-            // the owner who had just promoted somebody saw the row unchanged and
-            // clicked again. The member endpoints load the relation themselves
-            // (see withMembers()); a read that asks for it is answered here.
+            // Moderadores do canal, sempre que a lista de membros vem na resposta;
+            // vazio na listagem. O serializer calcula atributos antes de resolver
+            // includes, então não basta ler a relação carregada: os endpoints de
+            // membros a carregam (ver withMembers()) e o resto é resolvido aqui.
             Schema\Arr::make('moderatorIds')
                 ->get(function (Channel $c, Context $context) {
                     if (! ScopeChannelVisibility::readsContents($context->getActor(), $c)) {
@@ -1256,48 +1140,34 @@ class ChannelResource extends AbstractDatabaseResource
                 ->type('users')
                 ->includable(),
 
-            // Only where the contents may be read: an invitee to a private
-            // channel sees the row, not its last message.
+            // Só onde o conteúdo pode ser lido: o convidado de canal privado vê a
+            // linha, não a última mensagem.
             Schema\Relationship\ToOne::make('lastMessage')
                 ->type('chat-messages')
                 ->includable()
                 ->visible(fn (Channel $c, Context $context) => ScopeChannelVisibility::readsContents($context->getActor(), $c)),
 
-            // `includable()` is what makes `?include=participants` legal; without it
-            // the request is rejected outright with a 400 rather than merely omitting
-            // the relationship, which is what the info panel's member tab asks for.
-            // Só na leitura de um canal (a aba Membros). Na listagem, um
-            // `?include=participants` carregava todos os membros de até 50
-            // canais numa requisição só.
+            // Sem `includable()`, `?include=participants` dá 400. Só na leitura de
+            // um canal (aba Membros): na listagem carregaria todos os membros de
+            // até 50 canais.
             Schema\Relationship\ToMany::make('participants')
                 ->type('users')
                 ->includable()
                 ->visible(fn (Channel $c, Context $context) => ! $context->endpoint instanceof Endpoint\Index
                     && $context->getActor()->can('viewMembers', $c)),
 
-            // Who has been asked in and not answered yet. Only for whoever can
-            // manage the member list: a pending invite is between the channel's
-            // managers and the person invited, not something the room reads.
+            // Convidados sem resposta, só para quem gerencia membros: não é algo
+            // que a sala lê.
             Schema\Relationship\ToMany::make('invitedUsers')
                 ->type('users')
                 ->includable()
                 ->visible(fn (Channel $c, Context $context) => $context->getActor()->can('manageMembers', $c)),
 
             /*
-             * The other side of a direct channel, for the avatars the sidebar draws
-             * in place of a channel icon.
-             *
-             * `participants` cannot serve this. That one is what the members tab
-             * asks for, and default-including it on the channel list would ship
-             * every member of every category channel on every page load. This
-             * relation is eager-loaded only for direct channels — see the
-             * `eagerLoadWhere` on Index and Show — so default-including it costs
-             * the single row a conversation actually has.
-             *
-             * Without it the sidebar had no participants to draw and fell back to
-             * an envelope, and the avatars appeared only once something else had
-             * fetched `?include=participants` into the store: opening the channel's
-             * settings and switching to the Members tab.
+             * O outro lado da conversa direta, para os avatares da sidebar. Não é
+             * `participants`, que na listagem traria todos os membros de todo canal:
+             * esta só tem eager-load em conversas diretas (`eagerLoadWhere` no Index
+             * e no Show).
              */
             Schema\Relationship\ToMany::make('directParticipants')
                 ->type('users')
@@ -1318,12 +1188,9 @@ class ChannelResource extends AbstractDatabaseResource
 
 
     /**
-     * Whether the actor may write a configurable channel field.
-     *
-     * Creation and editing are different rights. Gating writes on `edit` alone
-     * would mean a user holding only `createChannel` could create a channel but
-     * not name or describe it, because ChannelPolicy::edit falls through to
-     * `moderate` for a channel with no creator set yet.
+     * Se o ator pode gravar um campo configurável. Criar e editar são direitos
+     * distintos: só com `edit`, quem tem `createChannel` não poderia nomear o canal,
+     * porque ChannelPolicy::edit cai em `moderate` enquanto não há criador.
      */
     protected function mayWrite(Channel $channel, Context $context): bool
     {
@@ -1335,13 +1202,9 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Whether the actor may write a field that only exists for category channels —
-     * the bound tag, threading, and the two auto-join modes.
-     *
-     * Belt to ChannelPolicy::edit's braces. Even a moderator editing a direct
-     * channel must not be able to bind it to a tag: visibility for a direct channel
-     * comes from its participant list, and a tag would put a second, conflicting
-     * rule in play.
+     * Campos só de canal de categoria (tag, threads, os dois auto-join). Reforço ao
+     * ChannelPolicy::edit: conversa direta tira a visibilidade dos participantes, e
+     * uma tag criaria uma segunda regra conflitante.
      */
     protected function mayWriteCategoryField(Channel $channel, Context $context): bool
     {
@@ -1353,14 +1216,10 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Writes one of the switches that reach past the room — adding accounts that
-     * never asked, copying forum content in — but only changes it for an actor who
-     * curates channels forum-wide: a chat moderator, `editChannel`, or an admin.
-     *
-     * The field cannot simply be non-writable for everyone else: the channel form
-     * sends all of them on every save, and json-api-server refuses a request that
-     * carries a field the actor may not write (see autoJoin). So the stored value
-     * coming back unchanged is accepted, and only a change is refused.
+     * Grava uma chave que vai além da sala (incluir contas, copiar conteúdo do
+     * fórum), mas só muda o valor para quem faz curadoria global (moderador do chat,
+     * `editChannel` ou admin). O campo segue gravável porque o form manda tudo em
+     * todo save (ver autoJoin): o valor igual ao salvo passa, só a mudança é recusada.
      */
     protected function setAudienceFlag(Channel $channel, string $column, string $field, mixed $value, Context $context): void
     {
@@ -1380,9 +1239,9 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Binds or unbinds the channel's category, refusing a category the actor
-     * cannot see — and any category at all while flarum/tags is off, when a bound
-     * channel would simply vanish (ScopeChannelVisibility fails closed).
+     * Vincula ou desvincula a categoria. Recusa categoria invisível ao ator, e
+     * qualquer uma com o flarum/tags desligado: o canal sumiria, porque o
+     * ScopeChannelVisibility falha fechado.
      */
     protected function setTagId(Channel $channel, mixed $value, Context $context): void
     {
@@ -1417,9 +1276,8 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Joining and leaving each write a line into the room, so going back and
-     * forth is a way to flood it. A handful per channel per minute is more than
-     * any real indecision needs. Administrators are exempt, as from RateLimiter.
+     * Entrar e sair gravam uma linha na sala, então ir e voltar vira flood. Admins
+     * ficam isentos, como no RateLimiter.
      */
     protected function assertNotTogglingMembership(Channel $channel, User $actor): void
     {
@@ -1435,8 +1293,7 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Runs one rank write for an actor allowed to make it, and answers with the
-     * channel so the response carries the new `rankBook`.
+     * Executa uma escrita de rank e responde com o canal, que traz o `rankBook` novo.
      *
      * @param  callable(Channel, User, array<string, mixed>): mixed  $write
      */
@@ -1479,11 +1336,8 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Sets or clears the channel-moderator role on a current member.
-     *
-     * Only on a live membership: the role is a fact about someone being in the
-     * room, and granting it to somebody who is not would give them nothing
-     * today and a surprise the day they are added back.
+     * Dá ou tira o papel de moderador do canal, só em membership ativa: dado a quem
+     * saiu, viraria surpresa no dia em que voltasse.
      */
     protected function setModerator(Context $context, bool $moderator): Channel
     {
@@ -1509,9 +1363,9 @@ class ChannelResource extends AbstractDatabaseResource
 
         $membership = $channel->membershipFor($user);
 
-        // Membro oculto é, para quem não vê ocultos, um não membro, como em
-        // `removeMember`: a resposta diferente denunciava quem inspeciona, e
-        // promovê-lo anunciava o nome dele à sala.
+        // Para quem não vê ocultos, membro oculto é não membro, como em
+        // `removeMember`: a resposta diferente denunciaria quem inspeciona, e
+        // promovê-lo anunciaria o nome dele à sala.
         if ($membership !== null && $membership->isHidden() && ! $this->ownership->seesHiddenMembers($actor)) {
             $membership = null;
         }
@@ -1524,8 +1378,8 @@ class ChannelResource extends AbstractDatabaseResource
 
         if ($membership->isModerator() !== $moderator) {
             $membership->is_moderator = $moderator;
-            // When the role was given, which decides who inherits the
-            // channel if its owner leaves (OwnershipSuccession).
+            // Quando o papel foi dado decide quem herda o canal se o dono sair
+            // (OwnershipSuccession).
             $membership->moderator_since = $moderator ? Carbon::now() : null;
             $membership->save();
 
@@ -1577,14 +1431,10 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * The channel with its member list loaded fresh, for the endpoints that
-     * answer with it. Fresh because a copy loaded before the change would
-     * carry the old roles on its pivots; loaded here because the serializer
-     * reads `moderatorIds` before it gets to the included relation.
-     *
-     * With their groups: for an administrator, core's UserResource asks
-     * `editCredentials` of every serialized user, which reads `isAdmin()` and
-     * would otherwise load each member's groups one query at a time.
+     * O canal com a lista de membros recarregada: uma cópia anterior traria os
+     * papéis antigos nos pivots, e o serializer lê `moderatorIds` antes do include.
+     * Com os grupos, porque para admin o UserResource do core pergunta
+     * `editCredentials` de cada usuário, e isso faria uma query por membro.
      */
     protected function withMembers(Channel $channel): Channel
     {
@@ -1592,15 +1442,9 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * The actor's membership, which the channel list reads for several fields
-     * per row. Memoised on the channel instance (`membershipFor()`), not here.
-     *
-     * A cache on the resource outlived the request: the container hands back the
-     * same instance for as long as it lives. Keyed by channel alone it once
-     * served one user's membership in another's response; keyed by channel and
-     * actor it still served a membership as it stood before the actor's last
-     * read, which a count taken from the read marker cannot afford. Each request
-     * loads its own channel models, so their memo cannot go stale.
+     * A membership do ator, lida por vários campos. O memo fica na instância do
+     * canal (`membershipFor()`), não aqui: o resource vive tanto quanto o container
+     * e vazaria estado entre requisições. Cada requisição carrega seus models.
      */
     protected function membership(Channel $channel, User $actor): ?ChannelUser
     {
@@ -1612,8 +1456,8 @@ class ChannelResource extends AbstractDatabaseResource
     }
 
     /**
-     * Direct channels have no stored name — they are labelled by the other
-     * participants, from the perspective of whoever is reading.
+     * Conversa direta não tem nome gravado: o rótulo são os outros participantes,
+     * do ponto de vista de quem lê.
      */
     protected function displayName(Channel $channel, User $actor): string
     {
@@ -1625,8 +1469,8 @@ class ChannelResource extends AbstractDatabaseResource
             return $channel->name;
         }
 
-        // The eager-loaded set when the endpoint provided one, so a sidebar of
-        // direct channels costs one query rather than one per conversation.
+        // O conjunto já carregado pelo endpoint, se houver: uma query para a
+        // sidebar toda, não uma por conversa.
         $members = $channel->relationLoaded('directParticipants')
             ? $channel->getRelation('directParticipants')
             : $channel->participants;

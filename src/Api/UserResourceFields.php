@@ -15,10 +15,9 @@ use Flarum\User\User;
 use Ramon\Chat\Service\UnreadTracker;
 
 /**
- * Unread counters on the user resource. Only ever exposed to the user themselves,
- * since unread state is private. Each counts through the channels the actor can
- * currently see; see UnreadTracker::visibleMemberships() for why a stored counter
- * is not enough on its own.
+ * Contadores de não lidas no recurso de usuário, expostos só ao próprio usuário.
+ * Contam pelos canais que o ator vê agora; o contador gravado sozinho não basta
+ * (ver UnreadTracker::visibleMemberships()).
  */
 class UserResourceFields
 {
@@ -36,8 +35,8 @@ class UserResourceFields
                 ->visible($isSelf)
                 ->get(fn (User $user) => $this->unread->totalUnreadFor($user)),
 
-            // The message count, not the channel count: the drawer header shows
-            // "how much am I behind", which is a number of messages.
+            // Conta mensagens, não canais: o cabeçalho do drawer mostra o quanto
+            // a pessoa está atrasada.
             Schema\Integer::make('chatUnreadMessagesCount')
                 ->visible($isSelf)
                 ->get(fn (User $user) => $this->unread->totalUnreadMessagesFor($user)),

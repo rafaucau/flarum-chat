@@ -27,18 +27,15 @@ use Ramon\Chat\Thread;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
 /**
- * Stores (or clears) the actor's composer draft for a channel or thread scope.
- *
- * Drafts live server-side rather than in localStorage so they follow the user
- * across devices, which is what Discourse does.
+ * Grava (ou limpa) o rascunho do composer do ator num canal ou thread. Fica no
+ * servidor, não no localStorage, para seguir o usuário entre dispositivos.
  */
 class DraftController implements RequestHandlerInterface
 {
     /**
-     * The floor for the length cap. A draft may run past what one message
-     * allows, since people write long and trim, but it is a column in a shared
-     * table rather than free storage; twice the message limit, never less than
-     * this, leaves room to edit without becoming somewhere to park a file.
+     * Piso do limite de tamanho. O rascunho pode passar do limite de uma
+     * mensagem (dobro dele, nunca menos que isto), mas é coluna de tabela
+     * compartilhada, não lugar para estacionar arquivo.
      */
     protected const MIN_DRAFT_LENGTH = 20000;
 
@@ -54,8 +51,8 @@ class DraftController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        // The composer saves on a 1.2 second debounce, so a person tops out
-        // around fifty a minute; this is the ceiling for a script, not for them.
+        // O composer salva com debounce de 1,2 s (~50 por minuto); o teto é para
+        // scripts, não para pessoas.
         if (! $this->throttle->attempt('draft.'.$actor->id, 60, 60)) {
             throw new FloodingException();
         }
@@ -103,7 +100,7 @@ class DraftController implements RequestHandlerInterface
 
         $draft = Draft::store($actor, $channel, $thread, $content === null ? null : (string) $content);
 
-        // An empty draft is a deletion, not an empty record.
+        // Rascunho vazio é exclusão, não registro vazio.
         if ($draft === null) {
             return new EmptyResponse(204);
         }

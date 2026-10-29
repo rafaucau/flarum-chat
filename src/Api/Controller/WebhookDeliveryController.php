@@ -28,14 +28,10 @@ use Ramon\Chat\Webhook;
 use Tobyz\JsonApiServer\Exception\ForbiddenException;
 
 /**
- * Slack-compatible incoming webhook.
- *
- * Accepts either a JSON body or a form-encoded `payload` field, matching what
- * Slack-targeting integrations already send, so existing tooling works unchanged.
- *
- * This route is CSRF-exempt (see extend.php) because the delivering service
- * cannot hold a Flarum session. The secret path key is the only credential, which
- * is why it is compared in constant time and never serialised back to clients.
+ * Webhook de entrada compatível com o Slack (body JSON ou campo `payload`
+ * form-encoded). Sem CSRF (ver extend.php), porque quem entrega não tem sessão: a
+ * chave no path é a única credencial, comparada em tempo constante e nunca
+ * serializada de volta.
  */
 class WebhookDeliveryController implements RequestHandlerInterface
 {
@@ -54,19 +50,17 @@ class WebhookDeliveryController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        // Guard the array access: `getAttribute()` returns null on a request that
-        // did not pass through ResolveRoute, and `null['key']` would fatal.
+        // `getAttribute()` é null fora do ResolveRoute, e `null['key']` daria fatal.
         $key = (string) Arr::get((array) $request->getAttribute('routeParameters'), 'key', '');
 
-        // The admin switch for the whole feature. Refused before the key is
-        // even looked at, so a valid URL is no help while webhooks are off.
+        // Chave geral do admin, antes de olhar a chave: com webhooks desligados,
+        // URL válida não adianta.
         if (! (bool) $this->settings->get('ramon-chat.webhooks_enabled', true)) {
             throw new ForbiddenException();
         }
 
-        // Per address, before the key is looked up: this route is unauthenticated,
-        // so the only thing standing between a scanner and an unbounded run of
-        // key lookups is how often one address may ask.
+        // Por IP, antes da busca da chave: a rota não tem autenticação, e só isso
+        // segura um scanner testando chaves sem fim.
         $ip = (string) ($request->getAttribute('ipAddress') ?? Arr::get($request->getServerParams(), 'REMOTE_ADDR', ''));
 
         if (! $this->throttle->attempt('webhook.ip.'.sha1($ip), self::MAX_PER_IP_PER_MINUTE, 60)) {
@@ -79,8 +73,7 @@ class WebhookDeliveryController implements RequestHandlerInterface
             throw new ForbiddenException();
         }
 
-        // And per webhook, so one leaked key cannot flood its channel faster than
-        // a chat-bound integration has any reason to post.
+        // E por webhook, para uma chave vazada não inundar o canal.
         if (! $this->throttle->attempt('webhook.hook.'.$webhook->id, self::MAX_PER_WEBHOOK_PER_MINUTE, 60)) {
             throw new FloodingException();
         }
@@ -95,10 +88,7 @@ class WebhookDeliveryController implements RequestHandlerInterface
 
         $text = $this->extractText($request);
 
-        // The channel's own cap when it has one. A webhook posting into a room
-        // that allows longer messages than the forum default was being trimmed
-        // to the default; one posting into a room with a tighter cap was not
-        // being trimmed at all.
+        // O limite do próprio canal, se houver, senão o padrão do fórum.
         $max = $channel->maxMessageLength(
             (int) $this->settings->get('ramon-chat.max_message_length', 3000)
         );
@@ -107,10 +97,8 @@ class WebhookDeliveryController implements RequestHandlerInterface
             $text = mb_substr($text, 0, $max);
         }
 
-        // Posted as the admin account chosen on the webhook, or as the bot. A bot
-        // message has no `user_id`; the client draws its name and avatar from the
-        // bot settings. Storing it as an authorless *text* message instead is what
-        // made deliveries render as a deleted account.
+        // Postada como o admin escolhido no webhook ou como o bot. Mensagem de bot
+        // não tem `user_id`; o cliente tira nome e avatar das settings do bot.
         $author = $webhook->author();
 
         // Quem chama só tem a chave: o texto é interpretado como visitante, nunca
@@ -129,8 +117,7 @@ class WebhookDeliveryController implements RequestHandlerInterface
 
         $message->setRelation('channel', $channel);
 
-        // Webhook traffic still creates unread pressure, otherwise an integration
-        // channel would never badge.
+        // Conta como não lida, senão canal de integração nunca ganharia badge.
         $this->unread->recordNewMessage($message);
 
         $webhook->recordDelivery()->save();
@@ -147,22 +134,19 @@ class WebhookDeliveryController implements RequestHandlerInterface
     }
 
     /**
-     * Constant-time key comparison. A plain `where('key', $key)` would be a
-     * timing oracle on the index lookup; fetching candidates by prefix and
-     * comparing with hash_equals avoids leaking the key one character at a time.
+     * Comparação em tempo constante. `where('key', $key)` seria um oráculo de
+     * tempo no índice; busca por prefixo + hash_equals não vaza a chave caractere
+     * a caractere.
      */
     protected function resolve(string $key): ?Webhook
     {
-        // Keys are minted by Str::random, so alphanumeric only. Anything else is
-        // not a key and never reaches the database.
+        // Chaves vêm de Str::random, só alfanuméricas; o resto nem chega ao banco.
         if (! preg_match('/\A[A-Za-z0-9]{16,128}\z/', $key)) {
             return null;
         }
 
-        // The prefix is escaped: it comes from the URL, and an unescaped `%` or
-        // `_` turned the lookup into a wildcard match over every active key,
-        // which both widens the scan and leaks how many keys share a pattern
-        // through the comparison time.
+        // Prefixo escapado: vem da URL, e `%` ou `_` virariam curinga sobre todas
+        // as chaves ativas, vazando pelo tempo quantas casam com o padrão.
         $prefix = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], substr($key, 0, 8));
 
         $candidates = Webhook::query()
@@ -187,7 +171,6 @@ class WebhookDeliveryController implements RequestHandlerInterface
     {
         $body = $request->getParsedBody();
 
-        // Slack posts either a JSON body or `payload=<json>` form-encoded.
         if (is_array($body) && isset($body['payload']) && is_string($body['payload'])) {
             $decoded = json_decode($body['payload'], true);
 
@@ -207,8 +190,8 @@ class WebhookDeliveryController implements RequestHandlerInterface
             ?? ''
         );
 
-        // Slack "attachments" carry the body when `text` is empty; falling back
-        // to them is what makes most off-the-shelf integrations work.
+        // Sem `text`, o corpo vem nos "attachments" do Slack; a maioria das
+        // integrações prontas depende disso.
         if (trim($text) === '') {
             $fallbacks = [];
 

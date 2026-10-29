@@ -29,11 +29,9 @@ use Ramon\Chat\Service\MembershipManager;
 use Throwable;
 
 /**
- * Finds or creates a direct channel for a set of participants.
- *
- * Find-or-create rather than always-create is what makes Discourse's documented
- * behaviour work: "if you accidentally leave a direct message, starting a new
- * chat with the same person links you back to the previously sent messages."
+ * Acha ou cria a conversa direta de um conjunto de participantes. Reabrir com
+ * as mesmas pessoas cai na conversa existente, desde que ninguém tenha saído
+ * (ver findExisting()).
  */
 class StartDirectController implements RequestHandlerInterface
 {
@@ -80,9 +78,8 @@ class StartDirectController implements RequestHandlerInterface
             ]);
         }
 
-        // Scoped to what the actor may see: an id the actor cannot view (hidden by
-        // another extension's user visibility rules) must not be reachable by
-        // guessing it, and is reported exactly like one that does not exist.
+        // Só usuários visíveis ao ator: um id escondido por regra de outra
+        // extensão responde igual a um inexistente.
         $users = User::query()->whereVisibleTo($actor)->whereIn('id', $userIds)->get();
 
         if ($users->count() !== count($userIds)) {
@@ -91,7 +88,7 @@ class StartDirectController implements RequestHandlerInterface
             ]);
         }
 
-        // The full participant set, actor included, is the identity of the channel.
+        // O conjunto completo de participantes, com o ator, identifica o canal.
         $participantIds = $userIds;
         $participantIds[] = (int) $actor->id;
         sort($participantIds);
@@ -100,9 +97,8 @@ class StartDirectController implements RequestHandlerInterface
         $created = false;
 
         if ($channel === null) {
-            // Só conta conversa nova: reabrir uma existente não cria nada na lista
-            // de ninguém. Sem o limite, variar os participantes enchia a barra
-            // lateral de qualquer pessoa.
+            // Só conta conversa nova: reabrir não cria nada na lista de ninguém.
+            // Sem o limite, variar os participantes encheria a sidebar alheia.
             if (! $actor->isAdmin() && ! $this->throttle->attempt('direct.'.$actor->id, self::NEW_PER_HOUR, 3600)) {
                 throw new ValidationException([
                     'userIds' => $this->translator->trans('ramon-chat.api.action_rate_limited'),
@@ -128,8 +124,7 @@ class StartDirectController implements RequestHandlerInterface
 
             $this->events->dispatch(new ChannelWasCreated($channel, $actor));
         } else {
-            // Re-joining is idempotent and restores anyone who had left, which is
-            // precisely the "links you back" behaviour.
+            // Re-join é idempotente.
             $this->memberships->join($channel, $actor);
         }
 
@@ -140,26 +135,13 @@ class StartDirectController implements RequestHandlerInterface
     }
 
     /**
-     * The channel as ChannelResource would serve it, so the caller does not have
-     * to ask for it again.
+     * O canal como o ChannelResource serviria, poupando um GET ao cliente.
      *
-     * This used to answer with a hand-rolled stub carrying nothing but the id,
-     * which left the client with a channel it could not render and one more round
-     * trip before it could: POST here, then GET /chat-channels/{id}, then the
-     * first page of messages — three in series before "Send message" on a profile
-     * showed anything. Serialising in-process removes the middle one, and it
-     * arrives with the same fields, capability flags and `directParticipants` as
-     * every other read of a channel, because it *is* that read.
+     * `meta.created` diz ao cliente que a conversa é nova: sem mensagens nem
+     * fixados, ele marca ambos como carregados e vazios.
      *
-     * `meta.created` is how the client knows a conversation is new. A channel that
-     * was just inserted has no messages and nothing pinned, so it can seed both as
-     * loaded-and-empty and skip two more requests; a conversation that was found
-     * rather than created has history to fetch.
-     *
-     * `meta.serialized` is false when the internal read failed. The channel exists
-     * either way — it has already been committed — so reporting an error here
-     * would be a lie about a write that succeeded. The stub is enough for the
-     * client to fall back to fetching it itself.
+     * `meta.serialized` é false se a leitura interna falhou. O canal já foi
+     * gravado, então não é erro: o stub basta para o cliente buscá-lo.
      *
      * @return array<string, mixed>
      */
@@ -198,19 +180,11 @@ class StartDirectController implements RequestHandlerInterface
     }
 
     /**
-     * A direct channel matches when its *active* participant set is exactly the
-     * requested one — no more, no fewer.
+     * Casa quando o conjunto de participantes *ativos* é exatamente o pedido.
+     * `left_at IS NULL` faz parte do critério de propósito: sair é definitivo, e
+     * uma conversa nova abre outro canal em vez de devolver o histórico deixado.
      *
-     * Leaving a direct channel is a clean break: the departed member keeps no claim
-     * on it, and starting a fresh conversation opens a new channel rather than
-     * resurrecting the old thread. Discourse reuses the old one instead, but that
-     * makes leaving meaningless — you are dropped straight back into the history you
-     * walked away from, and the other party cannot tell the difference.
-     *
-     * The consequence is deliberate: `left_at IS NULL` is part of the match, so a
-     * channel anyone has left can never be reused.
-     *
-     * @param  int[]  $participantIds  Sorted.
+     * @param  int[]  $participantIds  Ordenados.
      */
     protected function findExisting(array $participantIds): ?Channel
     {
@@ -221,7 +195,7 @@ class StartDirectController implements RequestHandlerInterface
             ->whereIn('user_id', $participantIds)
             ->whereNull('left_at')
             ->groupBy('channel_id')
-            // Every requested participant still present…
+            // Todos os pedidos ainda presentes…
             ->havingRaw('COUNT(DISTINCT user_id) = ?', [$count])
             ->pluck('channel_id');
 
@@ -233,11 +207,9 @@ class StartDirectController implements RequestHandlerInterface
             ->whereIn('id', $candidateIds)
             ->where('type', Channel::TYPE_DIRECT)
             ->whereNull('deleted_at')
-            // …and nobody else still present. Counting only active rows means a
-            // channel someone walked out of is not a candidate, and a superset
-            // that happens to contain everyone requested is excluded too.
-            // Built through the query builder so the grammar applies the table
-            // prefix and quoting itself.
+            // …e mais ninguém ativo, o que exclui canal com alguém que saiu e
+            // superconjuntos. Pelo query builder para a grammar aplicar prefixo
+            // de tabela e quoting.
             ->where(
                 fn ($sub) => $sub->from('chat_channel_user')
                     ->selectRaw('COUNT(*)')
