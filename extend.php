@@ -11,10 +11,8 @@
 
 namespace Ramon\Chat;
 
-use Flarum\Api\Context;
 use Flarum\Api\Resource\ForumResource;
 use Flarum\Api\Resource\UserResource;
-use Flarum\Api\Schema;
 use Flarum\Extend;
 use Flarum\Foundation\Paths;
 use Flarum\Http\UrlGenerator;
@@ -123,83 +121,7 @@ return [
     new Extend\ApiResource(Api\Resource\MessageFlagResource::class),
 
     (new Extend\ApiResource(ForumResource::class))
-        ->fields(fn () => [
-            Schema\Boolean::make('canUseChat')
-                ->get(fn ($forum, Context $context) => $context->getActor()->can('useChat')),
-
-            Schema\Boolean::make('canCreateChatChannel')
-                ->get(fn ($forum, Context $context) => $context->getActor()->can('createChannel')),
-
-            // Drives the @here / @all rows in the composer's autocomplete. Offering
-            // them to someone the server would refuse is worse than not offering.
-            Schema\Boolean::make('canMentionChatChannelWide')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.mentionChannelWide')),
-
-            // Gates the "move messages" control in the selection bar, which is the
-            // one selection action MoveMessagesController requires `moderate` for.
-            Schema\Boolean::make('canModerateChat')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.moderate')),
-
-            // The channel form's audience switches (auto-join, auto-join on reply,
-            // announcing discussions). ChannelResource refuses a change to them
-            // from anyone else, so offering them would only produce an error.
-            Schema\Boolean::make('canCurateChatChannels')
-                ->get(fn ($forum, Context $context) => $context->getActor()->isAdmin()
-                    || $context->getActor()->hasPermission('ramon-chat.moderate')
-                    || $context->getActor()->hasPermission('ramon-chat.editChannel')),
-
-            // The paperclip is drawn from this. The permission was enforced only in
-            // UploadController, so someone without it still saw the control and got
-            // a 403 on use — the server was right and the interface was lying.
-            // The sticker button is drawn from this. Enforced server-side too, in
-            // the message dispatcher — a hidden button is a courtesy, not a gate.
-            Schema\Boolean::make('canSendChatStickers')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.sendStickers')),
-
-            Schema\Boolean::make('canUploadChatFiles')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.upload')),
-
-            Schema\Boolean::make('canStartChatDirect')
-                ->get(fn ($forum, Context $context) => $context->getActor()->can('startDirect')),
-
-            // Draws the report button. The policy still decides per message — you
-            // cannot report your own, or one already deleted — so this only says
-            // whether the actor may report anything at all.
-            Schema\Boolean::make('canFlagChatMessages')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.flagMessage')),
-
-            // The composer restarts its own countdown after a send rather than
-            // waiting for the server to tell it to, so it needs to know who the
-            // wait does not apply to. `slowModeRemaining` already answers this on
-            // load — this is the same answer, for the moment there is no fresh
-            // channel payload to read it from.
-            Schema\Boolean::make('canBypassChatSlowMode')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission('ramon-chat.bypassSlowMode')),
-
-            // The badge on the moderation link, and the link itself. Counted only
-            // for moderators, so the ordinary page load never runs this query.
-            Schema\Integer::make('chatOpenFlagsCount')
-                ->get(function ($forum, Context $context) {
-                    $actor = $context->getActor();
-
-                    if (! $actor->hasPermission('ramon-chat.moderate')) {
-                        return 0;
-                    }
-
-                    // `whereHas` before `whereNull`: the latter is typed as
-                    // returning a query builder rather than an Eloquent one, so
-                    // the relation method is not available after it.
-                    //
-                    // `whereVisibleTo` is registered by Flarum's
-                    // ScopeVisibilityTrait as a model scope, which static analysis
-                    // cannot see on a builder instance.
-                    return MessageFlag::query()
-                        // @phpstan-ignore method.notFound (Flarum model scope)
-                        ->whereHas('message', fn ($query) => $query->whereVisibleTo($actor))
-                        ->whereNull('resolved_at')
-                        ->count();
-                }),
-        ]),
+        ->fields(Api\ForumResourceFields::class),
 
     (new Extend\ApiResource(UserResource::class))
         ->fields(Api\UserResourceFields::class),
@@ -269,7 +191,7 @@ return [
 
         // When set, announcements are posted as this user and there is no bot at
         // all — see AnnounceDiscussions.
-        ->serializeToForum('ramon-chat.botUserId', 'ramon-chat.bot_user_id', fn ($v) => $v ? (int) $v : null),
+        ->serializeToForum('ramon-chat.botUserId', 'ramon-chat.bot_user_id', Api\NullableUserId::class),
 
     // ── Per-user chat preferences (/settings) ────────────────────────────────
     (new Extend\User())
@@ -416,17 +338,9 @@ return [
     // ── Console ──────────────────────────────────────────────────────────────
     (new Extend\Console())
         ->command(Console\PruneChatCommand::class)
-        ->schedule(Console\PruneChatCommand::class, function ($event) {
-            // Retention is housekeeping: nightly is frequent enough, and 03:30
-            // keeps a destructive job away from peak traffic.
-            $event->daily()->at('03:30');
-        })
+        ->schedule(Console\PruneChatCommand::class, Console\PruneChatSchedule::class)
         ->command(Console\PrivatizePendingUploadsCommand::class)
-        ->schedule(Console\PrivatizePendingUploadsCommand::class, function ($event) {
-            // A file that should be private and is not is a leak until the next
-            // run, so hourly; the command only queues, so it is cheap.
-            $event->hourly();
-        }),
+        ->schedule(Console\PrivatizePendingUploadsCommand::class, Console\PrivatizePendingUploadsSchedule::class),
 
     // ── Search / filtering ───────────────────────────────────────────────────
     // Flarum 2 has no JSON:API resource filters: AbstractDatabaseResource::filters()
