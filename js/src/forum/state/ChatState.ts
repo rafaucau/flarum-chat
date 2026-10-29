@@ -422,6 +422,13 @@ export default class ChatState {
    * Records which channel is being viewed, so a reload reopens the same one.
    */
   setActiveChannel(channelId: number | null): void {
+    // A seleção é do canal em que foi feita: levada para outro, "mover" ou
+    // "citar" agiriam também sobre mensagens que já não estão na tela.
+    if (channelId !== this.activeChannelId) {
+      this.selecting = false;
+      this.selected.clear();
+    }
+
     this.activeChannelId = channelId;
 
     if (channelId !== null) {
