@@ -19,6 +19,7 @@ use Psr\Log\LoggerInterface;
 use Ramon\Chat\Channel;
 use Ramon\Chat\Storage\Job\PrivatizeRemoteUploads;
 use Ramon\Chat\Storage\UploadStorage;
+use Ramon\Chat\Storage\UploadStore;
 use Ramon\Chat\Upload;
 
 /**
@@ -45,6 +46,11 @@ class UploadPrivacy
      * loop, tratada como restrita.
      */
     protected const MAX_TAG_DEPTH = 8;
+
+    protected bool $deferring = false;
+
+    /** @var list<array{0: Upload, 1: UploadStore, 2: string}> */
+    protected array $deferred = [];
 
     public function __construct(
         protected Factory $filesystem,
@@ -289,12 +295,17 @@ class UploadPrivacy
             throw new \RuntimeException("Could not write {$path} to the private chat disk.");
         }
 
-        try {
-            $remote->delete($upload);
-        } catch (\Throwable $e) {
-            $to->delete($path);
+        if ($this->deferring) {
+            // O envio ainda pode reverter: o bucket só é apagado depois do commit.
+            $this->deferred[] = [clone $upload, $remote, $path];
+        } else {
+            try {
+                $remote->delete($upload);
+            } catch (\Throwable $e) {
+                $to->delete($path);
 
-            throw $e;
+                throw $e;
+            }
         }
 
         $upload->path = $path;
@@ -363,5 +374,54 @@ class UploadPrivacy
         }
 
         $from->delete($path);
+    }
+
+    /**
+     * Roda `$write` (a transação do envio) adiando o apagamento das cópias no
+     * fof/upload para depois dela. Apagadas lá dentro, uma reversão deixava a
+     * linha apontando para um arquivo que não existe mais e a cópia local sem
+     * dono; agora a reversão só apaga a cópia local.
+     *
+     * @template T
+     * @param  callable(): T  $write
+     * @return T
+     */
+    public function deferringRemoteDeletes(callable $write): mixed
+    {
+        $this->deferring = true;
+
+        try {
+            $result = $write();
+        } catch (\Throwable $e) {
+            foreach ($this->takeDeferred() as [, , $localPath]) {
+                $this->filesystem->disk(self::PRIVATE_DISK)->delete($localPath);
+            }
+
+            throw $e;
+        }
+
+        foreach ($this->takeDeferred() as [$remoteCopy, $remote]) {
+            try {
+                $remote->delete($remoteCopy);
+            } catch (\Throwable $e) {
+                // Sobra uma cópia pública sem linha apontando para ela.
+                $this->log->error('[ramon-chat] could not delete a remote upload moved to the private disk', [
+                    'upload' => (int) $remoteCopy->id,
+                    'error'  => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $result;
+    }
+
+    /** @return list<array{0: Upload, 1: UploadStore, 2: string}> */
+    protected function takeDeferred(): array
+    {
+        $deferred = $this->deferred;
+        $this->deferred = [];
+        $this->deferring = false;
+
+        return $deferred;
     }
 }

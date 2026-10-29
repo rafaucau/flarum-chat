@@ -110,7 +110,9 @@ class MessageDispatcher
         // Depois de todas as validações, para uma recusa não custar a vez.
         $this->slowMode->claim($channel, $actor);
 
-        $message = Message::query()->getConnection()->transaction(function () use (
+        $message = $this->uploadPrivacy->deferringRemoteDeletes(function () use (
+            $channel, $actor, $content, &$thread, $replyTo, $uploadIds, $createThread, &$threadWasCreated
+        ) { return Message::query()->getConnection()->transaction(function () use (
             $channel, $actor, $content, &$thread, $replyTo, $uploadIds, $createThread, &$threadWasCreated
         ) {
             // Primeira resposta: cria a thread e preenche o thread_id da raiz, para a
@@ -161,7 +163,7 @@ class MessageDispatcher
             $this->unread->recordNewMessage($message);
 
             return $message;
-        });
+        }); });
 
         // Eventos só depois do commit: o broadcast e o e-mail não têm rollback, e o
         // cliente não pode receber uma mensagem que ainda não existe.

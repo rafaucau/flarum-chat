@@ -218,6 +218,39 @@ class FofUploadStorageTest extends TestCase
         $this->assertFileDoesNotExist($this->fofLocalRoot().'/'.$remote->path);
     }
 
+    public function test_a_send_that_fails_after_moving_a_bucket_file_leaves_the_bucket_copy(): void
+    {
+        $this->useFofLocalAdapter();
+
+        $upload = $this->upload(self::MEMBER, self::CH_PUBLIC);
+        $remote = $this->row((int) $upload['id']);
+
+        // Falha logo depois de a linha passar a apontar para a cópia local,
+        // ainda dentro da transação do envio.
+        $this->app()->getContainer()->make('events')->listen('eloquent.saved: '.\Ramon\Chat\Upload::class, function ($row) {
+            if ($row->storage === 'local') {
+                throw new \RuntimeException('falha simulada');
+            }
+        });
+
+        $privateFiles = fn () => glob($this->privateRoot().'/*/*/*') ?: [];
+        $before = $privateFiles();
+
+        $response = $this->send($this->request('POST', '/api/chat-messages', [
+            'authenticatedAs' => self::MEMBER,
+            'json'            => ['data' => ['type' => 'chat-messages', 'attributes' => ['channelId' => self::CH_PRIVATE, 'content' => 'x', 'uploadIds' => [(int) $upload['id']]]]],
+        ]));
+
+        $this->assertSame(500, $response->getStatusCode());
+
+        // A linha voltou a apontar para o bucket, e o arquivo continua lá.
+        $row = $this->row((int) $upload['id']);
+        $this->assertSame('fof', $row->storage);
+        $this->assertSame($remote->path, $row->path);
+        $this->assertFileExists($this->fofLocalRoot().'/'.$remote->path);
+        $this->assertSame($before, $privateFiles(), 'sem cópia local órfã');
+    }
+
     public function test_making_a_channel_private_brings_its_bucket_files_home(): void
     {
         $this->useFofLocalAdapter();
