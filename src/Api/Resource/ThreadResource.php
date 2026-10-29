@@ -288,19 +288,13 @@ class ThreadResource extends AbstractDatabaseResource
         }
     }
 
-    /** @var array<int, ThreadUser|null|false> */
-    protected array $membershipCache = [];
-
+    /**
+     * O memo fica no model, por usuário. O resource vive entre requests no mesmo
+     * processo, então um memo aqui, só pelo id da thread, passava a membership de
+     * um leitor para o próximo.
+     */
     protected function membership(Thread $thread, User $actor): ?ThreadUser
     {
-        if (! $actor->exists) {
-            return null;
-        }
-
-        if (! array_key_exists($thread->id, $this->membershipCache)) {
-            $this->membershipCache[$thread->id] = $thread->membershipFor($actor);
-        }
-
-        return $this->membershipCache[$thread->id] ?: null;
+        return $thread->membershipFor($actor);
     }
 }
