@@ -38,6 +38,16 @@ class MentionResolver
      * The parsed representation flarum/mentions produces, which carries the
      * resolved id and is therefore authoritative when available.
      */
+    /**
+     * Pessoas nomeadas numa mensagem que ainda notificam, como o
+     * `max_mentions_per_chat_message` do Discourse: acima disso nenhuma menção
+     * direta notifica, e uma mensagem não vira e-mail para metade do fórum.
+     */
+    public const MAX_USER_MENTIONS = 10;
+
+    /** Nomes soltos (`@nome` sem a marcação do mentions) lidos de uma mensagem. */
+    private const MAX_PLAIN_NAMES = 30;
+
     private const TAG_PATTERN = '/<(?<kind>USERMENTION|GROUPMENTION)[^>]*\b(?<attr>id|username|groupname)="(?<value>[^"]+)"/i';
 
     /**
@@ -101,8 +111,26 @@ class MentionResolver
         // Fall back to name-based resolution only when the parsed form produced
         // nothing — otherwise we would double-count the same mention.
         if ($seenUsers === [] && $seenGroups === []) {
+            // Nomes distintos, buscados de uma vez: um `@nome` repetido mil
+            // vezes era mil consultas. O teto corta a lista, já que acima dele
+            // nada notifica. Só `username`: `display_name` não é coluna, e o
+            // apelido fica com o flarum/mentions, do qual isto é só o fallback.
+            $names = [];
+
             foreach ($this->plainNames($raw) as $name) {
-                $user = $this->findUserByName($name);
+                $names[mb_strtolower($name)] ??= $name;
+
+                if (count($names) > self::MAX_PLAIN_NAMES) {
+                    break;
+                }
+            }
+
+            $users = $names === []
+                ? collect()
+                : User::query()->whereIn('username', array_values($names))->get()->keyBy(fn (User $user) => mb_strtolower($user->username));
+
+            foreach ($names as $key => $name) {
+                $user = $users->get($key);
 
                 if ($user !== null && ! isset($seenUsers[$user->id])) {
                     $seenUsers[$user->id] = true;
@@ -121,6 +149,10 @@ class MentionResolver
                     $mentions->push($this->make($message, MessageMention::TYPE_GROUP, groupId: $group->id));
                 }
             }
+        }
+
+        if (count($seenUsers) > self::MAX_USER_MENTIONS) {
+            $mentions = $mentions->reject(fn (MessageMention $mention) => $mention->type === MessageMention::TYPE_USER)->values();
         }
 
         return $mentions;
@@ -207,15 +239,6 @@ class MentionResolver
         }
     }
 
-    /**
-     * Matches on `username` only. `display_name` is a computed property, not a
-     * column, so it cannot be queried; nickname-based lookup is left to
-     * flarum/mentions, whose parsed output this method is only a fallback for.
-     */
-    protected function findUserByName(string $name): ?User
-    {
-        return User::query()->where('username', $name)->first();
-    }
 
     protected function findGroupByName(string $name): ?Group
     {
